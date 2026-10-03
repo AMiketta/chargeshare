@@ -9,6 +9,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val container = (application as ChargeShareApplication).container
-        setContent { App(container) }
+        // Das PaymentSheet muss vor dem Start der Activity registriert werden, daher hier und nicht erst in der UI.
+        val paymentLauncher = StripePaymentLauncher(this)
+        setContent { App(container, paymentLauncher) }
     }
 }
