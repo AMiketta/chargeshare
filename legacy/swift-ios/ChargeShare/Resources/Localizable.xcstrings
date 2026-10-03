@@ -1,0 +1,20 @@
+{
+  "sourceLanguage" : "de",
+  "strings" : {
+    "Karte" : {},
+    "Buchungen" : {},
+    "Host" : {},
+    "Profil" : {},
+    "Anmelden" : {},
+    "Registrieren" : {},
+    "Abmelden" : {},
+    "Abbrechen" : {},
+    "Buchen" : {},
+    "Verfügbar" : {},
+    "Nicht verfügbar" : {},
+    "Laden..." : {},
+    "Fehler" : {},
+    "OK" : {}
+  },
+  "version" : "1.0"
+}
