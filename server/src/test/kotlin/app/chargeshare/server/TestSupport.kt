@@ -52,6 +52,8 @@ object TestDb {
 val testConfig = AppConfig(bcryptCost = 4)
 
 class ServerScope(private val builder: ApplicationTestBuilder, val payments: PaymentProvider) {
+    fun wsClient(): HttpClient = builder.createClient { install(io.ktor.client.plugins.websocket.WebSockets) }
+
     /** Roher HTTP-Client (ohne Auth) fuer Statuscode-/JSON-Pruefungen. */
     val raw: HttpClient get() = builder.client
 

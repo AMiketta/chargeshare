@@ -19,6 +19,9 @@ import kotlinx.coroutines.SupervisorJob
 import app.chargeshare.server.config.AppConfig
 import app.chargeshare.server.db.DatabaseFactory
 import app.chargeshare.server.plugins.configureHttp
+import app.chargeshare.server.plugins.configureWebSockets
+import app.chargeshare.server.ocpp.OcppHandler
+import app.chargeshare.server.ocpp.ocppRoutes
 import app.chargeshare.server.plugins.configureSecurity
 import app.chargeshare.server.plugins.configureSerialization
 import app.chargeshare.server.plugins.configureStatusPages
@@ -54,6 +57,7 @@ fun Application.module(
     if (db != null && config.devSeed && !config.isProduction) DevSeed.run(Db(db), config.bcryptCost)
     val services = db?.let { buildServices(config, Db(it), tokens, payments, apple) }
 
+    configureWebSockets()
     configureSerialization()
     configureHttp()
     configureStatusPages()
@@ -66,6 +70,7 @@ fun Application.module(
                 "ok"
             }.getOrDefault("down")
         }
+        if (db != null) ocppRoutes(OcppHandler(Db(db)))
         apiV1Routes(services)
     }
 }

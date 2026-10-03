@@ -24,6 +24,14 @@ import org.slf4j.event.Level
 
 const val JWT_AUTH = "auth-jwt"
 
+fun Application.configureWebSockets() {
+    install(io.ktor.server.websocket.WebSockets) {
+        pingPeriodMillis = 30_000
+        timeoutMillis = 300_000
+        maxFrameSize = 64 * 1024
+    }
+}
+
 fun Application.configureSerialization() {
     install(ContentNegotiation) { json(ChargeShareJson) }
 }
