@@ -11,6 +11,11 @@ settings:
     SWIFT_VERSION: "5.0"
     ENABLE_USER_SCRIPT_SANDBOXING: NO
     DEVELOPMENT_TEAM: ""   # eigene Team-ID eintragen
+packages:
+  # Stripe iOS SDK (PaymentSheet inkl. Apple Pay). Stand: Oktober 2026 = 26.12.1
+  Stripe:
+    url: https://github.com/stripe/stripe-ios-spm
+    from: 26.12.1
 targets:
   ChargeShare:
     type: application
@@ -25,6 +30,21 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        # Rueckkehr-URL fuer Stripe-Authentifizierungen mit Weiterleitung
+        CFBundleURLTypes:
+          - CFBundleURLName: app.chargeshare
+            CFBundleURLSchemes: [chargeshare]
+    dependencies:
+      - package: Stripe
+        product: StripePaymentSheet
+    # Apple-Pay-Capability: braucht ein bezahltes Apple-Developer-Konto und die Merchant-ID (siehe README, „Zahlung“).
+    # Mit einem kostenlosen Konto schlaegt das Signieren fuer Geraete fehl: dann diesen entitlements-Block entfernen
+    # (Apple Pay entfaellt, Kartenzahlung bleibt).
+    entitlements:
+      path: ChargeShare/ChargeShare.entitlements
+      properties:
+        com.apple.developer.in-app-payments:
+          - merchant.app.chargeshare   # ersetzen durch die eigene Merchant-ID (muss zu APPLE_PAY_MERCHANT_ID passen)
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.chargeshare

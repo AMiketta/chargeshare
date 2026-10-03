@@ -12,3 +12,7 @@ node_modules/
 *.apk
 *.aab
 server/.local-pg/
+
+# XcodeGen erzeugt diese Dateien aus iosApp/project.yml
+iosApp/ChargeShare/Info.plist
+iosApp/ChargeShare/ChargeShare.entitlements
