@@ -1,0 +1,38 @@
+# XcodeGen-Spezifikation (macOS):  brew install xcodegen && cd iosApp && xcodegen generate && open ChargeShare.xcodeproj
+# Das Kotlin-Framework "ComposeApp" wird vor jedem Build per Gradle gebaut und eingebunden.
+# HINWEIS: Auf Linux nicht verifizierbar (iOS baut nur auf macOS mit Xcode).
+name: ChargeShare
+options:
+  bundleIdPrefix: app.chargeshare
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    DEVELOPMENT_TEAM: ""   # eigene Team-ID eintragen
+targets:
+  ChargeShare:
+    type: application
+    platform: iOS
+    sources:
+      - path: ChargeShare
+    info:
+      path: ChargeShare/Info.plist
+      properties:
+        CFBundleDisplayName: ChargeShare
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.chargeshare
+        FRAMEWORK_SEARCH_PATHS: "$(SRCROOT)/../composeApp/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
+        OTHER_LDFLAGS: ["$(inherited)", "-framework", "ComposeApp"]
+    preBuildScripts:
+      - name: Build Kotlin framework
+        script: |
+          cd "$SRCROOT/.."
+          ./gradlew :composeApp:embedAndSignAppleFrameworkForXcode
+        basedOnDependencyAnalysis: false
