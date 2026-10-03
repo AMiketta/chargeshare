@@ -64,6 +64,23 @@ data class TokenPair(
     @SerialName("refresh_token") val refreshToken: String,
 )
 
+/** Grenzen der Profilfelder; Server und Apps prüfen dieselben Werte. */
+object ProfileLimits {
+    const val MAX_NAME_LENGTH = 100
+    const val MIN_PHONE_DIGITS = 6
+    const val MAX_PHONE_LENGTH = 20
+
+    /** Erlaubte Zeichen einer Telefonnummer: Ziffern, `+` am Anfang, Leerzeichen, `-`, `/`, Klammern. */
+    val PHONE_PATTERN: Regex = Regex("""^\+?[0-9 ()/\-]+$""")
+
+    /** `true`, wenn [phone] (bereits getrimmt) eine plausible Telefonnummer ist. */
+    fun isValidPhone(phone: String): Boolean =
+        phone.length <= MAX_PHONE_LENGTH && PHONE_PATTERN.matches(phone) && phone.count { it.isDigit() } >= MIN_PHONE_DIGITS
+}
+
+/**
+ * `PUT /users/me`: nur gesetzte Felder ändern sich. Ein leerer [phone] entfernt die Nummer.
+ */
 @Serializable
 data class UpdateUserRequest(
     val name: String? = null,

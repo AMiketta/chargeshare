@@ -27,6 +27,7 @@ import app.chargeshare.shared.model.LoginRequest
 import app.chargeshare.shared.model.RegisterRequest
 import app.chargeshare.shared.model.TokenPair
 import app.chargeshare.shared.model.UpdateRoleRequest
+import app.chargeshare.shared.model.ProfileLimits
 import app.chargeshare.shared.model.UpdateUserRequest
 import app.chargeshare.shared.model.User
 import app.chargeshare.shared.model.UserRole
@@ -208,13 +209,21 @@ class AuthService(
         Users.selectAll().where { Users.id eq id }.singleOrNull()?.toUser() ?: throw notFound("user not found")
 
     suspend fun updateProfile(id: Uuid, req: UpdateUserRequest): User {
-        req.name?.let { if (it.isEmpty() || it.length > 100) throw validationError("name: must be 1-100 characters") }
+        val name = req.name?.trim()
+        if (name != null && (name.isEmpty() || name.length > ProfileLimits.MAX_NAME_LENGTH)) {
+            throw validationError("name: must be 1-${ProfileLimits.MAX_NAME_LENGTH} characters")
+        }
+        // Leere Telefonnummer = Nummer entfernen
+        val phone = req.phone?.trim()
+        if (phone != null && phone.isNotEmpty() && !ProfileLimits.isValidPhone(phone)) {
+            throw validationError("phone: must be a valid phone number")
+        }
         req.avatarUrl?.let { if (it.isNotEmpty() && !(it.startsWith("http://") || it.startsWith("https://"))) throw validationError("avatar_url: must be a valid URL") }
         return db.tx {
             loadUserTx(id)
             Users.update({ Users.id eq id }) {
-                req.name?.let { v -> it[name] = v }
-                req.phone?.let { v -> it[phone] = v }
+                name?.let { v -> it[Users.name] = v }
+                if (phone != null) it[Users.phone] = phone.ifEmpty { null }
                 req.avatarUrl?.let { v -> it[avatarUrl] = v }
                 it[updatedAt] = OffsetDateTime.now(ZoneOffset.UTC)
             }

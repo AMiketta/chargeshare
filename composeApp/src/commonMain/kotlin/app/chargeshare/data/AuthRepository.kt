@@ -2,6 +2,7 @@ package app.chargeshare.data
 
 import app.chargeshare.shared.api.ChargeShareApi
 import app.chargeshare.shared.api.TokenStore
+import app.chargeshare.shared.model.UpdateUserRequest
 import app.chargeshare.shared.model.User
 import app.chargeshare.shared.model.UserRole
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,6 +30,9 @@ interface AuthRepository {
     /** Setzt die Rolle auf `host`, damit Wallboxen angelegt werden können. */
     suspend fun becomeHost(): Outcome<User>
     suspend fun deleteAccount(): Outcome<Unit>
+
+    /** Ändert Name und Telefonnummer ([phone] leer = Nummer entfernen) und aktualisiert den angemeldeten Nutzer. */
+    suspend fun updateProfile(name: String, phone: String): Outcome<User>
 }
 
 /** [AuthRepository] über den gemeinsamen [ChargeShareApi]-Client. */
@@ -73,6 +77,12 @@ class ApiAuthRepository(
 
     override suspend fun becomeHost(): Outcome<User> {
         val result = runCatchingOutcome { api.updateRole(UserRole.HOST) }
+        if (result is Outcome.Success) state.value = SessionState.SignedIn(result.value)
+        return result
+    }
+
+    override suspend fun updateProfile(name: String, phone: String): Outcome<User> {
+        val result = runCatchingOutcome { api.updateMe(UpdateUserRequest(name = name.trim(), phone = phone.trim())) }
         if (result is Outcome.Success) state.value = SessionState.SignedIn(result.value)
         return result
     }

@@ -101,6 +101,8 @@ class FakeAuthRepository(initial: SessionState = SessionState.SignedOut) : AuthR
     var registerResult: Outcome<User> = Outcome.Success(testUser())
     var becomeHostResult: Outcome<User> = Outcome.Success(testUser(UserRole.HOST))
     var deleteResult: Outcome<Unit> = Outcome.Success(Unit)
+    var updateProfileResult: Outcome<User>? = null
+    val profileUpdates = mutableListOf<Pair<String, String>>()
     var restoredState: SessionState = SessionState.SignedOut
 
     val loginCalls = mutableListOf<Pair<String, String>>()
@@ -128,6 +130,13 @@ class FakeAuthRepository(initial: SessionState = SessionState.SignedOut) : AuthR
 
     override suspend fun becomeHost(): Outcome<User> =
         becomeHostResult.also { if (it is Outcome.Success) state.value = SessionState.SignedIn(it.value) }
+
+    override suspend fun updateProfile(name: String, phone: String): Outcome<User> {
+        profileUpdates += name to phone
+        val result = updateProfileResult ?: Outcome.Success(testUser().copy(name = name, phone = phone.ifEmpty { null }))
+        if (result is Outcome.Success) state.value = SessionState.SignedIn(result.value)
+        return result
+    }
 
     override suspend fun deleteAccount(): Outcome<Unit> =
         deleteResult.also { if (it is Outcome.Success) state.value = SessionState.SignedOut }

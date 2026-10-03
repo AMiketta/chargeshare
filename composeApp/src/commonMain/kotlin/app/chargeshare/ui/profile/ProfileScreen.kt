@@ -24,8 +24,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import app.chargeshare.data.isHost
+import app.chargeshare.presentation.profile.ProfileEditState
+import app.chargeshare.presentation.profile.ProfileField
 import app.chargeshare.presentation.profile.ProfileUiState
 import app.chargeshare.presentation.profile.ProfileViewModel
 import app.chargeshare.shared.model.User
@@ -35,6 +38,7 @@ import app.chargeshare.ui.Spacing
 import app.chargeshare.ui.Strings
 import app.chargeshare.ui.components.AmberButton
 import app.chargeshare.ui.components.ErrorText
+import app.chargeshare.ui.components.FormTextField
 import app.chargeshare.ui.components.HeroHeader
 import app.chargeshare.ui.components.InfoPill
 import app.chargeshare.ui.components.SurfaceCard
@@ -54,6 +58,11 @@ fun ProfileRoute(
         apiBaseUrl = apiBaseUrl,
         onLogout = viewModel::onLogout,
         onBecomeHost = viewModel::onBecomeHost,
+        onEditRequested = { viewModel.onEditRequested(user) },
+        onEditNameChanged = viewModel::onEditNameChanged,
+        onEditPhoneChanged = viewModel::onEditPhoneChanged,
+        onEditSaved = viewModel::onEditSaved,
+        onEditDismissed = viewModel::onEditDismissed,
         onDeleteRequested = viewModel::onDeleteRequested,
         onDeleteConfirmed = viewModel::onDeleteConfirmed,
         onDeleteDismissed = viewModel::onDeleteDismissed,
@@ -69,6 +78,11 @@ fun ProfileScreen(
     apiBaseUrl: String,
     onLogout: () -> Unit,
     onBecomeHost: () -> Unit,
+    onEditRequested: () -> Unit,
+    onEditNameChanged: (String) -> Unit,
+    onEditPhoneChanged: (String) -> Unit,
+    onEditSaved: () -> Unit,
+    onEditDismissed: () -> Unit,
     onDeleteRequested: () -> Unit,
     onDeleteConfirmed: () -> Unit,
     onDeleteDismissed: () -> Unit,
@@ -81,6 +95,7 @@ fun ProfileScreen(
                 Column {
                     Text(user.name, style = MaterialTheme.typography.titleLarge, color = ChargeShareColors.OnPrimary)
                     Text(user.email, style = MaterialTheme.typography.bodyMedium, color = ChargeShareColors.OnPrimary)
+                    user.phone?.let { Text(it, style = MaterialTheme.typography.bodyMedium, color = ChargeShareColors.OnPrimary) }
                 }
             }
         }
@@ -104,6 +119,9 @@ fun ProfileScreen(
                     AmberButton(Strings.BecomeHost, onBecomeHost, isLoading = state.isBusy)
                 }
             }
+            OutlinedButton(onClick = onEditRequested, enabled = !state.isBusy, modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = Spacing.MinTouchTarget)) {
+                Text(Strings.EditProfile)
+            }
             OutlinedButton(onClick = onLogout, enabled = !state.isBusy, modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = Spacing.MinTouchTarget)) { Text(Strings.Logout) }
             TextButton(onClick = onDeleteRequested, enabled = !state.isBusy) {
                 Text(Strings.DeleteAccount, color = MaterialTheme.colorScheme.error)
@@ -112,6 +130,7 @@ fun ProfileScreen(
             Text("API: $apiBaseUrl", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+    state.edit?.let { edit -> EditProfileDialog(edit, onEditNameChanged, onEditPhoneChanged, onEditSaved, onEditDismissed) }
     if (state.showDeleteConfirmation) {
         AlertDialog(
             onDismissRequest = onDeleteDismissed,
@@ -121,6 +140,44 @@ fun ProfileScreen(
             dismissButton = { TextButton(onClick = onDeleteDismissed) { Text(Strings.Cancel) } },
         )
     }
+}
+
+/** Dialog zum Bearbeiten von Name und Telefonnummer. */
+@Composable
+private fun EditProfileDialog(
+    edit: ProfileEditState,
+    onNameChanged: (String) -> Unit,
+    onPhoneChanged: (String) -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(Strings.EditProfileTitle) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
+                FormTextField(
+                    value = edit.name,
+                    onValueChange = onNameChanged,
+                    label = Strings.FieldProfileName,
+                    errorText = Strings.ProfileNameError.takeIf { ProfileField.Name in edit.errors },
+                    enabled = !edit.isSaving,
+                )
+                FormTextField(
+                    value = edit.phone,
+                    onValueChange = onPhoneChanged,
+                    label = Strings.FieldProfilePhone,
+                    errorText = Strings.ProfilePhoneError.takeIf { ProfileField.Phone in edit.errors },
+                    supportingText = Strings.ProfilePhoneHint,
+                    keyboardType = KeyboardType.Phone,
+                    enabled = !edit.isSaving,
+                )
+                edit.saveError?.let { ErrorText(Strings.errorMessage(it)) }
+            }
+        },
+        confirmButton = { TextButton(onClick = onSave, enabled = !edit.isSaving) { Text(Strings.Save) } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !edit.isSaving) { Text(Strings.Cancel) } },
+    )
 }
 
 @Composable

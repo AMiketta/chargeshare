@@ -118,7 +118,7 @@ Alle Pfade, JSON-Feldnamen und das Fehlerformat (`{"error": "...", "code": "VALI
 
 | Bereich | Status |
 |---|---|
-| Auth (`register`, `login`, `refresh`, `logout`, `users/me` GET/PUT/DELETE, `users/me/role`) | implementiert: bcrypt (Kosten 12), Access-JWT (15 min, HS256), Refresh-Token zufaellig + als SHA-256 in `refresh_tokens`, Rotation bei jedem Refresh (Einmalverwendung) |
+| Auth (`register`, `login`, `refresh`, `logout`, `users/me` GET/PUT/DELETE, `users/me/role`) | implementiert (`PUT /users/me`: Name 1–100 Zeichen, getrimmt; Telefon optional, 6–20 Zeichen aus Ziffern/`+`/Leerzeichen/`-`/`/`/Klammern, leer = entfernen; Profil-Dialog in der App): bcrypt (Kosten 12), Access-JWT (15 min, HS256), Refresh-Token zufaellig + als SHA-256 in `refresh_tokens`, Rotation bei jedem Refresh (Einmalverwendung) |
 | `POST /auth/apple` | implementiert, aber **nur mit `APPLE_BUNDLE_ID`** (prueft Signatur gegen Apples JWKS, `iss`, `aud`, `exp`); ohne Konfiguration `501`. Nicht gegen echte Apple-Tokens getestet (Test mit lokal signiertem Token) |
 | Wallboxen (CRUD, Suche per `earth_distance`, Status, Wochenplan, Slots, Reviews-Liste) | implementiert |
 | Buchungen (anlegen, Liste, Detail, stornieren, `confirm-payment`, `pay`) | implementiert; Ueberlappungsschutz per Exclusion-Constraint + Advisory-Lock |

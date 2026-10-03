@@ -2,8 +2,10 @@ package app.chargeshare.presentation
 
 import app.chargeshare.data.AppError
 import app.chargeshare.data.SessionState
+import app.chargeshare.presentation.profile.ProfileField
 import app.chargeshare.presentation.profile.ProfileViewModel
 import app.chargeshare.presentation.session.SessionViewModel
+import app.chargeshare.shared.model.ProfileLimits
 import app.chargeshare.shared.model.UserRole
 import app.chargeshare.testing.FakeAuthRepository
 import app.chargeshare.testing.TestMain
@@ -15,6 +17,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class SessionAndProfileTest {
@@ -74,5 +78,88 @@ class SessionAndProfileTest {
         profile.onDeleteRequested()
         profile.onDeleteConfirmed()
         assertEquals(SessionState.SignedOut, repository.session.value)
+    }
+}
+
+/** Profil bearbeiten: Name und Telefon mit Validierung. */
+class ProfileEditTest {
+    private val repository = FakeAuthRepository(initial = SessionState.SignedIn(testUser()))
+    private val viewModel = ProfileViewModel(repository)
+
+    @BeforeTest fun setUp() = TestMain.install()
+
+    @AfterTest fun tearDown() = TestMain.uninstall()
+
+    @Test
+    fun editStartsWithCurrentValues() {
+        viewModel.onEditRequested(testUser().copy(phone = "0421 1234567"))
+        val edit = assertNotNull(viewModel.state.value.edit)
+        assertEquals("Demo Fahrer", edit.name)
+        assertEquals("0421 1234567", edit.phone)
+    }
+
+    @Test
+    fun savingSendsTrimmedValuesAndUpdatesTheSession() {
+        viewModel.onEditRequested(testUser())
+        viewModel.onEditNameChanged("  Ada Lovelace ")
+        viewModel.onEditPhoneChanged(" +49 421 1234567 ")
+        viewModel.onEditSaved()
+        assertEquals(listOf("Ada Lovelace" to "+49 421 1234567"), repository.profileUpdates)
+        assertNull(viewModel.state.value.edit)
+        val session = assertIs<SessionState.SignedIn>(repository.session.value)
+        assertEquals("Ada Lovelace", session.user.name)
+        assertEquals("+49 421 1234567", session.user.phone)
+    }
+
+    @Test
+    fun emptyPhoneIsAllowedAndRemovesTheNumber() {
+        viewModel.onEditRequested(testUser().copy(phone = "0421 1234567"))
+        viewModel.onEditPhoneChanged("")
+        viewModel.onEditSaved()
+        assertEquals(listOf("Demo Fahrer" to ""), repository.profileUpdates)
+        assertNull(assertIs<SessionState.SignedIn>(repository.session.value).user.phone)
+    }
+
+    @Test
+    fun invalidInputIsRejectedWithoutCallingTheServer() {
+        viewModel.onEditRequested(testUser())
+        viewModel.onEditNameChanged("   ")
+        viewModel.onEditPhoneChanged("abc")
+        viewModel.onEditSaved()
+        assertEquals(setOf(ProfileField.Name, ProfileField.Phone), assertNotNull(viewModel.state.value.edit).errors)
+        assertTrue(repository.profileUpdates.isEmpty())
+        // Korrektur räumt den jeweiligen Fehler wieder ab.
+        viewModel.onEditNameChanged("Ada")
+        assertEquals(setOf(ProfileField.Phone), assertNotNull(viewModel.state.value.edit).errors)
+    }
+
+    @Test
+    fun tooLongNameIsRejected() {
+        viewModel.onEditRequested(testUser())
+        viewModel.onEditNameChanged("x".repeat(ProfileLimits.MAX_NAME_LENGTH + 1))
+        viewModel.onEditSaved()
+        assertTrue(ProfileField.Name in assertNotNull(viewModel.state.value.edit).errors)
+    }
+
+    @Test
+    fun serverErrorKeepsTheFormOpen() {
+        repository.updateProfileResult = failure(AppError.Server)
+        viewModel.onEditRequested(testUser())
+        viewModel.onEditNameChanged("Ada")
+        viewModel.onEditSaved()
+        val edit = assertNotNull(viewModel.state.value.edit)
+        assertEquals(AppError.Server, edit.saveError)
+        assertFalse(edit.isSaving)
+        assertEquals("Ada", edit.name)
+        assertEquals("Demo Fahrer", assertIs<SessionState.SignedIn>(repository.session.value).user.name)
+    }
+
+    @Test
+    fun cancelDiscardsTheForm() {
+        viewModel.onEditRequested(testUser())
+        viewModel.onEditNameChanged("Ada")
+        viewModel.onEditDismissed()
+        assertNull(viewModel.state.value.edit)
+        assertTrue(repository.profileUpdates.isEmpty())
     }
 }

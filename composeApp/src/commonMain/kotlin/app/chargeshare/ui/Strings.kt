@@ -270,6 +270,13 @@ object Strings {
     const val RoleBoth = "Fahrer und Host"
     const val RoleAdmin = "Administrator"
     const val Logout = "Abmelden"
+    const val EditProfile = "Profil bearbeiten"
+    const val EditProfileTitle = "Profil bearbeiten"
+    const val FieldProfileName = "Name"
+    const val FieldProfilePhone = "Telefon (optional)"
+    const val ProfileNameError = "Bitte gib einen Namen mit höchstens 100 Zeichen ein."
+    const val ProfilePhoneError = "Bitte gib eine gültige Telefonnummer ein, z. B. +49 421 1234567."
+    const val ProfilePhoneHint = "Nur sichtbar für dich. Leer lassen, um die Nummer zu entfernen."
     const val DeleteAccount = "Konto löschen"
     const val DeleteAccountTitle = "Konto wirklich löschen?"
     const val DeleteAccountBody =
