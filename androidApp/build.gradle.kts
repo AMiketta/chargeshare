@@ -13,6 +13,12 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        // Server-Adresse: Standard = Host-Rechner aus dem Emulator. Ändern: -Pchargeshare.apiUrl=http://192.168.0.10:8080
+        val apiUrl = providers.gradleProperty("chargeshare.apiUrl").orElse("http://10.0.2.2:8080").get()
+        buildConfigField("String", "API_BASE_URL", "\"$apiUrl\"")
+    }
+    buildFeatures {
+        buildConfig = true
     }
     buildTypes {
         release { isMinifyEnabled = false }

@@ -5,6 +5,8 @@ compose-multiplatform = "1.12.1"
 compose-material3 = "1.12.0-alpha03"
 coroutines = "1.11.0"
 serialization = "1.11.0"
+datetime = "0.8.0"
+lifecycle = "2.10.0"
 ktor = "3.6.0"
 exposed = "1.5.0"
 flyway = "13.9.0"
@@ -20,14 +22,20 @@ stripe = "34.0.0"
 # Kotlin / Coroutines / Serialization
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
+kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
+kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "datetime" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 
 # Compose Multiplatform (Material3 gibt es fuer CMP 1.12 nur als Alpha)
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
+compose-ui-backhandler = { module = "org.jetbrains.compose.ui:ui-backhandler", version.ref = "compose-multiplatform" }
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
 compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-material3" }
+
+# Lifecycle-ViewModel (KMP-Variante von JetBrains)
+lifecycle-viewmodel-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 
 # Ktor Client (shared)
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }

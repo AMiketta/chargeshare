@@ -45,9 +45,18 @@ kotlin {
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
             implementation(libs.compose.ui)
+            implementation(libs.compose.ui.backhandler)
+            implementation(libs.kotlinx.datetime)
+            implementation(libs.lifecycle.viewmodel.compose)
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
         }
         sourceSets.getByName("desktopMain").dependencies {
             implementation(compose.desktop.currentOs)
+            // Dispatchers.Main für viewModelScope auf dem Desktop (Swing-Event-Thread)
+            implementation(libs.kotlinx.coroutines.swing)
         }
     }
 }
