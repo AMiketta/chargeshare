@@ -18,6 +18,7 @@ import app.chargeshare.shared.model.ConnectorType
 import app.chargeshare.shared.model.CreateWallboxRequest
 import app.chargeshare.shared.model.SlotsResponse
 import app.chargeshare.shared.model.TimeSlot
+import app.chargeshare.shared.model.WallboxLimits
 import app.chargeshare.shared.model.UpdateWallboxRequest
 import app.chargeshare.shared.model.Wallbox
 import app.chargeshare.shared.model.WallboxListResponse
@@ -122,6 +123,7 @@ class WallboxService(private val db: Db) {
             req.name, req.address, req.city, req.postalCode, req.lat, req.lng, req.powerKw, req.pricePerKwh,
             req.minDurationMin, req.maxDurationMin, req.availability,
         )
+        val description = normalizedDescription(req.description)
         val now = OffsetDateTime.now(ZoneOffset.UTC)
         val id = Uuid.random()
         try {
@@ -145,6 +147,7 @@ class WallboxService(private val db: Db) {
                     it[ocppId] = req.ocppId?.takeIf { s -> s.isNotBlank() }
                     it[model] = req.model
                     it[manufacturer] = req.manufacturer
+                    it[Wallboxes.description] = description
                     it[photos] = req.photos
                     it[availability] = req.availability
                     it[ratingAvg] = BigDecimal.ZERO
@@ -161,11 +164,15 @@ class WallboxService(private val db: Db) {
     }
 
     suspend fun update(id: Uuid, userId: Uuid, req: UpdateWallboxRequest): Wallbox {
-        req.name?.let { if (it.isBlank() || it.length > 200) throw validationError("name: must be 1-200 characters") }
+        req.name?.let { validateName(it) }
+        req.address?.let { if (it.isBlank()) throw validationError("address: must not be blank") }
+        req.city?.let { if (it.isBlank()) throw validationError("city: must not be blank") }
+        req.postalCode?.let { if (it.isBlank()) throw validationError("postal_code: must not be blank") }
+        val description = req.description?.let { normalizedDescription(it) }
         req.lat?.let { if (it !in -90.0..90.0) throw validationError("lat: must be between -90 and 90") }
         req.lng?.let { if (it !in -180.0..180.0) throw validationError("lng: must be between -180 and 180") }
-        req.powerKw?.let { if (it <= 0) throw validationError("power_kw: must be greater than 0") }
-        req.pricePerKwh?.let { if (it <= 0) throw validationError("price_per_kwh: must be greater than 0") }
+        req.powerKw?.let { validatePower(it) }
+        req.pricePerKwh?.let { validatePrice(it) }
         req.availability?.let(::validateAvailability)
         try {
             return db.tx {
@@ -176,9 +183,9 @@ class WallboxService(private val db: Db) {
                 if (min < 1 || max < min) throw validationError("min_duration_min/max_duration_min: invalid range")
                 Wallboxes.update({ Wallboxes.id eq id }) {
                     req.name?.let { v -> it[name] = v.trim() }
-                    req.address?.let { v -> it[address] = v }
-                    req.city?.let { v -> it[city] = v }
-                    req.postalCode?.let { v -> it[postalCode] = v }
+                    req.address?.let { v -> it[address] = v.trim() }
+                    req.city?.let { v -> it[city] = v.trim() }
+                    req.postalCode?.let { v -> it[postalCode] = v.trim() }
                     req.lat?.let { v -> it[lat] = v }
                     req.lng?.let { v -> it[lng] = v }
                     req.powerKw?.let { v -> it[powerKw] = BigDecimal.valueOf(v) }
@@ -190,6 +197,8 @@ class WallboxService(private val db: Db) {
                     req.ocppId?.let { v -> it[ocppId] = v.ifBlank { null } }
                     req.model?.let { v -> it[model] = v }
                     req.manufacturer?.let { v -> it[manufacturer] = v }
+                    // Leere Beschreibung entfernt den Text; null (Feld fehlt) laesst ihn unveraendert.
+                    if (req.description != null) it[Wallboxes.description] = description
                     req.photos?.let { v -> it[photos] = v }
                     req.availability?.let { v -> it[availability] = v }
                     it[updatedAt] = OffsetDateTime.now(ZoneOffset.UTC)
@@ -280,6 +289,33 @@ class WallboxService(private val db: Db) {
 
     // ---- Validierung ------------------------------------------------------------------------
 
+    private fun validateName(name: String) {
+        if (name.isBlank() || name.length > WallboxLimits.MAX_NAME_LENGTH) {
+            throw validationError("name: must be 1-${WallboxLimits.MAX_NAME_LENGTH} characters")
+        }
+    }
+
+    private fun validatePower(powerKw: Double) {
+        if (powerKw <= 0 || powerKw > WallboxLimits.MAX_POWER_KW) {
+            throw validationError("power_kw: must be greater than 0 and at most ${WallboxLimits.MAX_POWER_KW}")
+        }
+    }
+
+    private fun validatePrice(pricePerKwh: Double) {
+        if (pricePerKwh <= 0 || pricePerKwh > WallboxLimits.MAX_PRICE_PER_KWH) {
+            throw validationError("price_per_kwh: must be greater than 0 and at most ${WallboxLimits.MAX_PRICE_PER_KWH}")
+        }
+    }
+
+    /** Getrimmte Beschreibung; leer = keine. */
+    private fun normalizedDescription(text: String?): String? {
+        val trimmed = text?.trim()?.takeIf { it.isNotEmpty() }
+        if ((trimmed?.length ?: 0) > WallboxLimits.MAX_DESCRIPTION_LENGTH) {
+            throw validationError("description: must be at most ${WallboxLimits.MAX_DESCRIPTION_LENGTH} characters")
+        }
+        return trimmed
+    }
+
     private fun validateAvailability(a: WeeklyAvailability) {
         for ((day, slots) in a) {
             if (day.isBlank()) throw validationError("availability: empty weekday key")
@@ -296,14 +332,14 @@ class WallboxService(private val db: Db) {
         name: String, address: String, city: String, postalCode: String, lat: Double, lng: Double,
         powerKw: Double, pricePerKwh: Double, minDur: Int?, maxDur: Int?, availability: WeeklyAvailability,
     ) {
-        if (name.isBlank() || name.length > 200) throw validationError("name: must be 1-200 characters")
+        validateName(name)
         if (address.isBlank()) throw validationError("address: is required")
         if (city.isBlank()) throw validationError("city: is required")
         if (postalCode.isBlank()) throw validationError("postal_code: is required")
         if (lat !in -90.0..90.0) throw validationError("lat: must be between -90 and 90")
         if (lng !in -180.0..180.0) throw validationError("lng: must be between -180 and 180")
-        if (powerKw <= 0) throw validationError("power_kw: must be greater than 0")
-        if (pricePerKwh <= 0) throw validationError("price_per_kwh: must be greater than 0")
+        validatePower(powerKw)
+        validatePrice(pricePerKwh)
         val min = minDur ?: 30
         val max = maxDur ?: 480
         if (min < 1 || max < min) throw validationError("min_duration_min/max_duration_min: invalid range")

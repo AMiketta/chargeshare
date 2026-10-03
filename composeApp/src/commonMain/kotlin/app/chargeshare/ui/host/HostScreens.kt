@@ -10,6 +10,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -48,6 +49,7 @@ import kotlinx.datetime.TimeZone
 fun HostDashboardRoute(
     viewModel: HostDashboardViewModel,
     onAddWallbox: () -> Unit,
+    onEditWallbox: (Wallbox) -> Unit,
     modifier: Modifier = Modifier,
     zone: TimeZone = TimeZone.currentSystemDefault(),
 ) {
@@ -58,6 +60,7 @@ fun HostDashboardRoute(
         state = state,
         zone = zone,
         onAddWallbox = onAddWallbox,
+        onEditWallbox = onEditWallbox,
         onOnlineToggled = viewModel::onOnlineToggled,
         onRetry = viewModel::refresh,
         modifier = modifier,
@@ -70,6 +73,7 @@ fun HostDashboardScreen(
     state: HostDashboardUiState,
     zone: TimeZone,
     onAddWallbox: () -> Unit,
+    onEditWallbox: (Wallbox) -> Unit,
     onOnlineToggled: (Wallbox, Boolean) -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
@@ -92,7 +96,7 @@ fun HostDashboardScreen(
                     EmptyBox(Strings.NoMyWallboxes)
                 } else {
                     state.wallboxes.forEach { wallbox ->
-                        HostWallboxCard(wallbox, isToggling = state.togglingId == wallbox.id) { onOnlineToggled(wallbox, it) }
+                        HostWallboxCard(wallbox, isToggling = state.togglingId == wallbox.id, onEdit = { onEditWallbox(wallbox) }) { onOnlineToggled(wallbox, it) }
                     }
                 }
                 SectionTitle(Strings.RecentSessions)
@@ -125,7 +129,7 @@ private fun Stat(label: String, value: String) {
 }
 
 @Composable
-private fun HostWallboxCard(wallbox: Wallbox, isToggling: Boolean, onToggle: (Boolean) -> Unit) {
+private fun HostWallboxCard(wallbox: Wallbox, isToggling: Boolean, onEdit: () -> Unit, onToggle: (Boolean) -> Unit) {
     SurfaceCard {
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.Medium)) {
             Column(modifier = Modifier.weight(1f)) {
@@ -135,6 +139,7 @@ private fun HostWallboxCard(wallbox: Wallbox, isToggling: Boolean, onToggle: (Bo
                     "${formatPowerKw(wallbox.powerKw)} · ${wallbox.connectorType.displayName} · ${formatPricePerKwh(wallbox.pricePerKwh)}",
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                TextButton(onClick = onEdit) { Text(Strings.EditWallbox) }
             }
             Column(horizontalAlignment = Alignment.End) {
                 InfoPill(if (wallbox.isOnline) Strings.Released else Strings.Blocked)

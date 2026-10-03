@@ -32,6 +32,7 @@ import app.chargeshare.presentation.auth.AuthViewModel
 import app.chargeshare.presentation.booking.BookingFlowViewModel
 import app.chargeshare.presentation.booking.BookingsViewModel
 import app.chargeshare.presentation.host.CreateWallboxViewModel
+import app.chargeshare.presentation.host.EditWallboxViewModel
 import app.chargeshare.presentation.host.HostDashboardViewModel
 import app.chargeshare.presentation.profile.ProfileViewModel
 import app.chargeshare.presentation.session.SessionViewModel
@@ -44,6 +45,7 @@ import app.chargeshare.ui.booking.BookingFlowRoute
 import app.chargeshare.ui.booking.BookingsRoute
 import app.chargeshare.ui.host.BecomeHostScreen
 import app.chargeshare.ui.host.CreateWallboxRoute
+import app.chargeshare.ui.host.EditWallboxRoute
 import app.chargeshare.ui.host.HostDashboardRoute
 import app.chargeshare.ui.profile.ProfileRoute
 import app.chargeshare.ui.wallbox.WallboxDetailRoute
@@ -157,7 +159,12 @@ private fun TabContent(
         MainTab.Host -> {
             if (user.isHost) {
                 val viewModel = viewModel(key = "host") { HostDashboardViewModel(user.id, container.hostRepository) }
-                HostDashboardRoute(viewModel, onAddWallbox = { navigation.push(Screen.CreateWallbox) }, modifier = modifier)
+                HostDashboardRoute(
+                    viewModel,
+                    onAddWallbox = { navigation.push(Screen.CreateWallbox) },
+                    onEditWallbox = { navigation.push(Screen.EditWallbox(it)) },
+                    modifier = modifier,
+                )
             } else {
                 val profileViewModel = viewModel(key = "profile") { ProfileViewModel(container.authRepository) }
                 val profileState by profileViewModel.state.collectAsState()
@@ -198,6 +205,10 @@ private fun FullScreen(screen: Screen, container: AppContainer, navigation: Navi
         Screen.CreateWallbox -> {
             val viewModel = viewModel { CreateWallboxViewModel(container.hostRepository) }
             CreateWallboxRoute(viewModel, onBack = { navigation.pop() })
+        }
+        is Screen.EditWallbox -> {
+            val viewModel = viewModel { EditWallboxViewModel(screen.wallbox, container.hostRepository) }
+            EditWallboxRoute(viewModel, onBack = { navigation.pop() })
         }
     }
 }

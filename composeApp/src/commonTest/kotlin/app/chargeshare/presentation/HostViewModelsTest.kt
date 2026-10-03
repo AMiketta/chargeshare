@@ -96,7 +96,7 @@ class HostViewModelsTest {
         assertEquals(ConnectorType.CCS, request.connectorType)
         assertEquals(listOf("monday", "tuesday", "wednesday", "thursday", "friday"), request.availability.keys.toList())
         assertEquals(listOf(TimeSlot("07:00", "19:00")), request.availability["monday"])
-        assertTrue(viewModel.state.value.created)
+        assertTrue(viewModel.state.value.saved)
     }
 
     @Test
@@ -109,6 +109,20 @@ class HostViewModelsTest {
         assertTrue(WallboxField.Price in errors)
         assertTrue(WallboxField.Lat in errors)
         assertTrue(WallboxField.AvailabilityEnd in errors)
+    }
+
+    @Test
+    fun createSendsTrimmedDescriptionAndRejectsImplausibleValues() {
+        val viewModel = CreateWallboxViewModel(repository)
+        viewModel.fillValid()
+        viewModel.onChange { it.copy(description = " Hinterhof ", price = "34", powerKw = "400") }
+        viewModel.onSubmit()
+        assertTrue(WallboxField.Price in viewModel.state.value.errors)
+        assertTrue(WallboxField.PowerKw in viewModel.state.value.errors)
+        assertTrue(repository.createdRequests.isEmpty())
+        viewModel.onChange { it.copy(price = "0,34", powerKw = "22") }
+        viewModel.onSubmit()
+        assertEquals("Hinterhof", repository.createdRequests.single().description)
     }
 
     @Test
@@ -127,7 +141,7 @@ class HostViewModelsTest {
         viewModel.fillValid()
         viewModel.onSubmit()
         assertEquals(AppError.Forbidden, viewModel.state.value.submitError)
-        assertFalse(viewModel.state.value.created)
+        assertFalse(viewModel.state.value.saved)
         assertNotNull(viewModel.state.value.name)
     }
 
