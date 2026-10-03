@@ -38,6 +38,8 @@ data class Booking(
     @SerialName("stripe_charge_id") val stripeChargeId: String? = null,
     @SerialName("ocpp_transaction_id") val ocppTransactionId: Int? = null,
     @SerialName("cancel_reason") val cancelReason: String? = null,
+    /** `true`, wenn diese Buchung bereits bewertet wurde (eine Bewertung pro Buchung). */
+    val reviewed: Boolean = false,
     @SerialName("created_at") @Serializable(InstantAsStringSerializer::class) val createdAt: Instant,
     @SerialName("updated_at") @Serializable(InstantAsStringSerializer::class) val updatedAt: Instant,
     // Optional eager-geladene Relationen

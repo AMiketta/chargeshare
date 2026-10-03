@@ -176,6 +176,18 @@ object Strings {
     const val CancelBookingConfirm = "Ja, stornieren"
     const val CancelBookingKeep = "Behalten"
     const val UnknownWallbox = "Wallbox"
+    const val ReviewAction = "Bewerten"
+    const val Reviewed = "Bewertet"
+    const val ReviewTitle = "Wallbox bewerten"
+    const val ReviewCommentLabel = "Kommentar (optional)"
+    const val ReviewSubmit = "Senden"
+    const val ReviewCommentTooLong = "Der Kommentar ist zu lang."
+
+    fun reviewBody(name: String) = "Wie war dein Ladevorgang bei „$name“?"
+
+    fun reviewStarOption(stars: Int) = if (stars == 1) "1 Stern" else "$stars Sterne"
+
+    fun reviewCommentCounter(length: Int, max: Int) = "$length / $max"
     const val PayNow = "Jetzt bezahlen"
     const val PendingPaymentHint = "Noch nicht bezahlt. Der Slot ist nur kurz reserviert und wird sonst automatisch freigegeben."
     const val PaymentExpiredHint = "Nicht rechtzeitig bezahlt – die Buchung wurde automatisch storniert."

@@ -92,6 +92,18 @@ class ModelSerializationTest {
         assertEquals("pi_123", b.stripePaymentIntentId)
         assertNull(b.actualKwh)
         assertNull(b.wallbox)
+        assertEquals(false, b.reviewed, "ohne Feld gilt die Buchung als nicht bewertet")
+    }
+
+    @Test
+    fun decodesReviewedFlagOfBooking() {
+        val json = """
+            {"id":"b1","wallbox_id":"w1","driver_id":"u1",
+             "start_time":"2026-05-01T10:00:00Z","end_time":"2026-05-01T12:00:00Z",
+             "status":"completed","price_per_kwh":0.4,"reviewed":true,
+             "created_at":"2026-04-30T09:00:00Z","updated_at":"2026-04-30T09:00:00Z"}
+        """.trimIndent()
+        assertEquals(true, ChargeShareJson.decodeFromString<Booking>(json).reviewed)
     }
 
     @Test

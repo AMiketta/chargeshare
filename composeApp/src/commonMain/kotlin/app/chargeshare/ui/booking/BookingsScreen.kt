@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -25,6 +27,8 @@ import app.chargeshare.payment.PaymentLauncher
 import app.chargeshare.payment.payCatching
 import app.chargeshare.presentation.booking.BookingFilter
 import app.chargeshare.presentation.booking.PayNowState
+import app.chargeshare.presentation.booking.ReviewDraft
+import app.chargeshare.presentation.booking.isReviewable
 import app.chargeshare.presentation.booking.PaymentIssue
 import app.chargeshare.presentation.booking.PaymentStep
 import app.chargeshare.presentation.booking.PaymentUnavailableReason
@@ -37,6 +41,8 @@ import app.chargeshare.presentation.booking.isCancellable
 import app.chargeshare.shared.model.Booking
 import app.chargeshare.shared.model.BookingStatus
 import app.chargeshare.shared.model.CancelReasons
+import app.chargeshare.shared.model.ReviewLimits
+import app.chargeshare.ui.AppIcons
 import app.chargeshare.ui.ChargeShareColors
 import app.chargeshare.ui.Spacing
 import app.chargeshare.ui.Strings
@@ -45,6 +51,7 @@ import app.chargeshare.ui.components.ChoiceChips
 import app.chargeshare.ui.components.EmptyBox
 import app.chargeshare.ui.components.ErrorBox
 import app.chargeshare.ui.components.ErrorText
+import app.chargeshare.ui.components.FormTextField
 import app.chargeshare.ui.components.HeroHeader
 import app.chargeshare.ui.components.InfoPill
 import app.chargeshare.ui.components.LoadingBox
@@ -74,6 +81,11 @@ fun BookingsRoute(
         onCancelConfirmed = viewModel::onCancelConfirmed,
         onCancelDismissed = viewModel::onCancelDismissed,
         onRetry = viewModel::refresh,
+        onReviewRequested = viewModel::onReviewRequested,
+        onReviewRatingChanged = viewModel::onReviewRatingChanged,
+        onReviewCommentChanged = viewModel::onReviewCommentChanged,
+        onReviewSubmitted = viewModel::onReviewSubmitted,
+        onReviewDismissed = viewModel::onReviewDismissed,
         onPayNow = viewModel::onPayNow,
         onRetryPayNow = viewModel::onRetryPayNow,
         onPayNowDismissed = viewModel::onPayNowDismissed,
@@ -107,6 +119,11 @@ fun BookingsScreen(
     onCancelConfirmed: () -> Unit,
     onCancelDismissed: () -> Unit,
     onRetry: () -> Unit,
+    onReviewRequested: (Booking) -> Unit,
+    onReviewRatingChanged: (Int) -> Unit,
+    onReviewCommentChanged: (String) -> Unit,
+    onReviewSubmitted: () -> Unit,
+    onReviewDismissed: () -> Unit,
     onPayNow: (Booking) -> Unit,
     onRetryPayNow: () -> Unit,
     onPayNowDismissed: () -> Unit,
@@ -142,6 +159,7 @@ fun BookingsScreen(
                             isAnyPaymentBusy = state.payNow.isBusy,
                         ),
                         onCancel = { onCancelRequested(booking) },
+                        onReview = { onReviewRequested(booking) },
                         onPayNow = { onPayNow(booking) },
                         onRetryPayNow = onRetryPayNow,
                         onPayNowDismissed = onPayNowDismissed,
@@ -149,6 +167,9 @@ fun BookingsScreen(
                 }
             }
         }
+    }
+    state.reviewDraft?.let { draft ->
+        ReviewDialog(draft, onReviewRatingChanged, onReviewCommentChanged, onReviewSubmitted, onReviewDismissed)
     }
     state.cancelCandidate?.let { candidate ->
         AlertDialog(
@@ -168,6 +189,7 @@ private fun BookingCard(
     isCancelling: Boolean,
     payment: BookingPaymentUi,
     onCancel: () -> Unit,
+    onReview: () -> Unit,
     onPayNow: () -> Unit,
     onRetryPayNow: () -> Unit,
     onPayNowDismissed: () -> Unit,
@@ -192,9 +214,63 @@ private fun BookingCard(
             Text(Strings.PaymentExpiredHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (payment.canPay) PayNowSection(payment.payNow, onPayNow, onRetryPayNow, onPayNowDismissed)
+        if (booking.isReviewable()) {
+            TextButton(onClick = onReview) { Text(Strings.ReviewAction) }
+        } else if (booking.status == BookingStatus.COMPLETED && booking.reviewed) {
+            Text(Strings.Reviewed, style = MaterialTheme.typography.bodySmall, color = ChargeShareColors.Primary)
+        }
         if (booking.isCancellable()) {
             TextButton(onClick = onCancel, enabled = !isCancelling && !payment.isAnyPaymentBusy) {
                 Text(Strings.CancelBooking, color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+/** Bewertungsdialog: Sterne (Pflicht) und Kommentar (optional). */
+@Composable
+private fun ReviewDialog(
+    draft: ReviewDraft,
+    onRatingChanged: (Int) -> Unit,
+    onCommentChanged: (String) -> Unit,
+    onSubmit: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(Strings.ReviewTitle) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
+                Text(Strings.reviewBody(draft.booking.wallbox?.name ?: Strings.UnknownWallbox), style = MaterialTheme.typography.bodyMedium)
+                StarRatingInput(draft.rating, onRatingChanged, enabled = !draft.isSubmitting)
+                FormTextField(
+                    value = draft.comment,
+                    onValueChange = onCommentChanged,
+                    label = Strings.ReviewCommentLabel,
+                    errorText = Strings.ReviewCommentTooLong.takeIf { draft.isCommentTooLong },
+                    supportingText = Strings.reviewCommentCounter(draft.comment.length, ReviewLimits.MAX_COMMENT_LENGTH),
+                    enabled = !draft.isSubmitting,
+                    singleLine = false,
+                )
+                draft.error?.let { ErrorText(Strings.errorMessage(it)) }
+            }
+        },
+        confirmButton = { TextButton(onClick = onSubmit, enabled = draft.canSubmit) { Text(Strings.ReviewSubmit) } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !draft.isSubmitting) { Text(Strings.Cancel) } },
+    )
+}
+
+/** Fünf antippbare Sterne; jeder Stern hat eine eigene Beschreibung für Screenreader. */
+@Composable
+private fun StarRatingInput(rating: Int, onRatingChanged: (Int) -> Unit, enabled: Boolean) {
+    Row(horizontalArrangement = Arrangement.spacedBy(Spacing.XSmall)) {
+        (ReviewLimits.MIN_RATING..ReviewLimits.MAX_RATING).forEach { stars ->
+            IconButton(onClick = { onRatingChanged(stars) }, enabled = enabled) {
+                Icon(
+                    AppIcons.Star,
+                    contentDescription = Strings.reviewStarOption(stars),
+                    tint = if (stars <= rating) ChargeShareColors.Accent else ChargeShareColors.Outline,
+                )
             }
         }
     }

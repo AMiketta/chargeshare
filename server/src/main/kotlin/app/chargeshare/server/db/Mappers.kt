@@ -60,7 +60,7 @@ fun ResultRow.toWallbox(distanceM: Double? = null): Wallbox = Wallbox(
     distanceM = distanceM,
 )
 
-fun ResultRow.toBooking(wallbox: Wallbox? = null, driver: User? = null): Booking = Booking(
+fun ResultRow.toBooking(wallbox: Wallbox? = null, driver: User? = null, reviewed: Boolean = false): Booking = Booking(
     id = this[Bookings.id].toString(),
     wallboxId = this[Bookings.wallboxId].toString(),
     driverId = this[Bookings.driverId].toString(),
@@ -75,6 +75,7 @@ fun ResultRow.toBooking(wallbox: Wallbox? = null, driver: User? = null): Booking
     stripeChargeId = this[Bookings.stripeChargeId],
     ocppTransactionId = this[Bookings.ocppTransactionId],
     cancelReason = this[Bookings.cancelReason],
+    reviewed = reviewed,
     createdAt = this[Bookings.createdAt].toInstant2(),
     updatedAt = this[Bookings.updatedAt].toInstant2(),
     wallbox = wallbox,

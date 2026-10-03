@@ -31,6 +31,8 @@ data class BookingsUiState(
     val cancelCandidate: Booking? = null,
     val cancellingId: String? = null,
     val cancelError: AppError? = null,
+    /** Geöffneter Bewertungsdialog, sonst `null`. */
+    val reviewDraft: ReviewDraft? = null,
     /** Stand von „Jetzt bezahlen“. */
     val payNow: PayNowState = PayNowState.Idle,
     /** Auf diesem Gerät gibt es ein Zahlungsfenster (Google Pay/Apple Pay); sonst wird „Jetzt bezahlen“ nicht angeboten. */
@@ -114,6 +116,49 @@ class BookingsViewModel(
                     is Outcome.Failure -> current.copy(cancellingId = null, cancelError = result.error)
                 }
             }
+        }
+    }
+
+    // ---- Bewerten ---------------------------------------------------------------------------
+
+    fun onReviewRequested(booking: Booking) {
+        if (!booking.isReviewable()) return
+        _state.update { it.copy(reviewDraft = ReviewDraft(booking)) }
+    }
+
+    fun onReviewRatingChanged(rating: Int) = updateDraft { it.copy(rating = rating, error = null) }
+
+    fun onReviewCommentChanged(comment: String) = updateDraft { it.copy(comment = comment, error = null) }
+
+    fun onReviewDismissed() {
+        // Während des Sendens bleibt der Dialog offen, damit das Ergebnis nicht verloren geht.
+        _state.update { if (it.reviewDraft?.isSubmitting == true) it else it.copy(reviewDraft = null) }
+    }
+
+    fun onReviewSubmitted() {
+        val draft = _state.value.reviewDraft?.takeIf { it.canSubmit } ?: return
+        updateDraft { it.copy(isSubmitting = true, error = null) }
+        viewModelScope.launch {
+            val result = repository.review(draft.booking.id, draft.rating, draft.comment.trim().ifEmpty { null })
+            when {
+                result is Outcome.Success -> markReviewed(draft.booking.id)
+                // Schon bewertet (z. B. auf einem anderen Gerät): wie ein Erfolg behandeln, die Bewertung existiert.
+                result is Outcome.Failure && result.error == AppError.Conflict -> markReviewed(draft.booking.id)
+                result is Outcome.Failure -> updateDraft { it.copy(isSubmitting = false, error = result.error) }
+            }
+        }
+    }
+
+    private fun updateDraft(transform: (ReviewDraft) -> ReviewDraft) {
+        _state.update { current -> current.copy(reviewDraft = current.reviewDraft?.let(transform)) }
+    }
+
+    private fun markReviewed(bookingId: String) {
+        _state.update { current ->
+            current.copy(
+                reviewDraft = null,
+                bookings = current.bookings.map { if (it.id == bookingId) it.copy(reviewed = true) else it },
+            )
         }
     }
 
