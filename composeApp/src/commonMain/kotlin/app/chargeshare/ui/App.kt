@@ -26,6 +26,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import app.chargeshare.data.SessionState
 import app.chargeshare.data.isHost
 import app.chargeshare.di.AppContainer
+import app.chargeshare.payment.PaymentLauncher
+import app.chargeshare.payment.UnsupportedPaymentLauncher
 import app.chargeshare.presentation.auth.AuthViewModel
 import app.chargeshare.presentation.booking.BookingFlowViewModel
 import app.chargeshare.presentation.booking.BookingsViewModel
@@ -50,9 +52,11 @@ import app.chargeshare.ui.wallbox.WallboxListRoute
  * Gemeinsamer UI-Einstieg für Android, iOS, Desktop und Web.
  *
  * @param container verdrahtete Abhängigkeiten (siehe [AppContainer]); wird einmal pro Prozess erzeugt
+ * @param paymentLauncher Zahlungsfenster der Plattform (Google Pay / Apple Pay über Stripe); Desktop und Web
+ * nutzen [UnsupportedPaymentLauncher]
  */
 @Composable
-fun App(container: AppContainer) {
+fun App(container: AppContainer, paymentLauncher: PaymentLauncher = UnsupportedPaymentLauncher) {
     ChargeShareTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialThemeBackground) {
             val sessionViewModel = viewModel { SessionViewModel(container.authRepository) }
@@ -67,7 +71,7 @@ fun App(container: AppContainer) {
                 is SessionState.SignedIn -> key(current.user.id) {
                     val owner = rememberScopedViewModelStoreOwner()
                     CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
-                        MainContent(container, current.user)
+                        MainContent(container, current.user, paymentLauncher)
                     }
                 }
             }
@@ -92,7 +96,7 @@ private fun RestoringSession() {
 @Suppress("DEPRECATION")
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun MainContent(container: AppContainer, user: User) {
+private fun MainContent(container: AppContainer, user: User, paymentLauncher: PaymentLauncher) {
     val navigation = remember { NavigationState() }
     BackHandler(enabled = navigation.stack.isNotEmpty()) { navigation.pop() }
 
@@ -102,7 +106,7 @@ private fun MainContent(container: AppContainer, user: User) {
         key(navigation.stack.size, screen) {
             val owner = rememberScopedViewModelStoreOwner()
             CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
-                FullScreen(screen, container, navigation)
+                FullScreen(screen, container, navigation, paymentLauncher)
             }
         }
         return
@@ -159,15 +163,23 @@ private fun TabContent(tab: MainTab, container: AppContainer, user: User, naviga
 }
 
 @Composable
-private fun FullScreen(screen: Screen, container: AppContainer, navigation: NavigationState) {
+private fun FullScreen(screen: Screen, container: AppContainer, navigation: NavigationState, paymentLauncher: PaymentLauncher) {
     when (screen) {
         is Screen.WallboxDetail -> {
             val viewModel = viewModel { WallboxDetailViewModel(screen.wallboxId, container.wallboxRepository) }
             WallboxDetailRoute(viewModel, onBack = { navigation.pop() }, onBook = { navigation.push(Screen.Booking(it)) })
         }
         is Screen.Booking -> {
-            val viewModel = viewModel { BookingFlowViewModel(screen.wallbox, container.wallboxRepository, container.bookingRepository) }
-            BookingFlowRoute(viewModel, onBack = { navigation.pop() }, onShowBookings = { navigation.popToTab(MainTab.Bookings) })
+            val viewModel = viewModel {
+                BookingFlowViewModel(
+                    wallbox = screen.wallbox,
+                    wallboxRepository = container.wallboxRepository,
+                    bookingRepository = container.bookingRepository,
+                    paymentRepository = container.paymentRepository,
+                    supportedPaymentMethods = paymentLauncher.supportedMethods,
+                )
+            }
+            BookingFlowRoute(viewModel, paymentLauncher, onBack = { navigation.pop() }, onShowBookings = { navigation.popToTab(MainTab.Bookings) })
         }
         Screen.CreateWallbox -> {
             val viewModel = viewModel { CreateWallboxViewModel(container.hostRepository) }

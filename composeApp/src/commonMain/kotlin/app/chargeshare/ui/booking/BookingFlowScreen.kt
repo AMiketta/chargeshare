@@ -18,11 +18,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
+import app.chargeshare.payment.PaymentLauncher
+import app.chargeshare.payment.PaymentMethodChoice
+import app.chargeshare.payment.payCatching
 import app.chargeshare.presentation.booking.BookingFlowUiState
 import app.chargeshare.presentation.booking.BookingFlowViewModel
 import app.chargeshare.presentation.booking.BookingSubmitState
@@ -48,18 +53,21 @@ import app.chargeshare.ui.formatEuro
 import app.chargeshare.ui.formatPricePerKwh
 import app.chargeshare.ui.formatTime
 import kotlin.time.Instant
+import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 
 @Composable
 fun BookingFlowRoute(
     viewModel: BookingFlowViewModel,
+    paymentLauncher: PaymentLauncher,
     onBack: () -> Unit,
     onShowBookings: () -> Unit,
     modifier: Modifier = Modifier,
     zone: TimeZone = TimeZone.currentSystemDefault(),
 ) {
     val state by viewModel.state.collectAsState()
+    PaymentSheetEffect(state.submit, viewModel, paymentLauncher)
     BookingFlowScreen(
         state = state,
         zone = zone,
@@ -69,9 +77,29 @@ fun BookingFlowRoute(
         onDurationSelected = viewModel::onDurationSelected,
         onRetrySlots = viewModel::onRetrySlots,
         onSubmit = viewModel::onSubmit,
+        onPaymentMethodSelected = viewModel::onPaymentMethodSelected,
+        onRetryPaymentConfig = viewModel::onRetryPaymentConfig,
+        onRetryPayment = viewModel::onRetryPayment,
+        onDiscardBooking = viewModel::onDiscardBooking,
         onShowBookings = onShowBookings,
         modifier = modifier,
     )
+}
+
+/**
+ * Öffnet das Zahlungsfenster der Plattform, sobald das ViewModel [BookingSubmitState.PaymentRequired] meldet.
+ * Der Aufruf läuft in einem eigenen Scope, weil der Effekt nach `onPaymentSheetOpened()` neu startet (Zustandswechsel)
+ * und das offene Fenster dabei nicht abgebrochen werden darf.
+ */
+@Composable
+private fun PaymentSheetEffect(submit: BookingSubmitState, viewModel: BookingFlowViewModel, paymentLauncher: PaymentLauncher) {
+    val scope = rememberCoroutineScope()
+    val requested = (submit as? BookingSubmitState.PaymentRequired)?.request
+    LaunchedEffect(requested) {
+        if (requested == null) return@LaunchedEffect
+        viewModel.onPaymentSheetOpened()
+        scope.launch { viewModel.onPaymentResult(paymentLauncher.payCatching(requested)) }
+    }
 }
 
 /** Buchungsflow: Tag, Startzeit und Dauer wählen, Kosten ansehen, buchen – danach die Bestätigung. */
@@ -85,6 +113,10 @@ fun BookingFlowScreen(
     onDurationSelected: (Int) -> Unit,
     onRetrySlots: () -> Unit,
     onSubmit: () -> Unit,
+    onPaymentMethodSelected: (PaymentMethodChoice) -> Unit,
+    onRetryPaymentConfig: () -> Unit,
+    onRetryPayment: () -> Unit,
+    onDiscardBooking: () -> Unit,
     onShowBookings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -104,15 +136,7 @@ fun BookingFlowScreen(
         },
         bottomBar = {
             Surface(shadowElevation = Spacing.Small) {
-                Column(modifier = Modifier.padding(Spacing.Medium), verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
-                    if (submit is BookingSubmitState.Failed) ErrorText(Strings.errorMessage(submit.error))
-                    AmberButton(
-                        text = Strings.bookNowWithPrice(state.estimate?.totalEur),
-                        onClick = onSubmit,
-                        enabled = state.canSubmit,
-                        isLoading = submit is BookingSubmitState.Submitting,
-                    )
-                }
+                BookingActionBar(state, onSubmit, onRetryPayment, onDiscardBooking, Modifier.padding(Spacing.Medium))
             }
         },
     ) { padding ->
@@ -128,7 +152,14 @@ fun BookingFlowScreen(
                 SectionTitle(Strings.DurationLabel, Modifier.padding(horizontal = Spacing.Medium))
                 ChoiceChips(state.durationOptions, state.selectedDurationMinutes, Strings::durationLabel, onDurationSelected)
             }
-            EstimateCard(state, Modifier.padding(horizontal = Spacing.Medium, vertical = Spacing.Small))
+            EstimateCard(state, Modifier.padding(horizontal = Spacing.Medium))
+            PaymentMethodSection(
+                setup = state.paymentSetup,
+                selected = state.selectedPaymentMethod,
+                onSelected = onPaymentMethodSelected,
+                onRetry = onRetryPaymentConfig,
+                modifier = Modifier.padding(horizontal = Spacing.Medium, vertical = Spacing.Small),
+            )
         }
     }
 }

@@ -2,9 +2,11 @@ package app.chargeshare.testing
 
 import app.chargeshare.data.AppError
 import app.chargeshare.data.AuthRepository
+import app.chargeshare.data.BookingCreation
 import app.chargeshare.data.BookingRepository
 import app.chargeshare.data.GeoPoint
 import app.chargeshare.data.HostRepository
+import app.chargeshare.data.PaymentRepository
 import app.chargeshare.data.Outcome
 import app.chargeshare.data.SessionState
 import app.chargeshare.data.WallboxFilter
@@ -15,6 +17,8 @@ import app.chargeshare.shared.model.ChargingSession
 import app.chargeshare.shared.model.ConnectorType
 import app.chargeshare.shared.model.CreateWallboxRequest
 import app.chargeshare.shared.model.HostEarnings
+import app.chargeshare.shared.model.PaymentConfig
+import app.chargeshare.shared.model.PaymentProviderKind
 import app.chargeshare.shared.model.Review
 import app.chargeshare.shared.model.User
 import app.chargeshare.shared.model.UserRole
@@ -153,16 +157,23 @@ class FakeWallboxRepository : WallboxRepository {
 }
 
 class FakeBookingRepository : BookingRepository {
-    var createResult: Outcome<Booking> = Outcome.Success(testBooking())
+    var createResult: Outcome<BookingCreation> = Outcome.Success(BookingCreation(testBooking(), clientSecret = null))
+    var confirmPaymentResult: Outcome<Booking> = Outcome.Success(testBooking())
     var listResult: Outcome<List<Booking>> = Outcome.Success(emptyList())
     var cancelResult: Outcome<Booking>? = null
 
     val created = mutableListOf<Triple<String, Instant, Instant>>()
     val cancelled = mutableListOf<String>()
+    val confirmedPayments = mutableListOf<String>()
 
-    override suspend fun create(wallboxId: String, start: Instant, end: Instant): Outcome<Booking> {
+    override suspend fun create(wallboxId: String, start: Instant, end: Instant): Outcome<BookingCreation> {
         created += Triple(wallboxId, start, end)
         return createResult
+    }
+
+    override suspend fun confirmPayment(bookingId: String): Outcome<Booking> {
+        confirmedPayments += bookingId
+        return confirmPaymentResult
     }
 
     override suspend fun list(): Outcome<List<Booking>> = listResult
@@ -195,6 +206,31 @@ class FakeHostRepository : HostRepository {
 
     override suspend fun setOnline(wallboxId: String, isOnline: Boolean): Outcome<Boolean> =
         setOnlineResult ?: Outcome.Success(isOnline)
+}
+
+/** Entwicklungsmodus: der Server bucht ohne Zahlungsfenster. */
+fun fakePaymentConfig() = PaymentConfig(
+    provider = PaymentProviderKind.FAKE,
+    merchantDisplayName = "ChargeShare",
+    merchantCountryCode = "DE",
+    currency = "eur",
+    googlePayTestEnvironment = true,
+)
+
+/** Echte Zahlung über Stripe (Testschlüssel, Apple Pay eingerichtet). */
+fun stripePaymentConfig(applePayMerchantId: String? = "merchant.app.chargeshare") = fakePaymentConfig().copy(
+    provider = PaymentProviderKind.STRIPE,
+    publishableKey = "pk_test_123",
+    applePayMerchantId = applePayMerchantId,
+)
+
+class FakePaymentRepository(var configResult: Outcome<PaymentConfig> = Outcome.Success(fakePaymentConfig())) : PaymentRepository {
+    var configCalls = 0
+
+    override suspend fun config(): Outcome<PaymentConfig> {
+        configCalls++
+        return configResult
+    }
 }
 
 fun failure(error: AppError = AppError.Network) = Outcome.Failure(error)
