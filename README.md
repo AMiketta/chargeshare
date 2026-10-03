@@ -147,6 +147,12 @@ für die Zahlungsart „card“; die Fahrerin wählt im Buchungsflow zwischen *W
 4. Bei Erfolg ruft die App `POST /api/v1/bookings/{id}/confirm-payment`; der Server prüft den PaymentIntent bei Stripe (`402`, wenn nicht bezahlt).
    Der Webhook (`payment_intent.succeeded`) bestätigt die Buchung unabhängig davon.
 5. Abbruch/Fehler: die Buchung bleibt `pending`; die App bietet „Erneut bezahlen“ oder „Buchung verwerfen“ (Storno gibt den Slot frei).
+   Beim Storno einer unbezahlten Buchung schließt der Server außerdem den offenen PaymentIntent bei Stripe (`cancelIntent`; fehlertolerant –
+   ein bereits bezahlter oder stornierter Intent blockiert den Storno nicht). Bezahlte Buchungen werden wie bisher per Refund erstattet.
+
+**Auszahlungs-Onboarding (`POST /payments/onboard`):** Stripe-Fehler werden nicht als `500` durchgereicht, sondern mit lesbarer deutscher Meldung
+(ohne Stripe-Rohtext oder Schlüssel) beantwortet: `503`, wenn Stripe Connect im Konto nicht aktiviert (Dashboard → Connect, im Testmodus ohne
+Firmendaten möglich) oder Stripe nicht erreichbar ist; `502` bei falschem API-Schlüssel oder sonstiger Ablehnung. Code ist jeweils `INTERNAL_ERROR`.
 
 **Dev-Modus (ohne `STRIPE_SECRET_KEY`):** `GET /payments/config` meldet `provider: "fake"`; Buchungen sind sofort `confirmed`, die App zeigt
 nur den Hinweis „Testzahlung“ und öffnet kein Zahlungsfenster. Das gilt auch für Desktop und Web.

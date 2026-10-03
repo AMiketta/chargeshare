@@ -45,7 +45,19 @@ class ScriptedPaymentProvider : PaymentProvider {
     }
     override fun isPaid(paymentIntentId: String) = paid
     override fun refund(paymentIntentId: String) { refunds += paymentIntentId }
-    override fun createOnboardingLink(email: String, existingAccountId: String?) = OnboardingInfo(existingAccountId ?: "acct_test", "https://stripe.test/onboard")
+    val canceledIntents: MutableList<String> = Collections.synchronizedList(mutableListOf())
+    /** Wenn gesetzt, wirft [cancelIntent] diesen Fehler (z. B. Intent bei Stripe schon bezahlt). */
+    @Volatile var cancelIntentFailure: Throwable? = null
+    /** Wenn gesetzt, wirft [createOnboardingLink] diesen Fehler (z. B. Stripe-Connect nicht aktiviert). */
+    @Volatile var onboardingFailure: Throwable? = null
+    override fun cancelIntent(paymentIntentId: String) {
+        canceledIntents += paymentIntentId
+        cancelIntentFailure?.let { throw it }
+    }
+    override fun createOnboardingLink(email: String, existingAccountId: String?): OnboardingInfo {
+        onboardingFailure?.let { throw it }
+        return OnboardingInfo(existingAccountId ?: "acct_test", "https://stripe.test/onboard")
+    }
     override fun parseWebhook(payload: String, signatureHeader: String?): PaymentEvent {
         if (signatureHeader != "ok") throw WebhookVerificationException("bad signature")
         val id = Regex("\"id\":\"([^\"]+)\"").find(payload)!!.groupValues[1]
