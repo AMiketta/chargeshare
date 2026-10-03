@@ -122,6 +122,7 @@ Alle Pfade, JSON-Feldnamen und das Fehlerformat (`{"error": "...", "code": "VALI
 | `POST /auth/apple` | implementiert, aber **nur mit `APPLE_BUNDLE_ID`** (prueft Signatur gegen Apples JWKS, `iss`, `aud`, `exp`); ohne Konfiguration `501`. Nicht gegen echte Apple-Tokens getestet (Test mit lokal signiertem Token) |
 | Wallboxen (CRUD, Suche per `earth_distance`, Status, Wochenplan, Slots, Reviews-Liste) | implementiert |
 | Buchungen (anlegen, Liste, Detail, stornieren, `confirm-payment`) | implementiert; Ueberlappungsschutz per Exclusion-Constraint + Advisory-Lock |
+| `GET /payments/config` | implementiert: öffentliche Zahlungskonfiguration (siehe Abschnitt „Zahlung“); nur mit Login |
 | Host (`/host/bookings`, `/host/earnings`, `/host/sessions`), `POST /reviews` | implementiert |
 | Zahlung | `PaymentProvider`-Interface: `FakePaymentProvider` (Dev) oder `StripePaymentProvider` (PaymentIntent mit Connect-Transfer + Plattformgebuehr, Refund, Connect-Onboarding, Webhook mit Signaturpruefung). **Stripe ist nicht gegen echte Stripe-Konten getestet** (nur Webhook-Signatur) |
 | OCPP 1.6J `GET /ocpp/{id}` (WebSocket) | implementiert: BootNotification, Heartbeat, Authorize, Start-/StopTransaction, MeterValues (nur Log), StatusNotification. RemoteStart/Stop (im Go-Code ungenutzt) nicht portiert |
@@ -132,15 +133,71 @@ Payment-Intent; Exclusion-Verletzung -> `409` statt `500`; `confirm-payment` pru
 Konto loeschen entfernt abhaengige Buchungen/Reviews; E-Mail wird kleingeschrieben; Rolle wird aus der DB statt aus dem Token gelesen;
 Slots in der Vergangenheit werden nicht angeboten; unbekannte OCPP-Ladepunkte (`ocpp_id` an keiner Wallbox) werden abgelehnt.
 
+## Zahlung (Stripe, Google Pay, Apple Pay)
+
+Die Zahlung läuft über das **Stripe PaymentSheet**. Google Pay (Android) und Apple Pay (iOS) sind darin Wallet-Schaltflächen
+für die Zahlungsart „card“; die Fahrerin wählt im Buchungsflow zwischen *Wallet* und *Karte und weitere*.
+
+**Ablauf (echte Zahlung, `STRIPE_SECRET_KEY` gesetzt):**
+
+1. App lädt `GET /api/v1/payments/config` (Publishable Key, Händlername/-land, Währung, Google-Pay-Umgebung, Apple-Merchant-ID – **keine Secrets**).
+2. `POST /api/v1/bookings` legt die Buchung als `pending` an und liefert das `client_secret` des PaymentIntents
+   (`automatic_payment_methods` aktiv, `allow_redirects=never`: Karte und Wallets, keine Weiterleitungs-Methoden).
+3. Die App zeigt das PaymentSheet (Android: `StripePaymentLauncher`, iOS: Swift-Brücke `StripePaymentBridge`).
+4. Bei Erfolg ruft die App `POST /api/v1/bookings/{id}/confirm-payment`; der Server prüft den PaymentIntent bei Stripe (`402`, wenn nicht bezahlt).
+   Der Webhook (`payment_intent.succeeded`) bestätigt die Buchung unabhängig davon.
+5. Abbruch/Fehler: die Buchung bleibt `pending`; die App bietet „Erneut bezahlen“ oder „Buchung verwerfen“ (Storno gibt den Slot frei).
+
+**Dev-Modus (ohne `STRIPE_SECRET_KEY`):** `GET /payments/config` meldet `provider: "fake"`; Buchungen sind sofort `confirmed`, die App zeigt
+nur den Hinweis „Testzahlung“ und öffnet kein Zahlungsfenster. Das gilt auch für Desktop und Web.
+
+**Plattformen:** Android = Google Pay + Karte · iOS = Apple Pay + Karte (nur mit Merchant-ID) · **Desktop/Web: keine Wallets** –
+mit aktivem Stripe zeigt die Buchungsmaske den Hinweis, dass nur in der Android-/iOS-App bezahlt werden kann.
+
+### Konfiguration (Umgebungsvariablen des Servers, siehe `.env.example`)
+
+| Variable | Bedeutung |
+|---|---|
+| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | Secrets, nur auf dem Server. Ohne Secret Key: Fake-Zahlung (nur Dev) |
+| `STRIPE_PUBLISHABLE_KEY` | `pk_test_…` / `pk_live_…`, wird an die Apps ausgeliefert. Muss mit `pk_` beginnen (ein `sk_…` wird abgelehnt). In Produktion Pflicht, sobald Stripe aktiv ist |
+| `APPLE_PAY_MERCHANT_ID` | z. B. `merchant.app.chargeshare`; ohne sie wird Apple Pay in der App nicht angeboten (Karte bleibt) |
+| `GOOGLE_PAY_ENVIRONMENT` | `test` oder `production`; Standard: aus dem Publishable Key abgeleitet (`pk_live_` ⇒ `production`) |
+| `MERCHANT_DISPLAY_NAME`, `MERCHANT_COUNTRY_CODE` | Anzeigename (Standard `ChargeShare`) und ISO-Land (Standard `DE`) in den Zahlungsdialogen; Währung ist fest `eur` |
+
+Keine Schlüssel ins Repo: alles per Umgebung/`.env` (steht in `.gitignore`).
+
+### Google Pay (Android)
+
+- SDK: `com.stripe:stripe-android:23.21.0` (Version Catalog), Manifest-Eintrag `com.google.android.gms.wallet.api.enabled`.
+- **Test vs. Produktion:** `GOOGLE_PAY_ENVIRONMENT=test` (Standard bei `pk_test_`) nutzt Googles Testumgebung mit Stripe-Testkarten.
+  Getestet werden sollte auf einem **echten Gerät** mit Google-Konto und einer Karte im Google Wallet; im Emulator erscheint meist nur die Karteneingabe.
+- **Produktion:** Google verlangt ein Google-Business-Profil und die Freischaltung in der [Google Pay & Wallet Console](https://pay.google.com/business/console)
+  (Integration „Android“ mit Screenshots der App und dem Signatur-Zertifikat der Release-Version). Danach `GOOGLE_PAY_ENVIRONMENT=production` mit `pk_live_…`.
+
+### Apple Pay (iOS) – nur auf einem Mac fertigzustellen
+
+Der Kotlin-Teil (`IosPaymentLauncher`, `IosPaymentBridge`) kompiliert (`./gradlew -Pchargeshare.ios=true :composeApp:compileKotlinIosArm64`).
+**Nicht getestet** und auf Linux nicht kompilierbar sind die Swift-Datei `iosApp/ChargeShare/StripePaymentBridge.swift`, die SPM-Abhängigkeit
+(`stripe-ios-spm` ab 26.12.1, Produkt `StripePaymentSheet`) und die Entitlements in `iosApp/project.yml`. Zu tun:
+
+1. Bezahltes **Apple-Developer-Konto** (Apple Developer Program). Mit einem kostenlosen Konto lässt sich die Apple-Pay-Capability nicht signieren.
+2. Im Developer-Portal eine **Merchant ID** anlegen (z. B. `merchant.app.chargeshare`); in `project.yml` (`com.apple.developer.in-app-payments`) und in
+   `APPLE_PAY_MERCHANT_ID` des Servers identisch eintragen. Bundle-ID `app.chargeshare` und `DEVELOPMENT_TEAM` setzen.
+3. Im Stripe-Dashboard unter *Einstellungen → Zahlungsmethoden → Apple Pay* ein **Payment Processing Certificate** für diese Merchant ID erstellen (CSR bei Stripe laden,
+   Zertifikat bei Apple erzeugen, wieder zu Stripe hochladen) und in Xcode die Capability *Apple Pay* mit der Merchant ID aktivieren (xcodegen setzt die Entitlement-Datei).
+4. `brew install xcodegen && cd iosApp && xcodegen generate`, Xcode öffnen, bauen, Swift-Datei und Zusammenspiel mit Kotlin prüfen (Compiler-Fehler in der Brücke sind möglich).
+5. Apple Pay braucht ein Gerät oder einen Simulator mit einer Testkarte in der Wallet-App; Server-Adresse in `ContentView.swift` für echte Geräte anpassen (HTTPS).
+
 ## Versionen (Stand Oktober 2026)
 
 Kotlin 2.4.20 · Gradle 9.8.0 · AGP 9.4.1 · Compose Multiplatform 1.12.1 (Material3 `1.12.0-alpha03`, für CMP 1.12 gibt es kein stabiles M3) ·
+Stripe Android SDK 23.21.0 · Stripe iOS SDK 26.12.1 (SPM) · Stripe Java 34.0.0 ·
 Ktor 3.6.0 · kotlinx.serialization 1.11.0 · Coroutines 1.11.0 · Exposed 1.5.0 · Flyway 13.9.0 · PostgreSQL-Treiber 42.7.13.
 Alle Versionen stehen in `gradle/libs.versions.toml`.
 
 ## Nächste Schritte
 
-1. Server: Rate-Limiting, Stripe gegen Testkonto pruefen, Zahlung nach OCPP-Abschluss auf tatsaechliche kWh abrechnen, RemoteStart/Stop
-2. composeApp: echte Karte (native Map-Anbindung per `expect/actual`), Standort mit Einwilligung, Bewertungen schreiben, Stripe-Zahlungsoberfläche, Wallbox bearbeiten
+1. Server: Rate-Limiting, Stripe gegen Testkonto pruefen (Google Pay/Apple Pay mit echten Testschlüsseln durchspielen), Zahlung nach OCPP-Abschluss auf tatsaechliche kWh abrechnen, RemoteStart/Stop
+2. composeApp: echte Karte (native Map-Anbindung per `expect/actual`), Standort mit Einwilligung, Bewertungen schreiben, Wallbox bearbeiten, „Jetzt bezahlen“ für offene Buchungen in der Buchungsliste
 3. iOS auf einem Mac bauen und testen (Keychain-`TokenStore` ist ungetestet)
 4. CI (GitHub Actions: Linux für shared/server/web/android, macOS für iOS)

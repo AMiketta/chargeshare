@@ -183,7 +183,13 @@ class BookingService(
         }
     }
 
-    /** `pending` -> `confirmed`, nachdem der Client bezahlt hat (z. B. nach 3DS). Idempotent fuer bereits bestaetigte Buchungen. */
+    /**
+     * `pending` -> `confirmed`, nachdem der Client bezahlt hat (z. B. nach 3DS). Idempotent fuer bereits bestaetigte Buchungen.
+     *
+     * Auch eine `failed`-Buchung kann bezahlt werden: Das Stripe-PaymentSheet laesst nach einer abgelehnten Karte weitere
+     * Versuche zu, waehrend der Webhook `payment_intent.payment_failed` die Buchung schon auf `failed` gesetzt hat.
+     * Ist der Slot inzwischen vergeben, wird die Zahlung erstattet und `409` gemeldet.
+     */
     suspend fun confirmPayment(bookingId: Uuid, userId: Uuid): Booking {
         val (row, _) = db.tx {
             val b = Bookings.selectAll().where { Bookings.id eq bookingId }.singleOrNull() ?: throw notFound("booking not found")
@@ -192,28 +198,44 @@ class BookingService(
         }
         val status = row[Bookings.status]
         if (status == "confirmed" && payments.autoConfirms) return db.tx { load(bookingId, true) }
-        if (status != "pending") throw badRequest("booking is not in pending state")
+        if (status !in PAYABLE) throw badRequest("booking is not in pending state")
         // Anders als im Go-Backend (das blind bestaetigt) wird der Zahlungsstatus beim Provider geprueft.
         val pi = row[Bookings.stripePaymentIntentId]
-        val paid = pi != null && runCatching { payments.isPaid(pi) }.getOrDefault(false)
-        if (!paid) throw AppException(HttpStatusCode.PaymentRequired, ErrorCodes.PAYMENT_REQUIRED, "payment has not been completed")
-        return db.tx {
-            Bookings.update({ (Bookings.id eq bookingId) and (Bookings.status eq "pending") }) {
-                it[Bookings.status] = BookingStatus.CONFIRMED.dbValue()
-                it[updatedAt] = OffsetDateTime.now(ZoneOffset.UTC)
-            }
-            load(bookingId, true)
+        if (pi == null || !runCatching { payments.isPaid(pi) }.getOrDefault(false)) {
+            throw AppException(HttpStatusCode.PaymentRequired, ErrorCodes.PAYMENT_REQUIRED, "payment has not been completed")
         }
+        return confirmPaidBooking(bookingId, pi)
     }
+
+    /**
+     * Bestaetigt eine bezahlte Buchung. Wurde ein `failed`-Slot zwischenzeitlich neu vergeben, verletzt das Wiederbeleben
+     * den Exclusion-Constraint: dann wird die Zahlung erstattet und `409` gemeldet.
+     */
+    private suspend fun confirmPaidBooking(bookingId: Uuid, paymentIntentId: String): Booking =
+        try {
+            db.tx {
+                Bookings.update({ (Bookings.id eq bookingId) and (Bookings.status inList PAYABLE) }) {
+                    it[Bookings.status] = BookingStatus.CONFIRMED.dbValue()
+                    it[updatedAt] = OffsetDateTime.now(ZoneOffset.UTC)
+                }
+                load(bookingId, true)
+            }
+        } catch (e: Exception) {
+            if (e.sqlState() != PgState.EXCLUSION_VIOLATION) throw e
+            runCatching { payments.refund(paymentIntentId) }.onFailure { log.error("refund failed for booking $bookingId", it) }
+            throw conflict("slot was taken while the payment was processed; the payment has been refunded")
+        }
 
     /** Stripe-Webhook-Ereignisse (Go: `HandleWebhook`). */
     suspend fun applyPaymentEvent(event: PaymentEvent) {
+        if (event is PaymentEvent.Succeeded) {
+            confirmSucceededPayment(event.paymentIntentId)
+            return
+        }
         db.tx {
             val now = OffsetDateTime.now(ZoneOffset.UTC)
             when (event) {
-                is PaymentEvent.Succeeded -> Bookings.update({ (Bookings.stripePaymentIntentId eq event.paymentIntentId) and (Bookings.status eq "pending") }) {
-                    it[status] = "confirmed"; it[updatedAt] = now
-                }
+                is PaymentEvent.Succeeded -> Unit // oben behandelt
                 is PaymentEvent.Failed -> Bookings.update({ (Bookings.stripePaymentIntentId eq event.paymentIntentId) and (Bookings.status eq "pending") }) {
                     it[status] = "failed"; it[updatedAt] = now
                 }
@@ -222,6 +244,21 @@ class BookingService(
                 }) { it[status] = "cancelled"; it[updatedAt] = now }
                 PaymentEvent.Ignored -> Unit
             }
+        }
+    }
+
+    /** Webhook `payment_intent.succeeded`: bestaetigt die Buchung (auch eine zuvor als `failed` markierte, siehe [confirmPayment]). */
+    private suspend fun confirmSucceededPayment(paymentIntentId: String) {
+        val bookingId = db.tx {
+            Bookings.selectAll()
+                .where { (Bookings.stripePaymentIntentId eq paymentIntentId) and (Bookings.status inList PAYABLE) }
+                .singleOrNull()?.get(Bookings.id)
+        } ?: return
+        try {
+            confirmPaidBooking(bookingId, paymentIntentId)
+        } catch (e: AppException) {
+            // Slot vergeben: die Zahlung wurde bereits erstattet, der Webhook gilt trotzdem als verarbeitet.
+            log.warn("payment $paymentIntentId succeeded but booking $bookingId could not be confirmed: ${e.message}")
         }
     }
 
@@ -255,6 +292,9 @@ class BookingService(
 
     companion object {
         val INACTIVE = listOf("cancelled", "failed")
+
+        /** Zustaende, aus denen eine bezahlte Buchung bestaetigt werden darf. */
+        val PAYABLE = listOf("pending", "failed")
         const val CONFLICT_MSG = "wallbox is not available for the requested time slot"
 
         /** Fahrer-Ansicht fuer Hosts: ohne Rolle/Stripe-IDs/Telefon. */

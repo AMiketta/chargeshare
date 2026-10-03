@@ -61,6 +61,7 @@ server ────────────────────────�
 | `ui/` | `App()`, Theme, Navigation (Wurzel), wiederverwendbare Komponenten (`ui/components`), Strings (`ui/Strings.kt`), ein Unterpaket pro Feature (`ui/auth`, `ui/wallbox`, `ui/booking`, `ui/host`, `ui/profile`) mit Screens (`@Composable`) |
 | `presentation/` | ViewModels (`androidx.lifecycle.ViewModel`) und `UiState`-Klassen, ein Unterpaket pro Feature (`auth`, `session`, `wallbox`, `booking`, `host`, `profile`). **Keine Compose-UI-Imports** |
 | `data/` | Repositories (Schnittstelle + `Api…`-Implementierung über `ChargeShareApi`), `Outcome`/`AppError`/`runCatchingOutcome`, `PersistedTokenStore`, Slot-Zeitlogik |
+| `payment/` | `PaymentLauncher` (Schnittstelle zum Zahlungsfenster), `PaymentRequest`/`PaymentResult`/`PaymentMethodChoice`, `UnsupportedPaymentLauncher` (Desktop/Web). Plattform-Implementierungen: Android `androidApp/.../StripePaymentLauncher`, iOS `iosMain/.../IosPaymentBridge.kt` + Swift `iosApp/.../StripePaymentBridge.swift` |
 | `platform/` | `expect fun createSecureTokenStore(PlatformContext)` mit `actual` je Plattform (Android-Keystore, iOS-Keychain, Desktop-Datei, Web-localStorage); `PlatformContext` ist eine normale Klasse (Android: `Context` im `handle`) |
 | `di/` | `AppContainer` – manuelle Dependency Injection |
 
@@ -77,6 +78,7 @@ server ────────────────────────�
 | PostgreSQL-Treiber / Logback | 42.7.13 / 1.6.5 |
 | bcrypt / Stripe Java / embedded-postgres | 0.10.2 / 34.0.0 / 2.2.2 |
 | androidx.activity-compose | 1.12.4 |
+| Stripe Android SDK (`androidApp`) / Stripe iOS SDK (SPM, `iosApp/project.yml`) | 23.21.0 / 26.12.1 |
 
 Zusätzlich in `composeApp`: kotlinx-datetime 0.8.0, `org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose` 2.10.0,
 `org.jetbrains.compose.ui:ui-backhandler` 1.12.1 (Zurück-Taste) und – nur Desktop – `kotlinx-coroutines-swing` (liefert `Dispatchers.Main` für `viewModelScope`).
@@ -139,7 +141,7 @@ Im Entwicklungsmodus (`ENV=development`, Standard) gilt:
   - `demo-driver@chargeshare.local` / `demo1234`
   - `demo-host@chargeshare.local` / `demo1234`
   - abschaltbar mit `DEV_SEED=false`; in Produktion verboten.
-- **Fake-Zahlung:** ohne `STRIPE_SECRET_KEY` sind Buchungen sofort `confirmed`/bezahlt.
+- **Fake-Zahlung:** ohne `STRIPE_SECRET_KEY` sind Buchungen sofort `confirmed`/bezahlt; `GET /payments/config` meldet dann `provider: fake` und die App öffnet kein Zahlungsfenster.
 - **API-Adresse aus Client-Sicht:** Android-Emulator `http://10.0.2.2:8080` (= Host-Rechner), Desktop/Web/iOS-Simulator `http://localhost:8080`.
   Die Adresse steckt im `AppContainer`, den die Einstiegspunkte erzeugen; sie ist nicht in der UI hartkodiert.
 
@@ -155,7 +157,7 @@ Im Entwicklungsmodus (`ENV=development`, Standard) gilt:
     `GET|PUT|DELETE /wallboxes/{id}`, `POST /wallboxes`, `PUT /wallboxes/{id}/status`, `GET|PUT /wallboxes/{id}/availability`,
     `GET /wallboxes/{id}/slots?date=YYYY-MM-DD` (freie 30-Minuten-Slots, `HH:MM`, **UTC**), `GET /wallboxes/{id}/reviews`
   - Buchungen: `GET|POST /bookings`, `GET|DELETE /bookings/{id}` (Storno antwortet `204`), `POST /bookings/{id}/confirm-payment`, `POST /reviews`
-  - Host: `GET /host/bookings|earnings|sessions` (nur Rollen `host`/`both`/`admin`, sonst `403`), `POST /payments/onboard`
+  - Host: `GET /host/bookings|earnings|sessions` (nur Rollen `host`/`both`/`admin`, sonst `403`), `POST /payments/onboard`, `GET /payments/config` (öffentliche Zahlungskonfiguration ohne Secrets, mit Login)
 - **JSON:** Feldnamen `snake_case` (`power_kw`, `price_per_kwh`, `start_time`, …), Zeiten als RFC-3339-Strings (UTC), Aufzählungen kleingeschrieben
   (`type2`, `ccs`, `chademo`, `type1`; `pending`, `confirmed`, `active`, `completed`, `cancelled`, `failed`). Gemeinsame Konfiguration: `ChargeShareJson`
   (`ignoreUnknownKeys`, `explicitNulls=false`, `coerceInputValues`).
@@ -183,6 +185,7 @@ ui (Composables)  ─▶  presentation (ViewModel + UiState)  ─▶  data (Repo
 - **Dependency Injection per Konstruktor.** Abhängigkeiten (Repository, `CoroutineDispatcher`, Uhr) werden übergeben, nie im ViewModel erzeugt.
   Verdrahtet wird zentral im `AppContainer` (`di/`), der `App()` einmal pro Prozess erzeugt. Globale Singletons/`object` mit Zustand sind verboten.
 - **Navigation:** zustandsbasiert (sealed `Screen` + Back-Stack im `NavigationState`), Tabs über `MainTab`. Kein Compose-Code in ViewModels.
+- **Zahlung:** Das Zahlungsfenster gehört der Plattform (Activity bzw. ViewController). Das `BookingFlowViewModel` kennt nur `PaymentRequest`/`PaymentResult`; die UI (`BookingFlowRoute`) öffnet das Fenster über den `PaymentLauncher`, den `App(container, paymentLauncher)` bekommt. Neue Plattform-Zahlungsarten ⇒ `PaymentMethodChoice` erweitern, Launcher und `Strings.paymentMethod` ergänzen.
 - Domain-Typen aus `shared` (`Wallbox`, `Booking`, …) dürfen bis in die UI durchgereicht werden. UI-spezifische Aufbereitung (formatierte Texte)
   passiert in der UI oder in kleinen, getesteten Formatter-Funktionen, nicht in den DTOs.
 
@@ -278,6 +281,7 @@ Fehlerbehandlung:
   Desktop = Datei im Benutzerverzeichnis (nur Besitzer lesbar, **nicht verschlüsselt**), Web = `localStorage` (für XSS angreifbar – bekannte Einschränkung). Nie loggen.
 - **Klartext-Traffic (`http://`) nur im Debug-/Dev-Betrieb:** `usesCleartextTraffic="true"` steht im Manifest von `androidApp` nur für `http://10.0.2.2:8080` und muss vor einem Release
   entfernt/auf Debug beschränkt werden. Produktiv ausschließlich `https://`.
+- **Stripe:** nur der Publishable Key (`STRIPE_PUBLISHABLE_KEY`, `pk_…`) verlässt den Server (`GET /payments/config`); `AppConfig` lehnt Werte ohne `pk_`-Präfix ab. Secret Key und Webhook-Secret bleiben auf dem Server. Zahlungsdaten (Kartennummern) berührt die App nie – sie liegen im Stripe-PaymentSheet. Apple-Merchant-ID und Google-Pay-Umgebung stehen in der Server-Konfiguration, nicht im App-Code.
 - Passwörter nie loggen oder im UI-State halten, länger als nötig (nach dem Absenden leeren). Server speichert bcrypt (Kosten 12) und Refresh-Tokens nur als SHA-256.
 - Eingaben im Client validieren (Komfort) **und** im Server (Sicherheit) – der Server ist maßgeblich.
 
@@ -331,12 +335,13 @@ Ein Auftrag ist erst fertig, wenn **alle** Punkte gelten:
 ## 16. Bekannte Lücken (Stand: Oktober 2026)
 
 - **Apple Sign In** (`POST /auth/apple`) und **Stripe** (PaymentIntent, Connect, Webhook) sind **nicht gegen echte Apple-/Stripe-Konten getestet**.
-  Die App hat keine Stripe-Zahlungsoberfläche: mit echtem Stripe-Key blieben Buchungen `pending`; nur die Fake-Zahlung (Dev) bucht sofort.
+  Die App hat seit dem Zahlungs-PR eine Zahlungsoberfläche (Stripe-PaymentSheet mit Google Pay / Apple Pay, siehe README „Zahlung“), die aber **nie mit echten Stripe-Testschlüsseln durchgespielt** wurde. Nur die Fake-Zahlung (Dev) ist end-to-end getestet.
 - **iOS** lässt sich auf Linux nur zu Klibs kompilieren, **nicht linken** und nicht in Xcode/Simulator testen – das geht nur auf macOS. Der Keychain-`TokenStore` ist dort ungetestet.
 - **Rate-Limiting** des Backends (Go: `ratelimit.go`) ist nicht portiert.
 - **Karte:** es gibt keine eingebundene Karten-Komponente (kein ausgereiftes KMP-Map-SDK); die Suche zeigt eine Liste mit Platzhalter. Geräte-Standort ist noch nicht angebunden (Standardstandort Bremen); die Freitext-Suche filtert nur die geladenen Ergebnisse (Backend hat keine Textsuche).
-- **Noch nicht in der UI:** Bewertung abgeben (`POST /reviews`), Apple Sign In, Profil bearbeiten, Stripe-Zahlung/Auszahlungs-Onboarding, Wallbox bearbeiten/löschen, Fotos, Dunkelmodus.
-- **Tests:** es gibt ViewModel-/Daten-Tests (70 in `composeApp`), aber **keine automatisierten UI-/Composable-Tests** und keine Tests auf echtem Gerät. Der Desktop-Build wurde manuell gegen das lokale Backend geprüft (Login, Liste, Detail, Buchung, Host-Wechsel).
+- **Zahlung:** Apple Pay (Swift-Brücke, SPM-Paket, Entitlements) ist nicht auf einem Mac gebaut oder getestet und braucht Merchant-ID + bezahltes Apple-Developer-Konto; Google Pay braucht für Produktion die Freischaltung in der Google Pay & Wallet Console. Unbezahlte `pending`-Buchungen laufen serverseitig nicht ab (Slot bleibt belegt, bis die Fahrerin storniert); in der Buchungsliste gibt es noch kein „Jetzt bezahlen“ für offene Buchungen. Rückzahlungen/Teilabrechnung nach kWh fehlen.
+- **Noch nicht in der UI:** Bewertung abgeben (`POST /reviews`), Apple Sign In, Profil bearbeiten, Auszahlungs-Onboarding (Connect), Wallbox bearbeiten/löschen, Fotos, Dunkelmodus.
+- **Tests:** es gibt ViewModel-/Daten-Tests (89 in `composeApp`), aber **keine automatisierten UI-/Composable-Tests** und keine Tests auf echtem Gerät. Der Desktop-Build wurde manuell gegen das lokale Backend geprüft (Login, Liste, Detail, Buchung, Host-Wechsel).
 - **Zurück-Taste:** `BackHandler` ist in Compose Multiplatform 1.12 als veraltet markiert (Nachfolger `NavigationEventHandler`); Migration offen.
 - **Host-Wallbox-Liste:** das Backend hat keinen Endpunkt „meine Wallboxen“; die App filtert die Suchergebnisse nach `owner_id` (max. 100).
 - **Verfügbarkeit** wird vom Server in **UTC** gespeichert/berechnet; das Host-Formular erwartet UTC-Zeiten.

@@ -124,16 +124,8 @@ class StripePaymentProvider(
     override fun createPaymentIntent(
         amountCents: Long, currency: String, customerId: String?, connectedAccountId: String?, platformFeePercent: Int,
     ): PaymentIntentInfo {
-        val b = PaymentIntentCreateParams.builder()
-            .setAmount(amountCents)
-            .setCurrency(currency)
-            .setAutomaticPaymentMethods(PaymentIntentCreateParams.AutomaticPaymentMethods.builder().setEnabled(true).build())
-        if (!customerId.isNullOrEmpty()) b.setCustomer(customerId)
-        if (!connectedAccountId.isNullOrEmpty()) {
-            b.setApplicationFeeAmount(amountCents * platformFeePercent / 100)
-            b.setTransferData(PaymentIntentCreateParams.TransferData.builder().setDestination(connectedAccountId).build())
-        }
-        val pi = client.paymentIntents().create(b.build())
+        val params = buildPaymentIntentParams(amountCents, currency, customerId, connectedAccountId, platformFeePercent)
+        val pi = client.paymentIntents().create(params)
         return PaymentIntentInfo(pi.id, pi.clientSecret, paid = false)
     }
 
@@ -180,4 +172,34 @@ class StripePaymentProvider(
             else -> null
         } ?: PaymentEvent.Ignored
     }
+}
+
+/**
+ * Parameter fuer den PaymentIntent. `automatic_payment_methods` laesst Stripe die im Dashboard aktivierten Methoden
+ * waehlen; Google Pay und Apple Pay laufen dabei ueber die Zahlungsart „card“ und erscheinen im PaymentSheet der App.
+ * `allow_redirects=never` beschraenkt auf Methoden ohne Weiterleitung (Karte, Wallets), weil die Apps noch keine
+ * Rueckkehr-URL (`return_url`) verarbeiten.
+ */
+internal fun buildPaymentIntentParams(
+    amountCents: Long,
+    currency: String,
+    customerId: String?,
+    connectedAccountId: String?,
+    platformFeePercent: Int,
+): PaymentIntentCreateParams {
+    val builder = PaymentIntentCreateParams.builder()
+        .setAmount(amountCents)
+        .setCurrency(currency)
+        .setAutomaticPaymentMethods(
+            PaymentIntentCreateParams.AutomaticPaymentMethods.builder()
+                .setEnabled(true)
+                .setAllowRedirects(PaymentIntentCreateParams.AutomaticPaymentMethods.AllowRedirects.NEVER)
+                .build(),
+        )
+    if (!customerId.isNullOrEmpty()) builder.setCustomer(customerId)
+    if (!connectedAccountId.isNullOrEmpty()) {
+        builder.setApplicationFeeAmount(amountCents * platformFeePercent / 100)
+        builder.setTransferData(PaymentIntentCreateParams.TransferData.builder().setDestination(connectedAccountId).build())
+    }
+    return builder.build()
 }

@@ -1,12 +1,14 @@
 package app.chargeshare.presentation
 
 import app.chargeshare.data.AppError
+import app.chargeshare.data.BookingCreation
 import app.chargeshare.data.Outcome
 import app.chargeshare.data.SLOT_MINUTES
 import app.chargeshare.presentation.booking.BookingFlowViewModel
 import app.chargeshare.presentation.booking.BookingSubmitState
 import app.chargeshare.presentation.booking.SlotPlanner
 import app.chargeshare.testing.FakeBookingRepository
+import app.chargeshare.testing.FakePaymentRepository
 import app.chargeshare.testing.FakeWallboxRepository
 import app.chargeshare.testing.FixedClock
 import app.chargeshare.testing.TestMain
@@ -30,6 +32,7 @@ import kotlinx.datetime.TimeZone
 class BookingFlowTest {
     private val wallboxes = FakeWallboxRepository()
     private val bookings = FakeBookingRepository()
+    private val payments = FakePaymentRepository()
     private val wallbox = testWallbox(powerKw = 11.0, pricePerKwh = 0.34)
     private val today = LocalDate(2026, 10, 5)
     private val ten = Instant.parse("2026-10-05T10:00:00Z")
@@ -45,7 +48,7 @@ class BookingFlowTest {
 
     @AfterTest fun tearDown() = TestMain.uninstall()
 
-    private fun viewModel() = BookingFlowViewModel(wallbox, wallboxes, bookings, FixedClock(), TimeZone.UTC)
+    private fun viewModel() = BookingFlowViewModel(wallbox, wallboxes, bookings, payments, clock = FixedClock(), zone = TimeZone.UTC)
 
     @Test
     fun startsWithTodayAndSevenDaysAndLoadsSlots() {
@@ -153,7 +156,7 @@ class BookingFlowTest {
 
     @Test
     fun confirmedBookingResponseIsExposed() {
-        bookings.createResult = Outcome.Success(testBooking(id = "neu"))
+        bookings.createResult = Outcome.Success(BookingCreation(testBooking(id = "neu"), clientSecret = "pi_fake_secret"))
         val viewModel = viewModel()
         viewModel.onStartSelected(ten)
         viewModel.onSubmit()

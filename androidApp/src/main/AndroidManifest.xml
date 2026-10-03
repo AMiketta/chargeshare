@@ -11,9 +11,16 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <!-- Noetig fuer Google Pay im Stripe-PaymentSheet (Google-Pay-API aktivieren). -->
+        <meta-data
+            android:name="com.google.android.gms.wallet.api.enabled"
+            android:value="true" />
         <activity
             android:name=".MainActivity"
-            android:exported="true">
+            android:exported="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode|density|fontScale|layoutDirection|locale">
+            <!-- Kein Neustart der Activity bei Drehen & Co.: ein offenes Zahlungsfenster haengt an dieser Activity-Instanz,
+                 Compose passt sich Konfigurationsaenderungen selbst an. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

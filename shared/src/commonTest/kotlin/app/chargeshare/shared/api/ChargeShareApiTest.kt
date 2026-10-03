@@ -120,4 +120,18 @@ class ChargeShareApiTest {
         assertEquals("08:30", api.wallboxSlots("w1", "2026-05-01").slots.single().end)
         assertEquals(BookingStatus.PENDING, api.bookings().bookings.single().status)
     }
+
+    @Test
+    fun paymentConfigIsLoadedFromPaymentsConfigPath() = runTest {
+        val api = api { req ->
+            assertEquals("/api/v1/payments/config", req.url.encodedPath)
+            respond(
+                """{"provider":"stripe","publishable_key":"pk_test_1","merchant_display_name":"ChargeShare",
+                   "merchant_country_code":"DE","currency":"eur","google_pay_test_environment":true}""",
+                HttpStatusCode.OK, jsonHeaders)
+        }
+        val config = api.paymentConfig()
+        assertEquals("pk_test_1", config.publishableKey)
+        assertEquals("DE", config.merchantCountryCode)
+    }
 }

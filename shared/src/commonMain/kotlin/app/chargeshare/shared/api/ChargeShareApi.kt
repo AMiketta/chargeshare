@@ -167,6 +167,9 @@ class ChargeShareApi(
 
     suspend fun startPayoutOnboarding(): OnboardingLink = http.post("$V1/payments/onboard").body()
 
+    /** Öffentliche Zahlungskonfiguration (Publishable Key, Händlerdaten) für Google Pay / Apple Pay / PaymentSheet. */
+    suspend fun paymentConfig(): PaymentConfig = http.get("$V1/payments/config").body()
+
     private companion object {
         const val V1 = "api/v1"
     }

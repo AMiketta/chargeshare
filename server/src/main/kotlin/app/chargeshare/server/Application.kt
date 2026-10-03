@@ -7,6 +7,7 @@ import app.chargeshare.server.auth.TokenService
 import app.chargeshare.server.db.Db
 import app.chargeshare.server.db.DevSeed
 import app.chargeshare.server.payments.PaymentProvider
+import app.chargeshare.server.payments.clientPaymentConfig
 import app.chargeshare.server.services.AuthService
 import app.chargeshare.server.services.BookingService
 import app.chargeshare.server.services.HostService
@@ -93,5 +94,6 @@ private fun Application.buildServices(
         host = HostService(db, bookings),
         paymentsSvc = PaymentService(db, payments),
         payments = payments,
+        paymentConfig = clientPaymentConfig(config, payments),
     )
 }

@@ -1,6 +1,7 @@
 package app.chargeshare.ui
 
 import app.chargeshare.data.AppError
+import app.chargeshare.payment.PaymentMethodChoice
 import app.chargeshare.presentation.auth.FieldError
 import app.chargeshare.presentation.host.WallboxField
 import app.chargeshare.shared.model.BookingStatus
@@ -116,6 +117,31 @@ object Strings {
     const val ToMyBookings = "Zu meinen Buchungen"
     const val Close = "Schließen"
     const val Booking = "Buchung"
+
+    // ---- Zahlung
+    const val PaymentTitle = "Zahlungsart"
+    const val PaymentLoading = "Zahlungsarten werden geladen …"
+    const val PaymentTestMode = "Testzahlung (Entwicklungsmodus): Die Buchung gilt sofort als bezahlt, es wird nichts abgebucht."
+    const val PaymentPlatformUnsupported =
+        "Auf diesem Gerät ist keine Zahlung möglich. Google Pay und Apple Pay gibt es nur in der ChargeShare-App für Android und iOS."
+    const val PaymentServerNotConfigured = "Die Zahlung ist serverseitig noch nicht eingerichtet. Bitte versuche es später erneut."
+    const val PaymentInProgressSheet = "Zahlung läuft …"
+    const val PaymentInProgressConfirming = "Zahlung wird bestätigt …"
+    const val PaymentInProgressDiscarding = "Buchung wird verworfen …"
+    const val PaymentCanceled = "Zahlung abgebrochen. Die Buchung ist angelegt, aber noch nicht bezahlt – dein Slot bleibt kurz reserviert."
+    const val PaymentFailed = "Die Zahlung konnte nicht abgeschlossen werden. Bitte versuche es erneut oder wähle eine andere Zahlungsart."
+    const val PaymentNotConfirmed = "Die Zahlung wurde ausgeführt, aber noch nicht bestätigt. Bitte versuche es gleich noch einmal."
+    const val PayAgain = "Erneut bezahlen"
+    const val CheckPayment = "Zahlung prüfen"
+    const val DiscardBooking = "Buchung verwerfen"
+
+    fun paymentMethod(method: PaymentMethodChoice) = when (method) {
+        PaymentMethodChoice.GOOGLE_PAY -> "Google Pay"
+        PaymentMethodChoice.APPLE_PAY -> "Apple Pay"
+        PaymentMethodChoice.CARD -> "Karte und weitere"
+    }
+
+    fun payAndBookWithPrice(total: Double?) = if (total == null) "Buchen und bezahlen" else "Buchen und bezahlen · ${formatEuro(total)}"
 
     fun bookNowWithPrice(total: Double?) = if (total == null) "Jetzt buchen" else "Jetzt buchen · ${formatEuro(total)}"
 

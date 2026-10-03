@@ -3,10 +3,12 @@ package app.chargeshare.di
 import app.chargeshare.data.ApiAuthRepository
 import app.chargeshare.data.ApiBookingRepository
 import app.chargeshare.data.ApiHostRepository
+import app.chargeshare.data.ApiPaymentRepository
 import app.chargeshare.data.ApiWallboxRepository
 import app.chargeshare.data.AuthRepository
 import app.chargeshare.data.BookingRepository
 import app.chargeshare.data.HostRepository
+import app.chargeshare.data.PaymentRepository
 import app.chargeshare.data.WallboxRepository
 import app.chargeshare.shared.api.ChargeShareApi
 import app.chargeshare.shared.api.TokenStore
@@ -35,6 +37,7 @@ class AppContainer(
     val wallboxRepository: WallboxRepository = ApiWallboxRepository(api)
     val bookingRepository: BookingRepository = ApiBookingRepository(api)
     val hostRepository: HostRepository = ApiHostRepository(api)
+    val paymentRepository: PaymentRepository = ApiPaymentRepository(api)
 
     private companion object {
         const val REQUEST_TIMEOUT_MS = 15_000L
