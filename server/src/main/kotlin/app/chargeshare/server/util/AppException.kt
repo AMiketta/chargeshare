@@ -15,3 +15,4 @@ fun internal(message: String) = AppException(HttpStatusCode.InternalServerError,
 fun badRequest(message: String) = AppException(HttpStatusCode.BadRequest, ErrorCodes.BAD_REQUEST, message)
 fun notImplemented(message: String) = AppException(HttpStatusCode.NotImplemented, ErrorCodes.NOT_IMPLEMENTED, message)
 fun serviceUnavailable(message: String) = AppException(HttpStatusCode.ServiceUnavailable, ErrorCodes.INTERNAL_ERROR, message)
+fun badGateway(message: String) = AppException(HttpStatusCode.BadGateway, ErrorCodes.INTERNAL_ERROR, message)
