@@ -15,6 +15,12 @@ enum class BookingStatus {
     @SerialName("failed") FAILED,
 }
 
+/** Bekannte Werte von [Booking.cancelReason], die der Server selbst setzt. */
+object CancelReasons {
+    /** Die Buchung wurde nicht rechtzeitig bezahlt und automatisch storniert. */
+    const val PAYMENT_EXPIRED = "payment_expired"
+}
+
 /** Go: `models.Booking`. */
 @Serializable
 data class Booking(

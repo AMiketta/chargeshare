@@ -144,3 +144,10 @@ fun forceBookingStatus(bookingId: String, status: String) {
         exec("UPDATE bookings SET status = '$status' WHERE id = '$bookingId'")
     }
 }
+
+/** Datiert eine Buchung per SQL zurueck, damit sie als „schon laenger offen“ gilt. */
+fun backdateBooking(bookingId: String, minutesAgo: Long) {
+    org.jetbrains.exposed.v1.jdbc.transactions.transaction(TestDb.database) {
+        exec("UPDATE bookings SET created_at = now() - interval '$minutesAgo minutes' WHERE id = '$bookingId'")
+    }
+}

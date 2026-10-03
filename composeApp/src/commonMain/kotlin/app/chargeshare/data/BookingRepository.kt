@@ -20,6 +20,12 @@ interface BookingRepository {
     /** Meldet dem Server, dass das Zahlungsfenster erfolgreich war; der Server prüft die Zahlung bei Stripe nach. */
     suspend fun confirmPayment(bookingId: String): Outcome<Booking>
 
+    /**
+     * „Jetzt bezahlen“ für eine offene Buchung: holt das `client_secret` für das Zahlungsfenster.
+     * Ist die Buchung inzwischen bezahlt, ist ihr Status nicht mehr `pending` und [BookingCreation.clientSecret] leer.
+     */
+    suspend fun startPayment(bookingId: String): Outcome<BookingCreation>
+
     /** Alle Buchungen des Fahrers (neueste zuerst, wie vom Server geliefert). */
     suspend fun list(): Outcome<List<Booking>>
     suspend fun cancel(bookingId: String): Outcome<Booking>
@@ -38,6 +44,14 @@ class ApiBookingRepository(private val api: ChargeShareApi) : BookingRepository 
 
     override suspend fun confirmPayment(bookingId: String): Outcome<Booking> =
         runCatchingOutcome { api.confirmPayment(bookingId) }
+
+    override suspend fun startPayment(bookingId: String): Outcome<BookingCreation> =
+        when (val result = runCatchingOutcome { api.payBooking(bookingId) }) {
+            is Outcome.Success -> result.value.booking
+                ?.let { Outcome.Success(BookingCreation(it, result.value.clientSecret)) }
+                ?: Outcome.Failure(AppError.Unknown)
+            is Outcome.Failure -> result
+        }
 
     override suspend fun list(): Outcome<List<Booking>> =
         runCatchingOutcome { api.bookings(limit = LIST_LIMIT).bookings }

@@ -64,6 +64,14 @@ interface PaymentProvider {
      */
     fun cancelIntent(paymentIntentId: String)
 
+    /**
+     * Holt einen bestehenden PaymentIntent erneut ab, damit eine offene Buchung nachtraeglich bezahlt werden kann.
+     *
+     * @return die Intent-Daten (inkl. `client_secret`; [PaymentIntentInfo.paid] = bereits bezahlt) oder `null`,
+     * wenn der Intent storniert ist und ein neuer angelegt werden muss
+     */
+    fun resumeIntent(paymentIntentId: String): PaymentIntentInfo?
+
     /** Legt (falls noetig) ein Connect-Express-Konto an und liefert den Onboarding-Link. */
     fun createOnboardingLink(email: String, existingAccountId: String?): OnboardingInfo
 
@@ -110,6 +118,9 @@ class FakePaymentProvider : PaymentProvider {
         canceledIntents += paymentIntentId
     }
 
+    override fun resumeIntent(paymentIntentId: String): PaymentIntentInfo? =
+        PaymentIntentInfo(paymentIntentId, clientSecret = "${paymentIntentId}_secret_fake", paid = true)
+
     override fun createOnboardingLink(email: String, existingAccountId: String?): OnboardingInfo {
         val acct = existingAccountId ?: ("acct_fake_" + UUID.randomUUID().toString().take(12))
         return OnboardingInfo(acct, "https://example.invalid/fake-stripe-onboarding?account=$acct")
@@ -155,6 +166,15 @@ class StripePaymentProvider(
         val status = client.paymentIntents().retrieve(paymentIntentId).status
         if (status in FINISHED_INTENT_STATUSES) return
         client.paymentIntents().cancel(paymentIntentId)
+    }
+
+    override fun resumeIntent(paymentIntentId: String): PaymentIntentInfo? {
+        val intent = client.paymentIntents().retrieve(paymentIntentId)
+        return when (intent.status) {
+            "canceled" -> null
+            "succeeded" -> PaymentIntentInfo(intent.id, intent.clientSecret, paid = true)
+            else -> PaymentIntentInfo(intent.id, intent.clientSecret, paid = false)
+        }
     }
 
     override fun createOnboardingLink(email: String, existingAccountId: String?): OnboardingInfo {

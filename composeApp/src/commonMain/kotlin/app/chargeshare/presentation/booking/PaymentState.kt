@@ -53,3 +53,17 @@ enum class PaymentStep {
     /** Die Buchung wird storniert, weil der Nutzer nicht mehr zahlen will. */
     DISCARDING,
 }
+
+/**
+ * Leitet aus der Serverkonfiguration ab, wie auf diesem Gerät bezahlt werden kann.
+ *
+ * @param supportedMethods Zahlungsarten der Plattform ([app.chargeshare.payment.PaymentLauncher.supportedMethods])
+ */
+fun paymentSetupFor(config: PaymentConfig, supportedMethods: List<PaymentMethodChoice>): PaymentSetup {
+    if (!config.requiresClientPayment) return PaymentSetup.TestPayment
+    if (config.publishableKey.isNullOrBlank()) return PaymentSetup.Unavailable(PaymentUnavailableReason.SERVER_NOT_CONFIGURED)
+    // Apple Pay braucht die Merchant-ID des Servers; ohne sie bleibt auf iOS nur die Kartenzahlung.
+    val methods = supportedMethods.filter { it != PaymentMethodChoice.APPLE_PAY || config.applePayMerchantId != null }
+    if (methods.isEmpty()) return PaymentSetup.Unavailable(PaymentUnavailableReason.PLATFORM_NOT_SUPPORTED)
+    return PaymentSetup.Ready(config, methods)
+}

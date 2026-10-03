@@ -126,20 +126,33 @@ private fun MainContent(container: AppContainer, user: User, paymentLauncher: Pa
             }
         },
     ) { padding ->
-        TabContent(navigation.tab, container, user, navigation, Modifier.padding(padding))
+        TabContent(navigation.tab, container, user, navigation, paymentLauncher, Modifier.padding(padding))
     }
 }
 
 @Composable
-private fun TabContent(tab: MainTab, container: AppContainer, user: User, navigation: NavigationState, modifier: Modifier) {
+private fun TabContent(
+    tab: MainTab,
+    container: AppContainer,
+    user: User,
+    navigation: NavigationState,
+    paymentLauncher: PaymentLauncher,
+    modifier: Modifier,
+) {
     when (tab) {
         MainTab.Search -> {
             val viewModel = viewModel(key = "search") { WallboxListViewModel(container.wallboxRepository, mapSupported = isMapSupported) }
             WallboxListRoute(viewModel, container.tileSource, onOpenWallbox = { navigation.push(Screen.WallboxDetail(it.id)) }, modifier = modifier)
         }
         MainTab.Bookings -> {
-            val viewModel = viewModel(key = "bookings") { BookingsViewModel(container.bookingRepository) }
-            BookingsRoute(viewModel, modifier = modifier)
+            val viewModel = viewModel(key = "bookings") {
+                BookingsViewModel(
+                    repository = container.bookingRepository,
+                    paymentRepository = container.paymentRepository,
+                    supportedPaymentMethods = paymentLauncher.supportedMethods,
+                )
+            }
+            BookingsRoute(viewModel, paymentLauncher, modifier = modifier)
         }
         MainTab.Host -> {
             if (user.isHost) {

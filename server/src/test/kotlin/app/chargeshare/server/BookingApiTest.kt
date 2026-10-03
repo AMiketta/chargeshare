@@ -43,7 +43,14 @@ class ScriptedPaymentProvider : PaymentProvider {
         amounts += amountCents
         return PaymentIntentInfo("pi_test_${amounts.size}", "pi_test_${amounts.size}_secret", paid = false)
     }
-    override fun isPaid(paymentIntentId: String) = paid
+    override fun isPaid(paymentIntentId: String): Boolean {
+        isPaidFailure?.let { throw it }
+        return paid
+    }
+    /** Wenn gesetzt, wirft [isPaid] diesen Fehler (Stripe nicht erreichbar). */
+    @Volatile var isPaidFailure: Throwable? = null
+    override fun resumeIntent(paymentIntentId: String): PaymentIntentInfo? =
+        if (paymentIntentId in canceledIntents) null else PaymentIntentInfo(paymentIntentId, "${paymentIntentId}_secret", paid = paid)
     override fun refund(paymentIntentId: String) { refunds += paymentIntentId }
     val canceledIntents: MutableList<String> = Collections.synchronizedList(mutableListOf())
     /** Wenn gesetzt, wirft [cancelIntent] diesen Fehler (z. B. Intent bei Stripe schon bezahlt). */

@@ -121,7 +121,7 @@ Alle Pfade, JSON-Feldnamen und das Fehlerformat (`{"error": "...", "code": "VALI
 | Auth (`register`, `login`, `refresh`, `logout`, `users/me` GET/PUT/DELETE, `users/me/role`) | implementiert: bcrypt (Kosten 12), Access-JWT (15 min, HS256), Refresh-Token zufaellig + als SHA-256 in `refresh_tokens`, Rotation bei jedem Refresh (Einmalverwendung) |
 | `POST /auth/apple` | implementiert, aber **nur mit `APPLE_BUNDLE_ID`** (prueft Signatur gegen Apples JWKS, `iss`, `aud`, `exp`); ohne Konfiguration `501`. Nicht gegen echte Apple-Tokens getestet (Test mit lokal signiertem Token) |
 | Wallboxen (CRUD, Suche per `earth_distance`, Status, Wochenplan, Slots, Reviews-Liste) | implementiert |
-| Buchungen (anlegen, Liste, Detail, stornieren, `confirm-payment`) | implementiert; Ueberlappungsschutz per Exclusion-Constraint + Advisory-Lock |
+| Buchungen (anlegen, Liste, Detail, stornieren, `confirm-payment`, `pay`) | implementiert; Ueberlappungsschutz per Exclusion-Constraint + Advisory-Lock |
 | `GET /payments/config` | implementiert: öffentliche Zahlungskonfiguration (siehe Abschnitt „Zahlung“); nur mit Login |
 | Host (`/host/bookings`, `/host/earnings`, `/host/sessions`), `POST /reviews` | implementiert |
 | Zahlung | `PaymentProvider`-Interface: `FakePaymentProvider` (Dev) oder `StripePaymentProvider` (PaymentIntent mit Connect-Transfer + Plattformgebuehr, Refund, Connect-Onboarding, Webhook mit Signaturpruefung). **Stripe ist nicht gegen echte Stripe-Konten getestet** (nur Webhook-Signatur) |
@@ -165,6 +165,13 @@ für die Zahlungsart „card“; die Fahrerin wählt im Buchungsflow zwischen *W
 5. Abbruch/Fehler: die Buchung bleibt `pending`; die App bietet „Erneut bezahlen“ oder „Buchung verwerfen“ (Storno gibt den Slot frei).
    Beim Storno einer unbezahlten Buchung schließt der Server außerdem den offenen PaymentIntent bei Stripe (`cancelIntent`; fehlertolerant –
    ein bereits bezahlter oder stornierter Intent blockiert den Storno nicht). Bezahlte Buchungen werden wie bisher per Refund erstattet.
+6. **„Jetzt bezahlen“ (`POST /api/v1/bookings/{id}/pay`):** In der Buchungsliste zeigt jede offene (`pending`, noch nicht beendete) Buchung auf Android/iOS den Button
+   „Jetzt bezahlen“. Der Server liefert das `client_secret` des vorhandenen PaymentIntents (derselbe Betrag); ist der Intent storniert oder fehlt er, wird ein
+   neuer angelegt. Ist er inzwischen bezahlt, wird die Buchung bestätigt (ohne `client_secret`). Nur der Fahrer darf bezahlen (`403`), nur `pending` (`400`).
+7. **Automatischer Ablauf:** Ein Hintergrund-Job (`PendingBookingSweeper`) storniert `pending`-Buchungen, die älter als `PENDING_BOOKING_TTL_MINUTES` (Standard 15, `0` = aus)
+   sind, im Abstand von `PENDING_BOOKING_SWEEP_SECONDS` (Standard 60). `cancel_reason` ist dann `payment_expired`, der Slot wird frei. Ablauf pro Buchung: zuerst
+   `cancelIntent` (Fehler werden nur geloggt), danach Zahlungsstatus prüfen – war inzwischen bezahlt, wird die Buchung **bestätigt statt storniert**;
+   lässt sich der Status nicht abfragen (Stripe nicht erreichbar), bleibt die Buchung unverändert und wird im nächsten Durchlauf erneut geprüft. „Jetzt bezahlen“ verlängert die Frist nicht.
 
 **Auszahlungs-Onboarding (`POST /payments/onboard`):** Stripe-Fehler werden nicht als `500` durchgereicht, sondern mit lesbarer deutscher Meldung
 (ohne Stripe-Rohtext oder Schlüssel) beantwortet: `503`, wenn Stripe Connect im Konto nicht aktiviert (Dashboard → Connect, im Testmodus ohne
@@ -184,6 +191,7 @@ mit aktivem Stripe zeigt die Buchungsmaske den Hinweis, dass nur in der Android-
 | `STRIPE_PUBLISHABLE_KEY` | `pk_test_…` / `pk_live_…`, wird an die Apps ausgeliefert. Muss mit `pk_` beginnen (ein `sk_…` wird abgelehnt). In Produktion Pflicht, sobald Stripe aktiv ist |
 | `APPLE_PAY_MERCHANT_ID` | z. B. `merchant.app.chargeshare`; ohne sie wird Apple Pay in der App nicht angeboten (Karte bleibt) |
 | `GOOGLE_PAY_ENVIRONMENT` | `test` oder `production`; Standard: aus dem Publishable Key abgeleitet (`pk_live_` ⇒ `production`) |
+| `PENDING_BOOKING_TTL_MINUTES`, `PENDING_BOOKING_SWEEP_SECONDS` | Frist (Standard 15 Minuten, `0` = kein automatischer Ablauf) und Prüfintervall (Standard 60 s) für unbezahlte Buchungen |
 | `MERCHANT_DISPLAY_NAME`, `MERCHANT_COUNTRY_CODE` | Anzeigename (Standard `ChargeShare`) und ISO-Land (Standard `DE`) in den Zahlungsdialogen; Währung ist fest `eur` |
 
 Keine Schlüssel ins Repo: alles per Umgebung/`.env` (steht in `.gitignore`).
@@ -220,6 +228,6 @@ Alle Versionen stehen in `gradle/libs.versions.toml`.
 ## Nächste Schritte
 
 1. Server: Rate-Limiting, Stripe gegen Testkonto pruefen (Google Pay/Apple Pay mit echten Testschlüsseln durchspielen), Zahlung nach OCPP-Abschluss auf tatsaechliche kWh abrechnen, RemoteStart/Stop
-2. composeApp: Karte auf iOS/Web freischalten (nach Test), Gerätestandort mit Einwilligung, Bewertungen schreiben, Wallbox bearbeiten, „Jetzt bezahlen“ für offene Buchungen in der Buchungsliste
+2. composeApp: Karte auf iOS/Web freischalten (nach Test), Gerätestandort mit Einwilligung, Bewertungen schreiben, Wallbox bearbeiten
 3. iOS auf einem Mac bauen und testen (Keychain-`TokenStore` ist ungetestet)
 4. CI (GitHub Actions: Linux für shared/server/web/android, macOS für iOS)

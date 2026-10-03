@@ -134,4 +134,20 @@ class ChargeShareApiTest {
         assertEquals("pk_test_1", config.publishableKey)
         assertEquals("DE", config.merchantCountryCode)
     }
+
+    @Test
+    fun payBookingPostsToPayPathAndDecodesClientSecret() = runTest {
+        val api = api { req ->
+            assertEquals(HttpMethod.Post, req.method)
+            assertEquals("/api/v1/bookings/b1/pay", req.url.encodedPath)
+            respond(
+                """{"booking":{"id":"b1","wallbox_id":"w1","driver_id":"u1","start_time":"2026-05-01T08:00:00Z",
+                   "end_time":"2026-05-01T08:30:00Z","status":"pending","price_per_kwh":0.4,
+                   "created_at":"2026-04-30T09:00:00Z","updated_at":"2026-04-30T09:00:00Z"},"client_secret":"pi_1_secret"}""",
+                HttpStatusCode.OK, jsonHeaders)
+        }
+        val response = api.payBooking("b1")
+        assertEquals(BookingStatus.PENDING, response.booking?.status)
+        assertEquals("pi_1_secret", response.clientSecret)
+    }
 }
