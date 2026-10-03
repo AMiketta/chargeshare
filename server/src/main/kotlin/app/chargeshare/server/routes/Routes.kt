@@ -34,5 +34,6 @@ fun Route.apiV1Routes(services: Services?) {
         }
         authRoutes(services)
         userRoutes(services)
+        wallboxRoutes(services)
     }
 }

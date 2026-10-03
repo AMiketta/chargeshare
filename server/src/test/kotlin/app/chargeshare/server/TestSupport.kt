@@ -101,3 +101,33 @@ suspend fun HttpClient.deleteAuth(path: String, token: String?): HttpResponse = 
 
 @Suppress("unused")
 suspend fun HttpResponse.text(): String = bodyAsText()
+
+// ---- Fixtures -----------------------------------------------------------------------------
+
+val allDays = listOf("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+
+/** Jeden Tag 08:00-12:00 und 14:00-18:00 UTC verfuegbar. */
+fun weekPlan(): Map<String, List<app.chargeshare.shared.model.TimeSlot>> =
+    allDays.associateWith {
+        listOf(app.chargeshare.shared.model.TimeSlot("08:00", "12:00"), app.chargeshare.shared.model.TimeSlot("14:00", "18:00"))
+    }
+
+fun newWallbox(
+    name: String = "Testbox",
+    lat: Double = 53.0758,
+    lng: Double = 8.8072,
+    power: Double = 11.0,
+    price: Double = 0.40,
+    connector: app.chargeshare.shared.model.ConnectorType = app.chargeshare.shared.model.ConnectorType.TYPE2,
+) = app.chargeshare.shared.model.CreateWallboxRequest(
+    name = name, address = "Marktplatz 1", city = "Bremen", postalCode = "28195", lat = lat, lng = lng,
+    powerKw = power, connectorType = connector, pricePerKwh = price, availability = weekPlan(),
+)
+
+/** Registriert einen Benutzer; mit [host] wird die Rolle auf `host` gesetzt. */
+suspend fun ServerScope.registerUser(email: String, host: Boolean = false): TestClient {
+    val c = newApi()
+    c.api.register(email, "geheim1234", email.substringBefore('@'))
+    if (host) c.api.updateRole(app.chargeshare.shared.model.UserRole.HOST)
+    return c
+}

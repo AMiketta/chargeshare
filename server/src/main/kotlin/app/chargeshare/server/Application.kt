@@ -7,6 +7,8 @@ import app.chargeshare.server.auth.TokenService
 import app.chargeshare.server.db.Db
 import app.chargeshare.server.payments.PaymentProvider
 import app.chargeshare.server.services.AuthService
+import app.chargeshare.server.services.ReviewService
+import app.chargeshare.server.services.WallboxService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -72,5 +74,9 @@ private fun Application.buildServices(
 ): Services {
     val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     monitor.subscribe(io.ktor.server.application.ApplicationStopping) { background.coroutineContext[kotlinx.coroutines.Job]?.cancel() }
-    return Services(auth = AuthService(db, tokens, config, payments, apple, background))
+    return Services(
+        auth = AuthService(db, tokens, config, payments, apple, background),
+        wallboxes = WallboxService(db),
+        reviews = ReviewService(db),
+    )
 }
