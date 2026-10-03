@@ -305,7 +305,9 @@ Der **Amber-Button** ist die eine Haupthandlung pro Screen (z. B. „Jetzt buche
 
 ## 14. Git-Regeln
 
-- Lokales Repo, Branch `main`; **nichts pushen**, solange der Nutzer kein Remote festgelegt hat.
+- **Branch-Workflow (verbindlich):** `main` enthält nur Releases, `develop` ist der Integrationszweig. Niemand committet direkt auf `main` oder `develop`. Jede Änderung entsteht auf einem Branch von `develop` (`feat/<thema>`, `fix/<thema>`, `docs/<thema>`, `chore/<thema>`) und geht per **Pull Request nach `develop`** (Squash-Merge). Erst nach grüner CI und Review wird gemerged. Releases: PR von `develop` nach `main`.
+- Ein PR hat einen Zweck, ist klein und folgt `.github/pull_request_template.md`. Der Review-Bot prüft jeden PR; seine Hinweise werden bearbeitet oder begründet abgelehnt.
+- Solange kein Remote festgelegt ist, gilt derselbe Ablauf lokal mit Branches; **nichts pushen** ohne Remote-Freigabe des Nutzers.
 - Commit-Identität auf der Box: `git -c user.name="ChargeShare" -c user.email="dev@chargeshare.local" commit …`
 - **Kleine, thematisch geschlossene Commits**, jeder baut und besteht seine Tests.
 - Nachrichtenformat **Conventional-Commit-artig** mit Bereich, Beschreibung deutsch oder englisch (wie bisher gemischt – bevorzugt deutsch):
