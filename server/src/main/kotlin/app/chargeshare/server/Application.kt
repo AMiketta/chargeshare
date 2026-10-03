@@ -5,6 +5,7 @@ import app.chargeshare.server.auth.AppleTokenVerifier
 import app.chargeshare.server.auth.DisabledAppleTokenVerifier
 import app.chargeshare.server.auth.TokenService
 import app.chargeshare.server.db.Db
+import app.chargeshare.server.db.DevSeed
 import app.chargeshare.server.payments.PaymentProvider
 import app.chargeshare.server.services.AuthService
 import app.chargeshare.server.services.BookingService
@@ -50,6 +51,7 @@ fun Application.module(
 ) {
     val db = database ?: DatabaseFactory.connect(config)
     val tokens = TokenService(config)
+    if (db != null && config.devSeed && !config.isProduction) DevSeed.run(Db(db), config.bcryptCost)
     val services = db?.let { buildServices(config, Db(it), tokens, payments, apple) }
 
     configureSerialization()
