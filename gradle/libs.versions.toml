@@ -13,6 +13,8 @@ hikari = "7.1.0"
 logback = "1.6.5"
 androidx-activity = "1.12.4"
 embedded-postgres = "2.2.2"
+bcrypt = "0.10.2"
+stripe = "34.0.0"
 
 [libraries]
 # Kotlin / Coroutines / Serialization
@@ -59,6 +61,10 @@ flyway-postgresql = { module = "org.flywaydb:flyway-database-postgresql", versio
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+bcrypt = { module = "at.favre.lib:bcrypt", version.ref = "bcrypt" }
+stripe-java = { module = "com.stripe:stripe-java", version.ref = "stripe" }
+ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.ref = "ktor" }
+ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
 embedded-postgres = { module = "io.zonky.test:embedded-postgres", version.ref = "embedded-postgres" }
 
 # Android

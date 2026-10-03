@@ -1,6 +1,15 @@
 package app.chargeshare.server
 
+import app.chargeshare.server.auth.AppleJwksTokenVerifier
+import app.chargeshare.server.auth.AppleTokenVerifier
+import app.chargeshare.server.auth.DisabledAppleTokenVerifier
 import app.chargeshare.server.auth.TokenService
+import app.chargeshare.server.db.Db
+import app.chargeshare.server.payments.PaymentProvider
+import app.chargeshare.server.services.AuthService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import app.chargeshare.server.config.AppConfig
 import app.chargeshare.server.db.DatabaseFactory
 import app.chargeshare.server.plugins.configureHttp
@@ -27,9 +36,16 @@ fun main() {
 /**
  * @param database bereits verbundene DB (Tests/Embedded); `null` = anhand [config] verbinden bzw. ohne DB laufen
  */
-fun Application.module(config: AppConfig = AppConfig.fromEnv(), database: Database? = null) {
+fun Application.module(
+    config: AppConfig = AppConfig.fromEnv(),
+    database: Database? = null,
+    payments: PaymentProvider = PaymentProvider.from(config),
+    apple: AppleTokenVerifier = config.appleBundleId?.takeIf { it.isNotBlank() }
+        ?.let { AppleJwksTokenVerifier(it) } ?: DisabledAppleTokenVerifier,
+) {
     val db = database ?: DatabaseFactory.connect(config)
     val tokens = TokenService(config)
+    val services = db?.let { buildServices(config, Db(it), tokens, payments, apple) }
 
     configureSerialization()
     configureHttp()
@@ -43,6 +59,18 @@ fun Application.module(config: AppConfig = AppConfig.fromEnv(), database: Databa
                 "ok"
             }.getOrDefault("down")
         }
-        apiV1Routes()
+        apiV1Routes(services)
     }
+}
+
+private fun Application.buildServices(
+    config: AppConfig,
+    db: Db,
+    tokens: TokenService,
+    payments: PaymentProvider,
+    apple: AppleTokenVerifier,
+): Services {
+    val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    monitor.subscribe(io.ktor.server.application.ApplicationStopping) { background.coroutineContext[kotlinx.coroutines.Job]?.cancel() }
+    return Services(auth = AuthService(db, tokens, config, payments, apple, background))
 }

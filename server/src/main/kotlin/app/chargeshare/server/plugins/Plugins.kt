@@ -19,6 +19,7 @@ import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.response.respond
+import app.chargeshare.server.util.AppException
 import org.slf4j.event.Level
 
 const val JWT_AUTH = "auth-jwt"
@@ -46,6 +47,9 @@ fun Application.configureStatusPages() {
     install(StatusPages) {
         exception<BadRequestException> { call, _ ->
             call.respond(HttpStatusCode.BadRequest, ApiError("invalid JSON body", ErrorCodes.BAD_REQUEST))
+        }
+        exception<AppException> { call, e ->
+            call.respond(e.status, ApiError(e.message, e.code))
         }
         exception<Throwable> { call, cause ->
             call.application.environment.log.error("unhandled exception", cause)

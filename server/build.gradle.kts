@@ -30,11 +30,15 @@ dependencies {
     implementation(libs.postgresql)
     implementation(libs.hikari)
     implementation(libs.logback.classic)
+    implementation(libs.bcrypt)
+    implementation(libs.stripe.java)
+    implementation(libs.ktor.server.websockets)
 
     testImplementation(libs.kotlin.test)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.ktor.client.content.negotiation)
     testImplementation(libs.embedded.postgres)
+    testImplementation(libs.ktor.client.websockets)
 }
 
 tasks.test {

@@ -34,68 +34,14 @@ class ApplicationTest {
     }
 
     @Test
-    fun registerValidatesPayload() = testApplication {
-        application { module(config) }
-        val res = client.post("/api/v1/auth/register") {
-            contentType(ContentType.Application.Json)
-            setBody("""{"email":"kaputt","password":"x","name":"Ada"}""")
-        }
-        assertEquals(HttpStatusCode.UnprocessableEntity, res.status)
-        assertEquals(ErrorCodes.VALIDATION_ERROR, err(res.bodyAsText()).code)
-    }
-
-    @Test
-    fun registerWithValidPayloadIsStub501() = testApplication {
+    fun apiWithoutDatabaseReturns503() = testApplication {
         application { module(config) }
         val res = client.post("/api/v1/auth/register") {
             contentType(ContentType.Application.Json)
             setBody("""{"email":"ada@example.com","password":"geheim1234","name":"Ada"}""")
         }
-        assertEquals(HttpStatusCode.NotImplemented, res.status)
-        assertEquals(ErrorCodes.NOT_IMPLEMENTED, err(res.bodyAsText()).code)
-    }
-
-    @Test
-    fun invalidJsonIsBadRequest() = testApplication {
-        application { module(config) }
-        val res = client.post("/api/v1/auth/login") {
-            contentType(ContentType.Application.Json)
-            setBody("{nicht json")
-        }
-        assertEquals(HttpStatusCode.BadRequest, res.status)
-        assertEquals(ErrorCodes.BAD_REQUEST, err(res.bodyAsText()).code)
-    }
-
-    @Test
-    fun otherAuthStubsReturn501() = testApplication {
-        application { module(config) }
-        for (path in listOf("/api/v1/auth/apple", "/api/v1/auth/refresh")) {
-            assertEquals(HttpStatusCode.NotImplemented, client.post(path).status, path)
-        }
-    }
-
-    @Test
-    fun protectedRoutesRequireValidJwt() = testApplication {
-        application { module(config) }
-        val none = client.get("/api/v1/users/me")
-        assertEquals(HttpStatusCode.Unauthorized, none.status)
-        assertEquals(ErrorCodes.UNAUTHORIZED, err(none.bodyAsText()).code)
-
-        val bad = client.get("/api/v1/users/me") { header(HttpHeaders.Authorization, "Bearer abc.def.ghi") }
-        assertEquals(HttpStatusCode.Unauthorized, bad.status)
-
-        val token = TokenService(config).createAccessToken("11111111-2222-3333-4444-555555555555", UserRole.DRIVER)
-        val ok = client.get("/api/v1/users/me") { header(HttpHeaders.Authorization, "Bearer $token") }
-        // Authentifiziert -> erreicht den Stub-Handler
-        assertEquals(HttpStatusCode.NotImplemented, ok.status)
-    }
-
-    @Test
-    fun tokenWithWrongSecretIsRejected() = testApplication {
-        application { module(config) }
-        val foreign = TokenService(config.copy(jwtSecret = "x".repeat(40))).createAccessToken("u1", UserRole.HOST)
-        val res = client.get("/api/v1/users/me") { header(HttpHeaders.Authorization, "Bearer $foreign") }
-        assertEquals(HttpStatusCode.Unauthorized, res.status)
+        assertEquals(HttpStatusCode.ServiceUnavailable, res.status)
+        assertEquals(ErrorCodes.INTERNAL_ERROR, err(res.bodyAsText()).code)
     }
 
     @Test

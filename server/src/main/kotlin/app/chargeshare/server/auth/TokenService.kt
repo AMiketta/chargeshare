@@ -13,11 +13,13 @@ class TokenService(private val config: AppConfig) {
 
     val verifier: JWTVerifier = JWT.require(algorithm).withIssuer(config.jwtIssuer).build()
 
-    fun createAccessToken(userId: String, role: UserRole, now: Date = Date()): String =
+    fun createAccessToken(userId: String, role: UserRole, now: Date = Date(), email: String? = null): String =
         JWT.create()
             .withIssuer(config.jwtIssuer)
             .withSubject(userId)
             .withClaim("role", role.name.lowercase())
+            .withClaim("user_id", userId)
+            .apply { if (email != null) withClaim("email", email) }
             .withIssuedAt(now)
             .withExpiresAt(Date(now.time + config.accessTokenTtlSeconds * 1000))
             .sign(algorithm)

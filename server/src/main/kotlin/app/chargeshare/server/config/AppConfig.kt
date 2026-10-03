@@ -18,13 +18,20 @@ data class AppConfig(
     val stripeSecretKey: String? = null,
     val stripeWebhookSecret: String? = null,
     val stripePlatformFeePercent: Int = 15,
+    /** bcrypt-Kosten (Go-Backend: 12). Tests senken den Wert, damit sie schnell bleiben. */
+    val bcryptCost: Int = 12,
+    val refreshTokenTtlDays: Long = 30,
+    /** Legt beim Start Beispieldaten (Demo-Host + Wallboxen in Bremen) an. Nie in Produktion. */
+    val devSeed: Boolean = false,
 ) {
     val isProduction: Boolean get() = env.equals("production", ignoreCase = true)
+    val isDevelopment: Boolean get() = env.equals("development", ignoreCase = true)
 
     init {
         if (isProduction) {
             require(jwtSecret != DEV_JWT_SECRET && jwtSecret.length >= 32) { "JWT_SECRET muss in Produktion gesetzt sein (>= 32 Zeichen)" }
             require(jwtRefreshSecret != DEV_JWT_REFRESH_SECRET) { "JWT_REFRESH_SECRET muss in Produktion gesetzt sein" }
+            require(!devSeed) { "devSeed ist in Produktion nicht erlaubt" }
         }
     }
 
@@ -44,6 +51,9 @@ data class AppConfig(
             stripeSecretKey = env["STRIPE_SECRET_KEY"],
             stripeWebhookSecret = env["STRIPE_WEBHOOK_SECRET"],
             stripePlatformFeePercent = env["STRIPE_PLATFORM_FEE_PERCENT"]?.toIntOrNull() ?: 15,
+            // Dev-Seed: nur ENV=development und solange DEV_SEED nicht explizit "false" ist
+            devSeed = (env["ENV"] ?: "development").equals("development", ignoreCase = true) &&
+                !(env["DEV_SEED"] ?: "true").equals("false", ignoreCase = true),
         )
     }
 }
