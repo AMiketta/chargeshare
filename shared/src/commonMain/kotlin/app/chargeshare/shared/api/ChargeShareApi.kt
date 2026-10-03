@@ -125,8 +125,14 @@ class ChargeShareApi(
 
     suspend fun booking(id: String): Booking = http.get("$V1/bookings/$id").body()
 
-    suspend fun cancelBooking(id: String, reason: String? = null): Booking =
-        http.delete("$V1/bookings/$id") { if (reason != null) json(CancelBookingRequest(reason)) }.body()
+    /**
+     * Das Backend antwortet auf `DELETE /bookings/:id` mit `204 No Content` (Go-Vertrag); zurueckgegeben wird
+     * daher die anschliessend geladene, stornierte Buchung.
+     */
+    suspend fun cancelBooking(id: String, reason: String? = null): Booking {
+        http.delete("$V1/bookings/$id") { if (reason != null) json(CancelBookingRequest(reason)) }
+        return booking(id)
+    }
 
     suspend fun confirmPayment(bookingId: String): Booking =
         http.post("$V1/bookings/$bookingId/confirm-payment").body()

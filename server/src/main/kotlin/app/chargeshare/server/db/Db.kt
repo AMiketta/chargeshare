@@ -19,6 +19,7 @@ object PgState {
     const val UNIQUE_VIOLATION = "23505"
     const val EXCLUSION_VIOLATION = "23P01"
     const val FOREIGN_KEY_VIOLATION = "23503"
+    const val DEADLOCK = "40P01"
 }
 
 fun Throwable.sqlState(): String? {

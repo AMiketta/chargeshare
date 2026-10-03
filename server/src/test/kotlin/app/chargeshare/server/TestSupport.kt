@@ -131,3 +131,14 @@ suspend fun ServerScope.registerUser(email: String, host: Boolean = false): Test
     if (host) c.api.updateRole(app.chargeshare.shared.model.UserRole.HOST)
     return c
 }
+
+fun inFuture(daysAhead: Long, hour: Int, minute: Int = 0): kotlin.time.Instant =
+    java.time.LocalDate.now(java.time.ZoneOffset.UTC).plusDays(daysAhead).atTime(hour, minute)
+        .toInstant(java.time.ZoneOffset.UTC).let { kotlin.time.Instant.fromEpochSeconds(it.epochSecond) }
+
+/** Setzt eine Buchung per SQL auf `completed` (die OCPP-/Zeit-Logik dafuer laeuft sonst ausserhalb der API). */
+fun forceBookingStatus(bookingId: String, status: String) {
+    org.jetbrains.exposed.v1.jdbc.transactions.transaction(TestDb.database) {
+        exec("UPDATE bookings SET status = '$status' WHERE id = '$bookingId'")
+    }
+}
