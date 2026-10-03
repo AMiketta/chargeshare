@@ -12,8 +12,11 @@ import app.chargeshare.server.services.AuthService
 import app.chargeshare.server.services.BookingService
 import app.chargeshare.server.services.HostService
 import app.chargeshare.server.services.PaymentService
+import app.chargeshare.server.services.PendingBookingSweeper
 import app.chargeshare.server.services.ReviewService
 import app.chargeshare.server.services.WallboxService
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -86,6 +89,9 @@ private fun Application.buildServices(
     val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     monitor.subscribe(io.ktor.server.application.ApplicationStopping) { background.coroutineContext[kotlinx.coroutines.Job]?.cancel() }
     val bookings = BookingService(db, payments, config.stripePlatformFeePercent)
+    if (config.pendingBookingTtlMinutes > 0) {
+        PendingBookingSweeper(bookings, config.pendingBookingTtlMinutes.minutes, config.pendingBookingSweepSeconds.seconds).start(background)
+    }
     return Services(
         auth = AuthService(db, tokens, config, payments, apple, background),
         wallboxes = WallboxService(db),

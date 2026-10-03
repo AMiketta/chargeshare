@@ -24,6 +24,7 @@ import app.chargeshare.shared.model.Booking
 import app.chargeshare.shared.model.BookingListResponse
 import app.chargeshare.shared.model.BookingResponse
 import app.chargeshare.shared.model.BookingStatus
+import app.chargeshare.shared.model.CancelReasons
 import app.chargeshare.shared.model.CreateBookingRequest
 import app.chargeshare.shared.model.ErrorCodes
 import app.chargeshare.shared.model.User
@@ -33,6 +34,8 @@ import java.math.RoundingMode
 import java.time.Duration
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
+import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.toJavaDuration
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 import org.jetbrains.exposed.v1.core.Op
@@ -42,6 +45,7 @@ import org.jetbrains.exposed.v1.core.and
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greater
 import org.jetbrains.exposed.v1.core.inList
+import org.jetbrains.exposed.v1.core.isNull
 import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.notInList
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
@@ -114,7 +118,7 @@ class BookingService(
         val (wb, total) = wallbox
 
         // 2) Zahlung anlegen (Stripe oder Fake); bei Fehler wird die Buchung auf `failed` gesetzt (Slot frei)
-        val amountCents = maxOf(total.movePointRight(2).toLong(), 50L) // Stripe-Minimum
+        val amountCents = maxOf(total.movePointRight(2).toLong(), MIN_CHARGE_CENTS)
         val intent = try {
             payments.createPaymentIntent(amountCents, "eur", customerId, hostAccount, platformFeePercent)
         } catch (e: Exception) {
@@ -266,6 +270,115 @@ class BookingService(
         }
     }
 
+    // ---- Offene Buchung nachtraeglich bezahlen / automatischer Ablauf -----------------------
+
+    /**
+     * „Jetzt bezahlen“ fuer eine offene (`pending`) Buchung: liefert das `client_secret` fuer das Zahlungsfenster.
+     *
+     * Ein noch offener PaymentIntent wird weiterverwendet; ist er storniert (oder fehlt er), wird ein neuer angelegt.
+     * Ist er inzwischen bezahlt, wird die Buchung bestaetigt und kein `client_secret` geliefert.
+     * Die Frist zum Bezahlen verlaengert sich dadurch nicht (siehe [expireUnpaid]).
+     */
+    suspend fun payPending(bookingId: Uuid, userId: Uuid, now: OffsetDateTime = OffsetDateTime.now(ZoneOffset.UTC)): BookingResponse {
+        val row = db.tx { Bookings.selectAll().where { Bookings.id eq bookingId }.singleOrNull() ?: throw notFound("booking not found") }
+        if (row[Bookings.driverId] != userId) throw forbidden("not your booking")
+        if (row[Bookings.status] != "pending") throw badRequest("booking is not awaiting payment")
+        if (!row[Bookings.endTime].isAfter(now)) throw badRequest("booking time has already passed")
+
+        val existingId = row[Bookings.stripePaymentIntentId]
+        val existing = try {
+            existingId?.let { payments.resumeIntent(it) }
+        } catch (e: Exception) {
+            log.error("resuming payment intent failed for booking $bookingId", e)
+            throw internal("payment intent lookup failed")
+        }
+        if (existing != null && existing.paid) {
+            return BookingResponse(confirmPaidBooking(bookingId, existing.id), clientSecret = null)
+        }
+        if (existing != null) {
+            return BookingResponse(db.tx { load(bookingId, withWallbox = true) }, existing.clientSecret)
+        }
+
+        // Kein (oder ein stornierter) Intent: neuen anlegen und an die Buchung haengen. Nur wenn sie noch `pending` ist.
+        val total = row[Bookings.totalAmount] ?: throw internal("booking has no total amount")
+        val (hostAccount, customerId) = db.tx {
+            val wb = Wallboxes.selectAll().where { Wallboxes.id eq row[Bookings.wallboxId] }.single().toWallbox()
+            Users.selectAll().where { Users.id eq Uuid.parse(wb.ownerId) }.singleOrNull()?.get(Users.stripeAccountId) to
+                Users.selectAll().where { Users.id eq userId }.singleOrNull()?.get(Users.stripeCustomerId)
+        }
+        val intent = try {
+            payments.createPaymentIntent(maxOf(total.movePointRight(2).toLong(), MIN_CHARGE_CENTS), "eur", customerId, hostAccount, platformFeePercent)
+        } catch (e: Exception) {
+            log.error("payment intent creation failed for booking $bookingId", e)
+            throw internal("payment intent creation failed")
+        }
+        val updated = db.tx {
+            Bookings.update({ (Bookings.id eq bookingId) and (Bookings.status eq "pending") }) {
+                it[stripePaymentIntentId] = intent.id
+                it[updatedAt] = OffsetDateTime.now(ZoneOffset.UTC)
+            }
+        }
+        if (updated == 0) {
+            // Die Buchung wurde inzwischen storniert/abgelaufen: den frischen Intent nicht offen lassen.
+            runCatching { payments.cancelIntent(intent.id) }.onFailure { log.warn("cancelling fresh payment intent failed for booking $bookingId", it) }
+            throw conflict("booking is no longer awaiting payment")
+        }
+        return BookingResponse(db.tx { load(bookingId, withWallbox = true) }, intent.clientSecret)
+    }
+
+    /**
+     * Storniert unbezahlte (`pending`) Buchungen, die vor mehr als [ttl] angelegt wurden, und gibt den Slot frei.
+     *
+     * Fehlertolerant und moeglichst sicher gegen Doppelabbuchung: Zuerst wird der PaymentIntent geschlossen (scheitert das,
+     * wird nur gewarnt), danach noch einmal geprueft, ob er doch bezahlt wurde – dann wird die Buchung bestaetigt statt storniert.
+     * Laesst sich der Zahlungsstatus nicht abfragen, bleibt die Buchung unveraendert und wird im naechsten Lauf erneut geprueft.
+     *
+     * @return Anzahl der stornierten Buchungen
+     */
+    suspend fun expireUnpaid(ttl: kotlin.time.Duration, now: OffsetDateTime = OffsetDateTime.now(ZoneOffset.UTC)): Int {
+        val cutoff = now.minus(ttl.toJavaDuration())
+        val stale = db.tx {
+            Bookings.selectAll().where { (Bookings.status eq "pending") and (Bookings.createdAt less cutoff) }
+                .map { it[Bookings.id] to it[Bookings.stripePaymentIntentId] }
+        }
+        return stale.count { (id, intentId) -> expireOne(id, intentId) }
+    }
+
+    private suspend fun expireOne(bookingId: Uuid, intentId: String?): Boolean {
+        if (intentId != null) {
+            runCatching { payments.cancelIntent(intentId) }.onFailure { log.warn("cancelling payment intent failed for expired booking $bookingId", it) }
+            val paid = try {
+                payments.isPaid(intentId)
+            } catch (e: Exception) {
+                log.warn("payment status unknown for expired booking $bookingId; will retry", e)
+                return false
+            }
+            if (paid) {
+                // Zwischenzeitlich bezahlt: bestaetigen statt stornieren (Slot-Konflikt erstattet confirmPaidBooking selbst).
+                try {
+                    confirmPaidBooking(bookingId, intentId)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    log.warn("paid booking $bookingId could not be confirmed during expiry: ${e.message}")
+                }
+                return false
+            }
+        }
+        val cancelled = db.tx {
+            Bookings.update({
+                (Bookings.id eq bookingId) and (Bookings.status eq "pending") and
+                    (if (intentId != null) Bookings.stripePaymentIntentId eq intentId else Bookings.stripePaymentIntentId.isNull())
+            }) {
+                it[status] = BookingStatus.CANCELLED.dbValue()
+                it[cancelReason] = CancelReasons.PAYMENT_EXPIRED
+                it[updatedAt] = OffsetDateTime.now(ZoneOffset.UTC)
+            }
+        }
+        if (cancelled > 0) log.info("expired unpaid booking $bookingId")
+        return cancelled > 0
+    }
+
     // ---- Hilfsfunktionen --------------------------------------------------------------------
 
     private fun JdbcTransaction.load(id: Uuid, withWallbox: Boolean): Booking {
@@ -299,6 +412,9 @@ class BookingService(
 
         /** Zustaende, aus denen eine bezahlte Buchung bestaetigt werden darf. */
         val PAYABLE = listOf("pending", "failed")
+        /** Stripe-Minimum fuer eine Zahlung in Cent. */
+        const val MIN_CHARGE_CENTS = 50L
+
         const val CONFLICT_MSG = "wallbox is not available for the requested time slot"
 
         /** Fahrer-Ansicht fuer Hosts: ohne Rolle/Stripe-IDs/Telefon. */

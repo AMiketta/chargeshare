@@ -17,17 +17,30 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import app.chargeshare.data.AppError
+import app.chargeshare.payment.PaymentLauncher
+import app.chargeshare.payment.payCatching
 import app.chargeshare.presentation.booking.BookingFilter
+import app.chargeshare.presentation.booking.PayNowState
+import app.chargeshare.presentation.booking.PaymentIssue
+import app.chargeshare.presentation.booking.PaymentStep
+import app.chargeshare.presentation.booking.PaymentUnavailableReason
+import app.chargeshare.presentation.booking.bookingId
+import app.chargeshare.presentation.booking.isBusy
+import app.chargeshare.presentation.booking.isPayable
 import app.chargeshare.presentation.booking.BookingsUiState
 import app.chargeshare.presentation.booking.BookingsViewModel
 import app.chargeshare.presentation.booking.isCancellable
 import app.chargeshare.shared.model.Booking
 import app.chargeshare.shared.model.BookingStatus
+import app.chargeshare.shared.model.CancelReasons
 import app.chargeshare.ui.ChargeShareColors
 import app.chargeshare.ui.Spacing
 import app.chargeshare.ui.Strings
+import app.chargeshare.ui.components.AmberButton
 import app.chargeshare.ui.components.ChoiceChips
 import app.chargeshare.ui.components.EmptyBox
 import app.chargeshare.ui.components.ErrorBox
@@ -39,17 +52,20 @@ import app.chargeshare.ui.components.SurfaceCard
 import app.chargeshare.ui.formatDateTime
 import app.chargeshare.ui.formatEuro
 import app.chargeshare.ui.formatTime
+import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 
 @Composable
 fun BookingsRoute(
     viewModel: BookingsViewModel,
+    paymentLauncher: PaymentLauncher,
     modifier: Modifier = Modifier,
     zone: TimeZone = TimeZone.currentSystemDefault(),
 ) {
     // Beim Einblenden des Tabs neu laden, damit frisch gebuchte/stornierte Slots sichtbar sind.
     LaunchedEffect(viewModel) { viewModel.refresh() }
     val state by viewModel.state.collectAsState()
+    PayNowSheetEffect(state.payNow, viewModel, paymentLauncher)
     BookingsScreen(
         state = state,
         zone = zone,
@@ -58,8 +74,27 @@ fun BookingsRoute(
         onCancelConfirmed = viewModel::onCancelConfirmed,
         onCancelDismissed = viewModel::onCancelDismissed,
         onRetry = viewModel::refresh,
+        onPayNow = viewModel::onPayNow,
+        onRetryPayNow = viewModel::onRetryPayNow,
+        onPayNowDismissed = viewModel::onPayNowDismissed,
         modifier = modifier,
     )
+}
+
+/**
+ * Öffnet das Zahlungsfenster der Plattform, sobald das ViewModel [PayNowState.PaymentRequired] meldet.
+ * Eigener Scope aus demselben Grund wie im Buchungsflow: der Effekt startet nach `onPaymentSheetOpened()` neu,
+ * das offene Fenster darf dabei nicht abgebrochen werden.
+ */
+@Composable
+private fun PayNowSheetEffect(payNow: PayNowState, viewModel: BookingsViewModel, paymentLauncher: PaymentLauncher) {
+    val scope = rememberCoroutineScope()
+    val requested = (payNow as? PayNowState.PaymentRequired)?.request
+    LaunchedEffect(requested) {
+        if (requested == null) return@LaunchedEffect
+        viewModel.onPaymentSheetOpened()
+        scope.launch { viewModel.onPaymentResult(paymentLauncher.payCatching(requested)) }
+    }
 }
 
 /** Buchungsliste (kommend/vergangen) mit Stornieren. */
@@ -72,6 +107,9 @@ fun BookingsScreen(
     onCancelConfirmed: () -> Unit,
     onCancelDismissed: () -> Unit,
     onRetry: () -> Unit,
+    onPayNow: (Booking) -> Unit,
+    onRetryPayNow: () -> Unit,
+    onPayNowDismissed: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -94,7 +132,20 @@ fun BookingsScreen(
                 verticalArrangement = Arrangement.spacedBy(Spacing.Small),
             ) {
                 items(state.visibleBookings, key = { it.id }) { booking ->
-                    BookingCard(booking, zone, isCancelling = state.cancellingId == booking.id, onCancel = { onCancelRequested(booking) })
+                    BookingCard(
+                        booking = booking,
+                        zone = zone,
+                        isCancelling = state.cancellingId == booking.id,
+                        payment = BookingPaymentUi(
+                            canPay = state.canPayOnline && booking.isPayable(state.now),
+                            payNow = state.payNow.takeIf { it.bookingId == booking.id } ?: PayNowState.Idle,
+                            isAnyPaymentBusy = state.payNow.isBusy,
+                        ),
+                        onCancel = { onCancelRequested(booking) },
+                        onPayNow = { onPayNow(booking) },
+                        onRetryPayNow = onRetryPayNow,
+                        onPayNowDismissed = onPayNowDismissed,
+                    )
                 }
             }
         }
@@ -111,7 +162,16 @@ fun BookingsScreen(
 }
 
 @Composable
-private fun BookingCard(booking: Booking, zone: TimeZone, isCancelling: Boolean, onCancel: () -> Unit) {
+private fun BookingCard(
+    booking: Booking,
+    zone: TimeZone,
+    isCancelling: Boolean,
+    payment: BookingPaymentUi,
+    onCancel: () -> Unit,
+    onPayNow: () -> Unit,
+    onRetryPayNow: () -> Unit,
+    onPayNowDismissed: () -> Unit,
+) {
     SurfaceCard {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
             Column(modifier = Modifier.weight(1f)) {
@@ -125,9 +185,63 @@ private fun BookingCard(booking: Booking, zone: TimeZone, isCancelling: Boolean,
             style = MaterialTheme.typography.bodyLarge,
         )
         booking.totalAmount?.let { Text(formatEuro(it), style = MaterialTheme.typography.titleMedium, color = ChargeShareColors.Primary) }
-        if (booking.isCancellable()) {
-            TextButton(onClick = onCancel, enabled = !isCancelling) { Text(Strings.CancelBooking, color = MaterialTheme.colorScheme.error) }
+        if (booking.status == BookingStatus.PENDING) {
+            Text(Strings.PendingPaymentHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+        if (booking.cancelReason == CancelReasons.PAYMENT_EXPIRED) {
+            Text(Strings.PaymentExpiredHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (payment.canPay) PayNowSection(payment.payNow, onPayNow, onRetryPayNow, onPayNowDismissed)
+        if (booking.isCancellable()) {
+            TextButton(onClick = onCancel, enabled = !isCancelling && !payment.isAnyPaymentBusy) {
+                Text(Strings.CancelBooking, color = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+/** Was die Karte einer Buchung über das Bezahlen wissen muss. */
+private data class BookingPaymentUi(val canPay: Boolean, val payNow: PayNowState, val isAnyPaymentBusy: Boolean)
+
+/** „Jetzt bezahlen“ mit laufendem Zustand, Fehlerhinweis und „Erneut versuchen“. */
+@Composable
+private fun PayNowSection(payNow: PayNowState, onPayNow: () -> Unit, onRetry: () -> Unit, onDismiss: () -> Unit) {
+    val message = payNowMessage(payNow)
+    if (message != null) ErrorText(message)
+    when (payNow) {
+        PayNowState.Idle -> AmberButton(text = Strings.PayNow, onClick = onPayNow)
+        is PayNowState.Preparing, is PayNowState.PaymentRequired -> AmberButton(Strings.PaymentInProgressSheet, onClick = {}, enabled = false, isLoading = true)
+        is PayNowState.InProgress -> AmberButton(
+            text = if (payNow.step == PaymentStep.CONFIRMING) Strings.PaymentInProgressConfirming else Strings.PaymentInProgressSheet,
+            onClick = {},
+            enabled = false,
+            isLoading = true,
+        )
+        is PayNowState.Incomplete -> {
+            val confirmOnly = payNow.issue is PaymentIssue.ConfirmationFailed
+            AmberButton(text = if (confirmOnly) Strings.CheckPayment else Strings.PayAgain, onClick = onRetry)
+            TextButton(onClick = onDismiss) { Text(Strings.Close) }
+        }
+        is PayNowState.PrepareFailed -> {
+            AmberButton(text = Strings.PayAgain, onClick = onRetry)
+            TextButton(onClick = onDismiss) { Text(Strings.Close) }
+        }
+        is PayNowState.Unavailable -> TextButton(onClick = onDismiss) { Text(Strings.Close) }
+    }
+}
+
+private fun payNowMessage(payNow: PayNowState): String? = when (payNow) {
+    PayNowState.Idle, is PayNowState.Preparing, is PayNowState.PaymentRequired, is PayNowState.InProgress -> null
+    is PayNowState.Incomplete -> when (val issue = payNow.issue) {
+        PaymentIssue.Canceled -> Strings.PaymentCanceled
+        PaymentIssue.Failed -> Strings.PaymentFailed
+        is PaymentIssue.ConfirmationFailed ->
+            if (issue.error == AppError.PaymentRequired || issue.error == AppError.Network) Strings.PaymentNotConfirmed else Strings.errorMessage(issue.error)
+    }
+    is PayNowState.PrepareFailed -> Strings.errorMessage(payNow.error)
+    is PayNowState.Unavailable -> when (payNow.reason) {
+        PaymentUnavailableReason.PLATFORM_NOT_SUPPORTED -> Strings.PaymentPlatformUnsupported
+        PaymentUnavailableReason.SERVER_NOT_CONFIGURED -> Strings.PaymentServerNotConfigured
     }
 }
 

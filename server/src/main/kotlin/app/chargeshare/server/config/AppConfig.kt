@@ -31,6 +31,13 @@ data class AppConfig(
     /** bcrypt-Kosten (Go-Backend: 12). Tests senken den Wert, damit sie schnell bleiben. */
     val bcryptCost: Int = 12,
     val refreshTokenTtlDays: Long = 30,
+    /**
+     * Nach wie vielen Minuten eine unbezahlte (`pending`) Buchung automatisch storniert wird und der Slot wieder frei ist.
+     * `0` schaltet den automatischen Ablauf ab.
+     */
+    val pendingBookingTtlMinutes: Long = 15,
+    /** Abstand der Pruefungen auf abgelaufene unbezahlte Buchungen in Sekunden. */
+    val pendingBookingSweepSeconds: Long = 60,
     /** Legt beim Start Beispieldaten (Demo-Host + Wallboxen in Bremen) an. Nie in Produktion. */
     val devSeed: Boolean = false,
 ) {
@@ -50,6 +57,8 @@ data class AppConfig(
         require(stripePublishableKey.isNullOrBlank() || stripePublishableKey.startsWith(PUBLISHABLE_KEY_PREFIX)) {
             "STRIPE_PUBLISHABLE_KEY muss mit pk_ beginnen (kein Secret Key!)"
         }
+        require(pendingBookingTtlMinutes >= 0) { "PENDING_BOOKING_TTL_MINUTES darf nicht negativ sein" }
+        require(pendingBookingSweepSeconds >= 1) { "PENDING_BOOKING_SWEEP_SECONDS muss mindestens 1 sein" }
         require(googlePayEnvironment in GOOGLE_PAY_ENVIRONMENTS) { "GOOGLE_PAY_ENVIRONMENT muss test oder production sein" }
     }
 
@@ -82,6 +91,8 @@ data class AppConfig(
                 ?: deriveGooglePayEnvironment(env["STRIPE_PUBLISHABLE_KEY"]),
             merchantDisplayName = env["MERCHANT_DISPLAY_NAME"]?.takeIf { it.isNotBlank() } ?: "ChargeShare",
             merchantCountryCode = env["MERCHANT_COUNTRY_CODE"]?.takeIf { it.isNotBlank() }?.uppercase() ?: "DE",
+            pendingBookingTtlMinutes = env["PENDING_BOOKING_TTL_MINUTES"]?.toLongOrNull() ?: 15,
+            pendingBookingSweepSeconds = env["PENDING_BOOKING_SWEEP_SECONDS"]?.toLongOrNull() ?: 60,
             // Dev-Seed: nur ENV=development und solange DEV_SEED nicht explizit "false" ist
             devSeed = (env["ENV"] ?: "development").equals("development", ignoreCase = true) &&
                 !(env["DEV_SEED"] ?: "true").equals("false", ignoreCase = true),

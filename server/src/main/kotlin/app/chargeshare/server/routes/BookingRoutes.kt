@@ -43,6 +43,7 @@ fun Route.bookingRoutes(s: Services) {
                 s.bookings.cancel(id, call.userId(), reason)
                 call.respond(HttpStatusCode.NoContent)
             }
+            post("/{id}/pay") { call.respond(s.bookings.payPending(call.pathUuid("id", "booking id"), call.userId())) }
             post("/{id}/confirm-payment") {
                 call.respond(s.bookings.confirmPayment(call.pathUuid("id", "booking id"), call.userId()))
             }

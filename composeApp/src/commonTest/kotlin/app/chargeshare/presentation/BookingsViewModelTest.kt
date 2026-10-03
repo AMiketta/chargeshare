@@ -7,6 +7,7 @@ import app.chargeshare.presentation.booking.BookingsViewModel
 import app.chargeshare.presentation.booking.isCancellable
 import app.chargeshare.shared.model.BookingStatus
 import app.chargeshare.testing.FakeBookingRepository
+import app.chargeshare.testing.FakePaymentRepository
 import app.chargeshare.testing.FixedClock
 import app.chargeshare.testing.TestMain
 import app.chargeshare.testing.failure
@@ -36,7 +37,7 @@ class BookingsViewModelTest {
 
     @AfterTest fun tearDown() = TestMain.uninstall()
 
-    private fun viewModel() = BookingsViewModel(repository, FixedClock()).also {
+    private fun viewModel() = BookingsViewModel(repository, FakePaymentRepository(), clock = FixedClock()).also {
         repository.listResult = Outcome.Success(listOf(past, upcoming, cancelled))
         it.refresh()
     }
@@ -56,7 +57,7 @@ class BookingsViewModelTest {
     @Test
     fun loadErrorIsExposed() {
         repository.listResult = failure(AppError.Network)
-        val viewModel = BookingsViewModel(repository, FixedClock())
+        val viewModel = BookingsViewModel(repository, FakePaymentRepository(), clock = FixedClock())
         viewModel.refresh()
         assertEquals(AppError.Network, viewModel.state.value.error)
     }

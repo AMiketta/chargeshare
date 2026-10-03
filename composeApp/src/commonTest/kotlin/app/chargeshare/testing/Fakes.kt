@@ -160,11 +160,13 @@ class FakeBookingRepository : BookingRepository {
     var createResult: Outcome<BookingCreation> = Outcome.Success(BookingCreation(testBooking(), clientSecret = null))
     var confirmPaymentResult: Outcome<Booking> = Outcome.Success(testBooking())
     var listResult: Outcome<List<Booking>> = Outcome.Success(emptyList())
+    var startPaymentResult: Outcome<BookingCreation> = Outcome.Success(BookingCreation(testBooking(status = BookingStatus.PENDING), clientSecret = "pi_1_secret_x"))
     var cancelResult: Outcome<Booking>? = null
 
     val created = mutableListOf<Triple<String, Instant, Instant>>()
     val cancelled = mutableListOf<String>()
     val confirmedPayments = mutableListOf<String>()
+    val startedPayments = mutableListOf<String>()
 
     override suspend fun create(wallboxId: String, start: Instant, end: Instant): Outcome<BookingCreation> {
         created += Triple(wallboxId, start, end)
@@ -174,6 +176,11 @@ class FakeBookingRepository : BookingRepository {
     override suspend fun confirmPayment(bookingId: String): Outcome<Booking> {
         confirmedPayments += bookingId
         return confirmPaymentResult
+    }
+
+    override suspend fun startPayment(bookingId: String): Outcome<BookingCreation> {
+        startedPayments += bookingId
+        return startPaymentResult
     }
 
     override suspend fun list(): Outcome<List<Booking>> = listResult

@@ -134,6 +134,13 @@ class ChargeShareApi(
         return booking(id)
     }
 
+    /**
+     * „Jetzt bezahlen“ fuer eine offene (`pending`) Buchung: liefert das `client_secret` fuer das Zahlungsfenster
+     * (Stripe-PaymentIntent wird weiterverwendet oder neu angelegt). Ist die Buchung inzwischen bezahlt, fehlt das Secret.
+     */
+    suspend fun payBooking(bookingId: String): BookingResponse =
+        http.post("$V1/bookings/$bookingId/pay").body()
+
     suspend fun confirmPayment(bookingId: String): Booking =
         http.post("$V1/bookings/$bookingId/confirm-payment").body()
 

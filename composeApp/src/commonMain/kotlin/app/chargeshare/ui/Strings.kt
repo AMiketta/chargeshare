@@ -176,6 +176,9 @@ object Strings {
     const val CancelBookingConfirm = "Ja, stornieren"
     const val CancelBookingKeep = "Behalten"
     const val UnknownWallbox = "Wallbox"
+    const val PayNow = "Jetzt bezahlen"
+    const val PendingPaymentHint = "Noch nicht bezahlt. Der Slot ist nur kurz reserviert und wird sonst automatisch freigegeben."
+    const val PaymentExpiredHint = "Nicht rechtzeitig bezahlt – die Buchung wurde automatisch storniert."
 
     fun cancelBookingBody(name: String) = "Möchtest du die Buchung bei „$name“ wirklich stornieren? Eine bereits bezahlte Buchung wird erstattet."
 

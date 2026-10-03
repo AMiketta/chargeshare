@@ -13,7 +13,6 @@ import app.chargeshare.payment.PaymentRequest
 import app.chargeshare.payment.PaymentResult
 import app.chargeshare.shared.model.Booking
 import app.chargeshare.shared.model.BookingStatus
-import app.chargeshare.shared.model.PaymentConfig
 import app.chargeshare.shared.model.Wallbox
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.minutes
@@ -274,20 +273,11 @@ class BookingFlowViewModel(
         _state.update { it.copy(paymentSetup = PaymentSetup.Loading) }
         viewModelScope.launch {
             val setup = when (val result = paymentRepository.config()) {
-                is Outcome.Success -> paymentSetupFor(result.value)
+                is Outcome.Success -> paymentSetupFor(result.value, supportedPaymentMethods)
                 is Outcome.Failure -> PaymentSetup.LoadFailed(result.error)
             }
             _state.update { it.copy(paymentSetup = setup, selectedPaymentMethod = (setup as? PaymentSetup.Ready)?.methods?.firstOrNull()) }
         }
-    }
-
-    private fun paymentSetupFor(config: PaymentConfig): PaymentSetup {
-        if (!config.requiresClientPayment) return PaymentSetup.TestPayment
-        if (config.publishableKey.isNullOrBlank()) return PaymentSetup.Unavailable(PaymentUnavailableReason.SERVER_NOT_CONFIGURED)
-        // Apple Pay braucht die Merchant-ID des Servers; ohne sie bleibt auf iOS nur die Kartenzahlung.
-        val methods = supportedPaymentMethods.filter { it != PaymentMethodChoice.APPLE_PAY || config.applePayMerchantId != null }
-        if (methods.isEmpty()) return PaymentSetup.Unavailable(PaymentUnavailableReason.PLATFORM_NOT_SUPPORTED)
-        return PaymentSetup.Ready(config, methods)
     }
 
     private fun loadSlots(resetSelection: Boolean = false) {
