@@ -82,15 +82,40 @@ Flyway `server/src/main/resources/db/migration/V1__init.sql` an (1:1 aus `legacy
 braucht die PostgreSQL-Extensions `pgcrypto`, `cube`, `earthdistance`, `btree_gist` – im offiziellen `postgres`-Image enthalten).
 Konfiguration über Umgebungsvariablen, siehe `.env.example` (gleiche Namen wie im Go-Backend).
 
+### Lokal ohne Docker (Entwicklung)
+
+```bash
+./gradlew :server:runLocal      # eingebettetes PostgreSQL (Daten in server/.local-pg) + Server auf 0.0.0.0:8080
+```
+
+Im Entwicklungsmodus (`ENV=development`, Standard) gilt:
+
+- **Dev-Seed**: beim Start werden *Beispieldaten* angelegt (idempotent): 8 Wallboxen in Bremen (Name beginnt mit `[Beispiel]`)
+  sowie zwei Demo-Logins `demo-host@chargeshare.local` / `demo-driver@chargeshare.local`, Passwort `demo1234`.
+  Abschalten mit `DEV_SEED=false`; in Produktion ist der Seed verboten.
+- **Fake-Zahlung**: ohne `STRIPE_SECRET_KEY` nutzt der Server einen Fake-Payment-Provider (kein Netzwerk). Buchungen sind sofort
+  `confirmed`/bezahlt, `client_secret` ist ein Platzhalter, Erstattungen sind No-ops. In Produktion ist `STRIPE_SECRET_KEY` Pflicht.
+- Android-Emulator erreicht den Host unter `http://10.0.2.2:8080`.
+
 ### API-Stand
 
-| Status | Routen |
-|---|---|
-| implementiert | `GET /health` |
-| Stub (Validierung + `501 NOT_IMPLEMENTED`) | `POST /api/v1/auth/register`, `/login`, `/apple`, `/refresh`, `POST /auth/logout` (JWT), `GET /api/v1/users/me` (JWT) |
-| offen | übrige Routen aus `legacy/go-backend/README.md` (Wallboxen, Buchungen, Reviews, Host, Payments/Stripe, OCPP-WebSocket) – der Client in `shared` kennt sie bereits |
+Alle Pfade, JSON-Feldnamen und das Fehlerformat (`{"error": "...", "code": "VALIDATION_ERROR"}`) folgen dem Go-Backend.
 
-Fehlerformat wie im Go-Backend: `{"error": "...", "code": "VALIDATION_ERROR"}`.
+| Bereich | Status |
+|---|---|
+| Auth (`register`, `login`, `refresh`, `logout`, `users/me` GET/PUT/DELETE, `users/me/role`) | implementiert: bcrypt (Kosten 12), Access-JWT (15 min, HS256), Refresh-Token zufaellig + als SHA-256 in `refresh_tokens`, Rotation bei jedem Refresh (Einmalverwendung) |
+| `POST /auth/apple` | implementiert, aber **nur mit `APPLE_BUNDLE_ID`** (prueft Signatur gegen Apples JWKS, `iss`, `aud`, `exp`); ohne Konfiguration `501`. Nicht gegen echte Apple-Tokens getestet (Test mit lokal signiertem Token) |
+| Wallboxen (CRUD, Suche per `earth_distance`, Status, Wochenplan, Slots, Reviews-Liste) | implementiert |
+| Buchungen (anlegen, Liste, Detail, stornieren, `confirm-payment`) | implementiert; Ueberlappungsschutz per Exclusion-Constraint + Advisory-Lock |
+| Host (`/host/bookings`, `/host/earnings`, `/host/sessions`), `POST /reviews` | implementiert |
+| Zahlung | `PaymentProvider`-Interface: `FakePaymentProvider` (Dev) oder `StripePaymentProvider` (PaymentIntent mit Connect-Transfer + Plattformgebuehr, Refund, Connect-Onboarding, Webhook mit Signaturpruefung). **Stripe ist nicht gegen echte Stripe-Konten getestet** (nur Webhook-Signatur) |
+| OCPP 1.6J `GET /ocpp/{id}` (WebSocket) | implementiert: BootNotification, Heartbeat, Authorize, Start-/StopTransaction, MeterValues (nur Log), StatusNotification. RemoteStart/Stop (im Go-Code ungenutzt) nicht portiert |
+| Rate-Limiting (Go: `ratelimit.go`) | **nicht portiert** |
+
+Bewusste Abweichungen vom Go-Code (Fehler/Luecken dort): Stornieren liefert `204` (Client laedt die Buchung danach neu); Booking-Insert vor
+Payment-Intent; Exclusion-Verletzung -> `409` statt `500`; `confirm-payment` prueft den Zahlungsstatus beim Provider (`402`);
+Konto loeschen entfernt abhaengige Buchungen/Reviews; E-Mail wird kleingeschrieben; Rolle wird aus der DB statt aus dem Token gelesen;
+Slots in der Vergangenheit werden nicht angeboten; unbekannte OCPP-Ladepunkte (`ocpp_id` an keiner Wallbox) werden abgelehnt.
 
 ## Versionen (Stand Oktober 2026)
 
@@ -100,7 +125,7 @@ Alle Versionen stehen in `gradle/libs.versions.toml`.
 
 ## Nächste Schritte
 
-1. Server: Auth-Logik (Argon2/bcrypt, Refresh-Rotation, Sign in with Apple), dann Wallboxen/Buchungen/Reviews/Host, Stripe Connect, OCPP 1.6
+1. Server: Rate-Limiting, Stripe gegen Testkonto pruefen, Zahlung nach OCPP-Abschluss auf tatsaechliche kWh abrechnen, RemoteStart/Stop
 2. composeApp: Login, Karte (native Map-Anbindung per `expect/actual`), Detail, Buchung, Host-Dashboard, Profil
 3. Token-Speicherung pro Plattform (Keychain / EncryptedSharedPreferences / localStorage) hinter `TokenStore`
 4. CI (GitHub Actions: Linux für shared/server/web/android, macOS für iOS)

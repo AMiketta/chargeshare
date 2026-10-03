@@ -11,3 +11,4 @@ xcuserdata/
 node_modules/
 *.apk
 *.aab
+server/.local-pg/

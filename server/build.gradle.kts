@@ -44,3 +44,13 @@ dependencies {
 tasks.test {
     useJUnitPlatform()
 }
+
+// Lokaler Dev-Server OHNE Docker: startet ein eingebettetes PostgreSQL (Daten in server/.local-pg) und den Server
+// mit Dev-Seed (Beispieldaten in Bremen) und Fake-Payment. `./gradlew :server:runLocal`
+tasks.register<JavaExec>("runLocal") {
+    group = "application"
+    description = "Startet Server + eingebettetes PostgreSQL + Dev-Seed (ohne Docker)"
+    classpath = sourceSets["test"].runtimeClasspath
+    mainClass.set("app.chargeshare.server.LocalDevMainKt")
+    workingDir = projectDir
+}
