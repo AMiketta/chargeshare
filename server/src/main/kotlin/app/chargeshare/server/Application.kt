@@ -22,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import app.chargeshare.server.config.AppConfig
 import app.chargeshare.server.db.DatabaseFactory
+import app.chargeshare.server.plugins.RateLimiter
 import app.chargeshare.server.plugins.configureHttp
 import app.chargeshare.server.plugins.configureWebSockets
 import app.chargeshare.server.ocpp.OcppHandler
@@ -75,7 +76,12 @@ fun Application.module(
             }.getOrDefault("down")
         }
         if (db != null) ocppRoutes(OcppHandler(Db(db)))
-        apiV1Routes(services)
+        val authLimiter = if (config.authRateLimitPerWindow > 0) {
+            RateLimiter(config.authRateLimitPerWindow, config.authRateLimitWindowSeconds.seconds)
+        } else {
+            null
+        }
+        apiV1Routes(services, authLimiter, config.trustProxyHeaders)
     }
 }
 

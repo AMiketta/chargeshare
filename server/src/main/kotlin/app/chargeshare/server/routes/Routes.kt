@@ -2,6 +2,7 @@ package app.chargeshare.server.routes
 
 import app.chargeshare.server.Services
 import app.chargeshare.server.plugins.JWT_AUTH
+import app.chargeshare.server.plugins.RateLimiter
 import app.chargeshare.server.util.serviceUnavailable
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.auth.authenticate
@@ -24,7 +25,7 @@ fun Route.healthRoutes(databaseStatus: () -> String) {
  * Alle `/api/v1`-Routen (Pfade identisch zu legacy/go-backend/internal/api/router.go).
  * Ohne Datenbank (`services == null`) antworten alle Pfade mit 503.
  */
-fun Route.apiV1Routes(services: Services?) {
+fun Route.apiV1Routes(services: Services?, authRateLimiter: RateLimiter? = null, trustProxyHeaders: Boolean = false) {
     route("/api/v1") {
         if (services == null) {
             route("{...}") {
@@ -32,7 +33,7 @@ fun Route.apiV1Routes(services: Services?) {
             }
             return@route
         }
-        authRoutes(services)
+        authRoutes(services, authRateLimiter, trustProxyHeaders)
         userRoutes(services)
         wallboxRoutes(services)
         bookingRoutes(services)

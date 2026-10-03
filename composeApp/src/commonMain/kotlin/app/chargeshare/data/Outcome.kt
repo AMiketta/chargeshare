@@ -37,6 +37,9 @@ sealed interface AppError {
     /** Zahlung nicht abgeschlossen (HTTP 402). */
     data object PaymentRequired : AppError
 
+    /** Zu viele Versuche in kurzer Zeit, z. B. beim Login (HTTP 429). */
+    data object RateLimited : AppError
+
     /** Serverfehler (HTTP 5xx). */
     data object Server : AppError
 
@@ -82,6 +85,7 @@ internal fun ApiException.toAppError(): AppError = when (status) {
     HTTP_FORBIDDEN -> AppError.Forbidden
     HTTP_NOT_FOUND -> AppError.NotFound
     HTTP_CONFLICT -> AppError.Conflict
+    HTTP_TOO_MANY_REQUESTS -> AppError.RateLimited
     HTTP_BAD_REQUEST, HTTP_UNPROCESSABLE -> AppError.Validation(message)
     in HTTP_SERVER_ERROR_RANGE -> AppError.Server
     else -> AppError.Unknown
@@ -94,4 +98,5 @@ private const val HTTP_FORBIDDEN = 403
 private const val HTTP_NOT_FOUND = 404
 private const val HTTP_CONFLICT = 409
 private const val HTTP_UNPROCESSABLE = 422
+private const val HTTP_TOO_MANY_REQUESTS = 429
 private val HTTP_SERVER_ERROR_RANGE = 500..599

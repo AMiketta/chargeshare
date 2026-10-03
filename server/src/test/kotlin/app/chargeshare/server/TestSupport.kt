@@ -49,7 +49,7 @@ object TestDb {
     }
 }
 
-val testConfig = AppConfig(bcryptCost = 4)
+val testConfig = AppConfig(bcryptCost = 4, authRateLimitPerWindow = 0)
 
 class ServerScope(private val builder: ApplicationTestBuilder, val payments: PaymentProvider) {
     fun wsClient(): HttpClient = builder.createClient { install(io.ktor.client.plugins.websocket.WebSockets) }

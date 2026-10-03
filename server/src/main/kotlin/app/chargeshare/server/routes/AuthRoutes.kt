@@ -2,6 +2,8 @@ package app.chargeshare.server.routes
 
 import app.chargeshare.server.Services
 import app.chargeshare.server.plugins.JWT_AUTH
+import app.chargeshare.server.plugins.RateLimiter
+import app.chargeshare.server.plugins.limitedPost
 import app.chargeshare.shared.model.AppleAuthRequest
 import app.chargeshare.shared.model.LoginRequest
 import app.chargeshare.shared.model.LogoutRequest
@@ -20,15 +22,19 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.server.routing.route
 
-fun Route.authRoutes(s: Services) {
+/**
+ * @param rateLimiter begrenzt Registrierung, Login und Apple-Login je Client-Adresse (gemeinsamer Zähler); `null` = aus
+ * @param trustProxyHeaders Client-Adresse aus `X-Forwarded-For` lesen (nur hinter genau einem vertrauenswürdigen Proxy)
+ */
+fun Route.authRoutes(s: Services, rateLimiter: RateLimiter? = null, trustProxyHeaders: Boolean = false) {
     route("/auth") {
-        post("/register") {
+        limitedPost("/register", rateLimiter, trustProxyHeaders) {
             call.respond(HttpStatusCode.Created, s.auth.register(call.receive<RegisterRequest>()))
         }
-        post("/login") {
+        limitedPost("/login", rateLimiter, trustProxyHeaders) {
             call.respond(s.auth.login(call.receive<LoginRequest>()))
         }
-        post("/apple") {
+        limitedPost("/apple", rateLimiter, trustProxyHeaders) {
             call.respond(s.auth.loginWithApple(call.receive<AppleAuthRequest>()))
         }
         post("/refresh") {

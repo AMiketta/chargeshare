@@ -16,3 +16,4 @@ fun badRequest(message: String) = AppException(HttpStatusCode.BadRequest, ErrorC
 fun notImplemented(message: String) = AppException(HttpStatusCode.NotImplemented, ErrorCodes.NOT_IMPLEMENTED, message)
 fun serviceUnavailable(message: String) = AppException(HttpStatusCode.ServiceUnavailable, ErrorCodes.INTERNAL_ERROR, message)
 fun badGateway(message: String) = AppException(HttpStatusCode.BadGateway, ErrorCodes.INTERNAL_ERROR, message)
+fun tooManyRequests(message: String) = AppException(HttpStatusCode.TooManyRequests, ErrorCodes.RATE_LIMITED, message)

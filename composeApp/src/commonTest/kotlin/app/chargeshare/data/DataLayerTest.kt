@@ -26,6 +26,7 @@ class DataLayerTest {
         assertEquals(AppError.NotFound, errorFor(404))
         assertEquals(AppError.Conflict, errorFor(409))
         assertEquals(AppError.PaymentRequired, errorFor(402))
+        assertEquals(AppError.RateLimited, errorFor(429))
         assertIs<AppError.Validation>(errorFor(400))
         assertEquals(AppError.Server, errorFor(503))
         assertEquals(AppError.Unknown, errorFor(418))
