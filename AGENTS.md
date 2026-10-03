@@ -59,9 +59,9 @@ server ────────────────────────�
 | Paket | Inhalt |
 |---|---|
 | `ui/` | `App()`, Theme, Navigation (Wurzel), wiederverwendbare Komponenten (`ui/components`), Strings (`ui/Strings.kt`), ein Unterpaket pro Feature (`ui/auth`, `ui/wallbox`, `ui/booking`, `ui/host`, `ui/profile`) mit Screens (`@Composable`) |
-| `presentation/` | ViewModels und `UiState`-Klassen, ein Unterpaket pro Feature. **Keine Compose-Imports außer `runtime`-freien Typen** |
-| `data/` | Repositories (Schnittstelle + Implementierung über `ChargeShareApi`), `Outcome`/`AppError` |
-| `platform/` | `expect`-Deklarationen (`PlatformContext`, `createSecureTokenStore`) |
+| `presentation/` | ViewModels (`androidx.lifecycle.ViewModel`) und `UiState`-Klassen, ein Unterpaket pro Feature (`auth`, `session`, `wallbox`, `booking`, `host`, `profile`). **Keine Compose-UI-Imports** |
+| `data/` | Repositories (Schnittstelle + `Api…`-Implementierung über `ChargeShareApi`), `Outcome`/`AppError`/`runCatchingOutcome`, `PersistedTokenStore`, Slot-Zeitlogik |
+| `platform/` | `expect fun createSecureTokenStore(PlatformContext)` mit `actual` je Plattform (Android-Keystore, iOS-Keychain, Desktop-Datei, Web-localStorage); `PlatformContext` ist eine normale Klasse (Android: `Context` im `handle`) |
 | `di/` | `AppContainer` – manuelle Dependency Injection |
 
 ## 3. Tech-Stack (tatsächliche Versionen, Quelle: `gradle/libs.versions.toml`)
@@ -78,8 +78,9 @@ server ────────────────────────�
 | bcrypt / Stripe Java / embedded-postgres | 0.10.2 / 34.0.0 / 2.2.2 |
 | androidx.activity-compose | 1.12.4 |
 
-Die genauen Versionen der **zusätzlich** von `composeApp` genutzten Bibliotheken (kotlinx-datetime, Lifecycle-ViewModel) stehen ebenfalls
-im Version Catalog. **Alle Versionen nur dort pflegen**, nie in einzelnen `build.gradle.kts`.
+Zusätzlich in `composeApp`: kotlinx-datetime 0.8.0, `org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose` 2.10.0,
+`org.jetbrains.compose.ui:ui-backhandler` 1.12.1 (Zurück-Taste) und – nur Desktop – `kotlinx-coroutines-swing` (liefert `Dispatchers.Main` für `viewModelScope`).
+**Alle Versionen nur im Version Catalog pflegen**, nie in einzelnen `build.gradle.kts`.
 Dependency-Injection-Framework: **keines** (manuell per Konstruktor, siehe Abschnitt 6). Koin o. Ä. nur nach Absprache und Eintrag hier.
 
 ## 4. Build-, Test- und Lauf-Befehle
@@ -102,13 +103,18 @@ export ANDROID_HOME=/workspace/tools/android-sdk
 ./gradlew :web:wasmJsBrowserDistribution
 ./gradlew :androidApp:assembleDebug
 
-# Desktop-Vorschau der UI
+# Desktop-Vorschau der UI (Backend muss laufen; Adresse per CHARGESHARE_API_URL, Standard http://localhost:8080)
 ./gradlew :composeApp:run
+# ohne GPU/OpenGL (z. B. Xvfb auf der Box): SKIKO_RENDER_API=SOFTWARE DISPLAY=:99 ./gradlew :composeApp:run
 
 # Vollständige Verifikation (muss vor jedem Abschluss grün sein)
 ./gradlew :shared:jvmTest :server:build :composeApp:desktopTest :composeApp:desktopJar \
           :web:wasmJsBrowserDistribution :androidApp:assembleDebug
 ```
+
+**API-Adresse der Clients:** Android per BuildConfig (Standard `http://10.0.2.2:8080`, ändern mit `-Pchargeshare.apiUrl=http://192.168.0.10:8080`),
+Desktop per Umgebungsvariable `CHARGESHARE_API_URL`, Web per Query-Parameter (`index.html?api=https://…`, nur `http(s)://`), iOS-Parameter von `MainViewController(apiBaseUrl)`
+(Standard `http://localhost:8080`).
 
 **Plattform-Schalter** (Gradle-Properties, ausgewertet in `settings.gradle.kts`):
 
@@ -135,7 +141,7 @@ Im Entwicklungsmodus (`ENV=development`, Standard) gilt:
   - abschaltbar mit `DEV_SEED=false`; in Produktion verboten.
 - **Fake-Zahlung:** ohne `STRIPE_SECRET_KEY` sind Buchungen sofort `confirmed`/bezahlt.
 - **API-Adresse aus Client-Sicht:** Android-Emulator `http://10.0.2.2:8080` (= Host-Rechner), Desktop/Web/iOS-Simulator `http://localhost:8080`.
-  Die UI nimmt die Adresse als Parameter von `App(...)`, sie ist nicht hartkodiert.
+  Die Adresse steckt im `AppContainer`, den die Einstiegspunkte erzeugen; sie ist nicht in der UI hartkodiert.
 
 ## 5. API-Vertrag
 
@@ -204,8 +210,8 @@ Coroutines und Flow:
 
 - **Structured Concurrency.** Coroutinen starten nur in einem Scope mit Lebenszyklus: `viewModelScope`, `rememberCoroutineScope`, `coroutineScope { }`.
   **Kein `GlobalScope`**, kein `runBlocking` im Produktionscode.
-- **Dispatcher werden injiziert** (Konstruktorparameter, Standard `Dispatchers.Default`/`IO`-Äquivalent), nie hartkodiert – so sind Tests deterministisch
-  (`Dispatchers.setMain(UnconfinedTestDispatcher())` bzw. `StandardTestDispatcher`).
+- **Dispatcher werden injiziert** (Konstruktorparameter), nie hartkodiert. ViewModels nutzen `viewModelScope` (`Dispatchers.Main`); Tests ersetzen ihn über
+  `TestMain.install()`/`uninstall()` (`composeApp/src/commonTest/.../testing`, setzt `Dispatchers.setMain(UnconfinedTestDispatcher())`). Zeit kommt als `Clock` und `TimeZone` in den Konstruktor.
 - **`CancellationException` nie schlucken.** Wer `catch (e: Exception)` oder `runCatching` nutzt, muss `CancellationException` erneut werfen.
   Dafür gibt es in `data/` den Helfer `runCatchingOutcome { … }`, der das korrekt macht – bitte nutzen statt eigener `runCatching`-Blöcke um `suspend`-Aufrufe.
 - `StateFlow` für Zustand, `Flow` für Ströme. `stateIn(…, SharingStarted.WhileSubscribed(5_000), …)` für abgeleitete Zustände. Kein `collect` in Composables
@@ -257,7 +263,8 @@ Fehlerbehandlung:
 ## 10. Tests
 
 - **kotlin.test** (`@Test`, `assertEquals`, …) in `commonTest`, damit Tests auf allen Targets laufen. Coroutines mit `kotlinx-coroutines-test` (`runTest`).
-- **Fakes statt Mocks:** für Repositories handgeschriebene `FakeXyzRepository`-Klassen (`composeApp/src/commonTest`), keine Mocking-Frameworks.
+- **Fakes statt Mocks:** für Repositories handgeschriebene `FakeXyzRepository`-Klassen in `composeApp/src/commonTest/.../testing/Fakes.kt`, keine Mocking-Frameworks.
+  Ausführen: `./gradlew :composeApp:desktopTest`.
 - **Ktor-Client** wird mit der **`MockEngine`** getestet (`shared/src/commonTest`, `createHttpClient(engine = …)`).
 - **Server-Integrationstests** laufen gegen ein **echtes eingebettetes PostgreSQL** (`embedded-postgres`, `TestDb` in `TestSupport.kt`) über `testApplication` – keine H2-Ersatzdatenbank.
 - Jedes ViewModel hat Tests für: Initialzustand, Erfolgsfall, Fehlerfall (je `AppError`-Art), Validierung und Ladezustand.
@@ -325,7 +332,10 @@ Ein Auftrag ist erst fertig, wenn **alle** Punkte gelten:
   Die App hat keine Stripe-Zahlungsoberfläche: mit echtem Stripe-Key blieben Buchungen `pending`; nur die Fake-Zahlung (Dev) bucht sofort.
 - **iOS** lässt sich auf Linux nur zu Klibs kompilieren, **nicht linken** und nicht in Xcode/Simulator testen – das geht nur auf macOS. Der Keychain-`TokenStore` ist dort ungetestet.
 - **Rate-Limiting** des Backends (Go: `ratelimit.go`) ist nicht portiert.
-- **Karte:** es gibt keine eingebundene Karten-Komponente (kein ausgereiftes KMP-Map-SDK); die Suche zeigt eine Liste mit Platzhalter. Geräte-Standort ist noch nicht angebunden (Standardstandort Bremen).
+- **Karte:** es gibt keine eingebundene Karten-Komponente (kein ausgereiftes KMP-Map-SDK); die Suche zeigt eine Liste mit Platzhalter. Geräte-Standort ist noch nicht angebunden (Standardstandort Bremen); die Freitext-Suche filtert nur die geladenen Ergebnisse (Backend hat keine Textsuche).
+- **Noch nicht in der UI:** Bewertung abgeben (`POST /reviews`), Apple Sign In, Profil bearbeiten, Stripe-Zahlung/Auszahlungs-Onboarding, Wallbox bearbeiten/löschen, Fotos, Dunkelmodus.
+- **Tests:** es gibt ViewModel-/Daten-Tests (70 in `composeApp`), aber **keine automatisierten UI-/Composable-Tests** und keine Tests auf echtem Gerät. Der Desktop-Build wurde manuell gegen das lokale Backend geprüft (Login, Liste, Detail, Buchung, Host-Wechsel).
+- **Zurück-Taste:** `BackHandler` ist in Compose Multiplatform 1.12 als veraltet markiert (Nachfolger `NavigationEventHandler`); Migration offen.
 - **Host-Wallbox-Liste:** das Backend hat keinen Endpunkt „meine Wallboxen“; die App filtert die Suchergebnisse nach `owner_id` (max. 100).
 - **Verfügbarkeit** wird vom Server in **UTC** gespeichert/berechnet; das Host-Formular erwartet UTC-Zeiten.
 - Offen im Backend: Zahlung nach OCPP-Abschluss auf tatsächliche kWh abrechnen, RemoteStart/Stop, Bewerten/Einnahmen erst nach echtem OCPP-Ladevorgang durchspielbar.

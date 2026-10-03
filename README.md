@@ -10,7 +10,7 @@ Primärfarbe `#0B6E4F`, Akzent `#F0A500`.
 | Modul | Inhalt | Targets |
 |---|---|---|
 | `shared/` | Domain-Modelle, DTOs (JSON-Feldnamen wie im Go-Backend), Ktor-API-Client (`ChargeShareApi`, Bearer-Auth mit Auto-Refresh), Tests in `commonTest` | JVM, Android\*, iOS\*\*, Wasm |
-| `composeApp/` | Gemeinsame Compose-Multiplatform-UI (`App()`, Theme mit Markenfarben) | Android\*, iOS\*\*, Desktop-JVM, Wasm |
+| `composeApp/` | Gemeinsame Compose-Multiplatform-UI: Login/Registrierung, Suche, Wallbox-Detail, Buchungsflow, Buchungen, Host-Dashboard, Profil; ViewModels, Repositories, `TokenStore` je Plattform | Android\*, iOS\*\*, Desktop-JVM, Wasm |
 | `androidApp/` | Android-Application-Modul (`MainActivity` -> `App()`) | Android\* |
 | `iosApp/` | SwiftUI-Hülle + XcodeGen-Spec (`project.yml`) | iOS\*\* |
 | `server/` | Ktor-Backend: Netty, JWT, Exposed, Flyway, PostgreSQL, kotlinx.serialization | JVM |
@@ -67,6 +67,19 @@ cd iosApp && xcodegen generate && open ChargeShare.xcodeproj
 
 Das Xcode-Projekt baut das Kotlin-Framework `ComposeApp` per Gradle-Run-Script
 (`:composeApp:embedAndSignAppleFrameworkForXcode`).
+
+### App gegen das lokale Backend
+
+```bash
+./gradlew :server:runLocal                 # Backend + Demo-Daten (Terminal 1)
+./gradlew :composeApp:run                  # Desktop-App, Adresse per CHARGESHARE_API_URL (Standard http://localhost:8080)
+./gradlew :androidApp:installDebug         # Android; Emulator erreicht den Host unter http://10.0.2.2:8080
+# andere Adresse (z. B. echtes Gerät im WLAN): ./gradlew -Pchargeshare.apiUrl=http://192.168.0.10:8080 :androidApp:installDebug
+```
+
+Demo-Logins: `demo-driver@chargeshare.local` / `demo-host@chargeshare.local`, Passwort `demo1234`.
+Die Web-App liest die API-Adresse aus `?api=https://…` (Standard `http://localhost:8080`).
+Die Karte ist noch ein Platzhalter (Liste statt Map); siehe `AGENTS.md`, Abschnitt „Bekannte Lücken“.
 
 ## Server starten
 
@@ -128,6 +141,6 @@ Alle Versionen stehen in `gradle/libs.versions.toml`.
 ## Nächste Schritte
 
 1. Server: Rate-Limiting, Stripe gegen Testkonto pruefen, Zahlung nach OCPP-Abschluss auf tatsaechliche kWh abrechnen, RemoteStart/Stop
-2. composeApp: Login, Karte (native Map-Anbindung per `expect/actual`), Detail, Buchung, Host-Dashboard, Profil
-3. Token-Speicherung pro Plattform (Keychain / EncryptedSharedPreferences / localStorage) hinter `TokenStore`
+2. composeApp: echte Karte (native Map-Anbindung per `expect/actual`), Standort mit Einwilligung, Bewertungen schreiben, Stripe-Zahlungsoberfläche, Wallbox bearbeiten
+3. iOS auf einem Mac bauen und testen (Keychain-`TokenStore` ist ungetestet)
 4. CI (GitHub Actions: Linux für shared/server/web/android, macOS für iOS)
