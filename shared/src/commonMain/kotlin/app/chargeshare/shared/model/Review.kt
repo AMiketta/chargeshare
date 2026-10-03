@@ -5,6 +5,13 @@ import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+/** Grenzen einer Bewertung; Server und Apps prüfen dieselben Werte. */
+object ReviewLimits {
+    const val MIN_RATING = 1
+    const val MAX_RATING = 5
+    const val MAX_COMMENT_LENGTH = 2000
+}
+
 /** Go: `models.Review`. */
 @Serializable
 data class Review(
@@ -12,7 +19,7 @@ data class Review(
     @SerialName("booking_id") val bookingId: String,
     @SerialName("wallbox_id") val wallboxId: String,
     @SerialName("author_id") val authorId: String,
-    /** 1..5 */
+    /** [ReviewLimits.MIN_RATING]..[ReviewLimits.MAX_RATING] */
     val rating: Int,
     val comment: String? = null,
     @SerialName("created_at") @Serializable(InstantAsStringSerializer::class) val createdAt: Instant,

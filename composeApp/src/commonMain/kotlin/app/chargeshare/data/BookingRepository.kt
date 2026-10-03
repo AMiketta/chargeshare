@@ -3,6 +3,8 @@ package app.chargeshare.data
 import app.chargeshare.shared.api.ChargeShareApi
 import app.chargeshare.shared.model.Booking
 import app.chargeshare.shared.model.CreateBookingRequest
+import app.chargeshare.shared.model.CreateReviewRequest
+import app.chargeshare.shared.model.Review
 import kotlin.time.Instant
 
 /**
@@ -25,6 +27,9 @@ interface BookingRepository {
      * Ist die Buchung inzwischen bezahlt, ist ihr Status nicht mehr `pending` und [BookingCreation.clientSecret] leer.
      */
     suspend fun startPayment(bookingId: String): Outcome<BookingCreation>
+
+    /** Bewertet die abgeschlossene Buchung [bookingId] mit [rating] (1..5) und optionalem [comment]. Eine Bewertung pro Buchung. */
+    suspend fun review(bookingId: String, rating: Int, comment: String?): Outcome<Review>
 
     /** Alle Buchungen des Fahrers (neueste zuerst, wie vom Server geliefert). */
     suspend fun list(): Outcome<List<Booking>>
@@ -52,6 +57,9 @@ class ApiBookingRepository(private val api: ChargeShareApi) : BookingRepository 
                 ?: Outcome.Failure(AppError.Unknown)
             is Outcome.Failure -> result
         }
+
+    override suspend fun review(bookingId: String, rating: Int, comment: String?): Outcome<Review> =
+        runCatchingOutcome { api.createReview(CreateReviewRequest(bookingId, rating, comment)) }
 
     override suspend fun list(): Outcome<List<Booking>> =
         runCatchingOutcome { api.bookings(limit = LIST_LIMIT).bookings }

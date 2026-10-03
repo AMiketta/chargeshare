@@ -3,6 +3,7 @@ package app.chargeshare.server.services
 import app.chargeshare.server.db.Bookings
 import app.chargeshare.server.db.Db
 import app.chargeshare.server.db.PgState
+import app.chargeshare.server.db.Reviews
 import app.chargeshare.server.db.Users
 import app.chargeshare.server.db.Wallboxes
 import app.chargeshare.server.db.dbValue
@@ -50,6 +51,7 @@ import org.jetbrains.exposed.v1.core.less
 import org.jetbrains.exposed.v1.core.notInList
 import org.jetbrains.exposed.v1.jdbc.JdbcTransaction
 import org.jetbrains.exposed.v1.jdbc.insert
+import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 import org.jetbrains.exposed.v1.jdbc.update
 import org.slf4j.LoggerFactory
@@ -163,7 +165,8 @@ class BookingService(
             val role = Users.selectAll().where { Users.id eq userId }.singleOrNull()?.get(Users.role)
             if (role != "admin") throw forbidden("access denied")
         }
-        row.toBooking(wallbox = wb, driver = if (!isDriver) driverOf(row[Bookings.driverId]) else null)
+        val reviewed = !Reviews.selectAll().where { Reviews.bookingId eq bookingId }.empty()
+        row.toBooking(wallbox = wb, driver = if (!isDriver) driverOf(row[Bookings.driverId]) else null, reviewed = reviewed)
     }
 
     // ---- Stornieren / Zahlung bestaetigen ---------------------------------------------------
@@ -404,7 +407,9 @@ class BookingService(
             Users.selectAll().where { Users.id inList rows.map { it[Bookings.driverId] }.distinct() }
                 .associate { it[Users.id] to it.toUser().publicView() }
         } else emptyMap()
-        return rows.map { it.toBooking(boxes[it[Bookings.wallboxId]], drivers[it[Bookings.driverId]]) }
+        val reviewedIds = Reviews.select(Reviews.bookingId).where { Reviews.bookingId inList rows.map { it[Bookings.id] } }
+            .map { it[Reviews.bookingId] }.toSet()
+        return rows.map { it.toBooking(boxes[it[Bookings.wallboxId]], drivers[it[Bookings.driverId]], reviewed = it[Bookings.id] in reviewedIds) }
     }
 
     companion object {

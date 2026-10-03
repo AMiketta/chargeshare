@@ -123,7 +123,7 @@ Alle Pfade, JSON-Feldnamen und das Fehlerformat (`{"error": "...", "code": "VALI
 | Wallboxen (CRUD, Suche per `earth_distance`, Status, Wochenplan, Slots, Reviews-Liste) | implementiert |
 | Buchungen (anlegen, Liste, Detail, stornieren, `confirm-payment`, `pay`) | implementiert; Ueberlappungsschutz per Exclusion-Constraint + Advisory-Lock |
 | `GET /payments/config` | implementiert: öffentliche Zahlungskonfiguration (siehe Abschnitt „Zahlung“); nur mit Login |
-| Host (`/host/bookings`, `/host/earnings`, `/host/sessions`), `POST /reviews` | implementiert |
+| Host (`/host/bookings`, `/host/earnings`, `/host/sessions`), `POST /reviews` | implementiert; Bewertung nur durch den Fahrer einer `completed`-Buchung, einmal pro Buchung (`409`), 1–5 Sterne, Kommentar ≤ 2000 Zeichen (leer = kein Kommentar); `Booking.reviewed` zeigt, ob schon bewertet wurde; Durchschnitt/Anzahl werden an der Wallbox exakt neu berechnet |
 | Zahlung | `PaymentProvider`-Interface: `FakePaymentProvider` (Dev) oder `StripePaymentProvider` (PaymentIntent mit Connect-Transfer + Plattformgebuehr, Refund, Connect-Onboarding, Webhook mit Signaturpruefung). **Stripe ist nicht gegen echte Stripe-Konten getestet** (nur Webhook-Signatur) |
 | OCPP 1.6J `GET /ocpp/{id}` (WebSocket) | implementiert: BootNotification, Heartbeat, Authorize, Start-/StopTransaction, MeterValues (nur Log), StatusNotification. RemoteStart/Stop (im Go-Code ungenutzt) nicht portiert |
 | Rate-Limiting (Go: `ratelimit.go`) | **nicht portiert** |
@@ -228,6 +228,6 @@ Alle Versionen stehen in `gradle/libs.versions.toml`.
 ## Nächste Schritte
 
 1. Server: Rate-Limiting, Stripe gegen Testkonto pruefen (Google Pay/Apple Pay mit echten Testschlüsseln durchspielen), Zahlung nach OCPP-Abschluss auf tatsaechliche kWh abrechnen, RemoteStart/Stop
-2. composeApp: Karte auf iOS/Web freischalten (nach Test), Gerätestandort mit Einwilligung, Bewertungen schreiben, Wallbox bearbeiten
+2. composeApp: Karte auf iOS/Web freischalten (nach Test), Gerätestandort mit Einwilligung, Wallbox bearbeiten
 3. iOS auf einem Mac bauen und testen (Keychain-`TokenStore` ist ungetestet)
 4. CI (GitHub Actions: Linux für shared/server/web/android, macOS für iOS)

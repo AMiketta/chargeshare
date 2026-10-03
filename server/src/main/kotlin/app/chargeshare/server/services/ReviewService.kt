@@ -15,6 +15,7 @@ import app.chargeshare.server.util.parseUuid
 import app.chargeshare.server.util.validationError
 import app.chargeshare.shared.model.CreateReviewRequest
 import app.chargeshare.shared.model.Review
+import app.chargeshare.shared.model.ReviewLimits
 import app.chargeshare.shared.model.ReviewListResponse
 import app.chargeshare.shared.model.User
 import app.chargeshare.shared.model.UserRole
@@ -56,8 +57,13 @@ class ReviewService(private val db: Db) {
     /** Nur der Fahrer einer abgeschlossenen Buchung darf (einmal) bewerten. */
     suspend fun create(userId: Uuid, req: CreateReviewRequest): Review {
         val bookingId = parseUuid(req.bookingId, "booking_id")
-        if (req.rating !in 1..5) throw validationError("rating: must be between 1 and 5")
-        if ((req.comment?.length ?: 0) > 2000) throw validationError("comment: must be at most 2000 characters")
+        if (req.rating !in ReviewLimits.MIN_RATING..ReviewLimits.MAX_RATING) {
+            throw validationError("rating: must be between ${ReviewLimits.MIN_RATING} and ${ReviewLimits.MAX_RATING}")
+        }
+        val comment = req.comment?.trim()?.takeIf { it.isNotEmpty() }
+        if ((comment?.length ?: 0) > ReviewLimits.MAX_COMMENT_LENGTH) {
+            throw validationError("comment: must be at most ${ReviewLimits.MAX_COMMENT_LENGTH} characters")
+        }
         try {
             return db.tx {
                 val b = Bookings.selectAll().where { (Bookings.id eq bookingId) and (Bookings.driverId eq userId) }.singleOrNull()
@@ -72,7 +78,7 @@ class ReviewService(private val db: Db) {
                     it[wallboxId] = wbId
                     it[authorId] = userId
                     it[rating] = req.rating.toShort()
-                    it[comment] = req.comment
+                    it[Reviews.comment] = comment
                     it[createdAt] = now
                 }
                 // Aggregat exakt aus den Bewertungen neu berechnen (statt Go-Inkrement)
