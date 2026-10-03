@@ -1,0 +1,16 @@
+# Lokale PostgreSQL-Datenbank fuer den Ktor-Server:
+#   docker compose up -d
+#   DATABASE_URL=postgres://chargeshare:chargeshare@localhost:5432/chargeshare ./gradlew :server:run
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: chargeshare
+      POSTGRES_PASSWORD: chargeshare
+      POSTGRES_DB: chargeshare
+    ports:
+      - "5432:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+volumes:
+  dbdata:
