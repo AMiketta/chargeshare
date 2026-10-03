@@ -79,7 +79,7 @@ Das Xcode-Projekt baut das Kotlin-Framework `ComposeApp` per Gradle-Run-Script
 
 Demo-Logins: `demo-driver@chargeshare.local` / `demo-host@chargeshare.local`, Passwort `demo1234`.
 Die Web-App liest die API-Adresse aus `?api=https://…` (Standard `http://localhost:8080`).
-Die Karte ist noch ein Platzhalter (Liste statt Map); siehe `AGENTS.md`, Abschnitt „Bekannte Lücken“.
+Die Suche zeigt auf Android und Desktop eine Karte (siehe [Karte](#karte)), auf iOS und im Web die Liste.
 
 ## Server starten
 
@@ -132,6 +132,22 @@ Bewusste Abweichungen vom Go-Code (Fehler/Luecken dort): Stornieren liefert `204
 Payment-Intent; Exclusion-Verletzung -> `409` statt `500`; `confirm-payment` prueft den Zahlungsstatus beim Provider (`402`);
 Konto loeschen entfernt abhaengige Buchungen/Reviews; E-Mail wird kleingeschrieben; Rolle wird aus der DB statt aus dem Token gelesen;
 Slots in der Vergangenheit werden nicht angeboten; unbekannte OCPP-Ladepunkte (`ocpp_id` an keiner Wallbox) werden abgelehnt.
+
+## Karte
+
+Die Suche hat einen Umschalter **Karte / Liste**; auf Android und Desktop ist die Karte die Startansicht.
+Jede Wallbox ist ein Pin (grün = verfügbar, grau = offline); ein Tipp auf den Pin öffnet die Detailseite.
+Die Kamera startet auf Bremen und springt auf den Umfang der Suchergebnisse. Über „Filter“ lassen sich die Suchfilter über der Karte einblenden.
+
+- **Bibliothek:** [MapCompose-MP](https://github.com/p-lr/MapComposeMP) (`ovh.plrapps:mapcompose-mp`, Apache-2.0) – reines Compose Multiplatform (Android, Desktop, iOS, Wasm),
+  Marker/Gesten/Pinch-Zoom, **kein API-Key**, keine native SDK-Abhängigkeit. Kacheln liefert `OsmTileSource` von `tile.openstreetmap.org` (Quellenangabe „© OpenStreetMap-Mitwirkende“ steht auf der Karte).
+  Verworfen: MapLibre Compose (kein Wasm-Target, Desktop „early“, braucht zusätzlich einen Vektorstil-Anbieter), `Compose-Multiplatform-Tile-Map` (0.x, kein Marker-API, Pins müssten selbst gezeichnet werden).
+- **Plattformen:** `expect val isMapSupported` (`platform/MapSupport.kt`): Android und Desktop = `true`; **iOS und Web = `false`** – dort zeigt die Suche die Liste mit Hinweis, kein Umschalter.
+  Die Bibliothek läuft grundsätzlich auch auf iOS/Wasm; aktiviert wird sie dort erst, wenn sie auf einem Mac bzw. im Browser geprüft ist (nur `actual` auf `true` setzen).
+- **Ohne Internet** (oder wenn OSM Kacheln ablehnt) bleibt die Kartenfläche leer, Pins und Navigation funktionieren weiter.
+- **Produktion:** die OSM-Server sind nur für moderate Nutzung gedacht ([Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/)). Vor einem Store-Release einen eigenen Kachelserver oder einen
+  Anbieter mit Vertrag verwenden (`OsmTileSource(baseUrl = …)`).
+- **Code:** `presentation/map/` (Web-Mercator-Projektion, `Wallbox.toPin()`, Kartenausschnitt – getestet), `data/OsmTileSource.kt` (Kachelabruf mit Cache, getestet), `ui/map/WallboxMap.kt` (Composable).
 
 ## Zahlung (Stripe, Google Pay, Apple Pay)
 
@@ -204,6 +220,6 @@ Alle Versionen stehen in `gradle/libs.versions.toml`.
 ## Nächste Schritte
 
 1. Server: Rate-Limiting, Stripe gegen Testkonto pruefen (Google Pay/Apple Pay mit echten Testschlüsseln durchspielen), Zahlung nach OCPP-Abschluss auf tatsaechliche kWh abrechnen, RemoteStart/Stop
-2. composeApp: echte Karte (native Map-Anbindung per `expect/actual`), Standort mit Einwilligung, Bewertungen schreiben, Wallbox bearbeiten, „Jetzt bezahlen“ für offene Buchungen in der Buchungsliste
+2. composeApp: Karte auf iOS/Web freischalten (nach Test), Gerätestandort mit Einwilligung, Bewertungen schreiben, Wallbox bearbeiten, „Jetzt bezahlen“ für offene Buchungen in der Buchungsliste
 3. iOS auf einem Mac bauen und testen (Keychain-`TokenStore` ist ungetestet)
 4. CI (GitHub Actions: Linux für shared/server/web/android, macOS für iOS)

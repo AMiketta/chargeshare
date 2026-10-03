@@ -58,11 +58,11 @@ server ────────────────────────�
 
 | Paket | Inhalt |
 |---|---|
-| `ui/` | `App()`, Theme, Navigation (Wurzel), wiederverwendbare Komponenten (`ui/components`), Strings (`ui/Strings.kt`), ein Unterpaket pro Feature (`ui/auth`, `ui/wallbox`, `ui/booking`, `ui/host`, `ui/profile`) mit Screens (`@Composable`) |
-| `presentation/` | ViewModels (`androidx.lifecycle.ViewModel`) und `UiState`-Klassen, ein Unterpaket pro Feature (`auth`, `session`, `wallbox`, `booking`, `host`, `profile`). **Keine Compose-UI-Imports** |
+| `ui/` | `App()`, Theme, Navigation (Wurzel), wiederverwendbare Komponenten (`ui/components`), Strings (`ui/Strings.kt`), ein Unterpaket pro Feature (`ui/auth`, `ui/wallbox`, `ui/map`, `ui/booking`, `ui/host`, `ui/profile`) mit Screens (`@Composable`) |
+| `presentation/` | ViewModels (`androidx.lifecycle.ViewModel`) und `UiState`-Klassen, ein Unterpaket pro Feature (`auth`, `session`, `wallbox`, `map`, `booking`, `host`, `profile`). **Keine Compose-UI-Imports** |
 | `data/` | Repositories (Schnittstelle + `Api…`-Implementierung über `ChargeShareApi`), `Outcome`/`AppError`/`runCatchingOutcome`, `PersistedTokenStore`, Slot-Zeitlogik |
 | `payment/` | `PaymentLauncher` (Schnittstelle zum Zahlungsfenster), `PaymentRequest`/`PaymentResult`/`PaymentMethodChoice`, `UnsupportedPaymentLauncher` (Desktop/Web). Plattform-Implementierungen: Android `androidApp/.../StripePaymentLauncher`, iOS `iosMain/.../IosPaymentBridge.kt` + Swift `iosApp/.../StripePaymentBridge.swift` |
-| `platform/` | `expect fun createSecureTokenStore(PlatformContext)` mit `actual` je Plattform (Android-Keystore, iOS-Keychain, Desktop-Datei, Web-localStorage); `PlatformContext` ist eine normale Klasse (Android: `Context` im `handle`) |
+| `platform/` | `expect fun createSecureTokenStore(PlatformContext)` mit `actual` je Plattform (Android-Keystore, iOS-Keychain, Desktop-Datei, Web-localStorage); `PlatformContext` ist eine normale Klasse (Android: `Context` im `handle`). `expect val isMapSupported`: ob die Plattform die Karte zeigt (Android/Desktop `true`, iOS/Web `false` → nur Liste) |
 | `di/` | `AppContainer` – manuelle Dependency Injection |
 
 ## 3. Tech-Stack (tatsächliche Versionen, Quelle: `gradle/libs.versions.toml`)
@@ -80,7 +80,7 @@ server ────────────────────────�
 | androidx.activity-compose | 1.12.4 |
 | Stripe Android SDK (`androidApp`) / Stripe iOS SDK (SPM, `iosApp/project.yml`) | 23.21.0 / 26.12.1 |
 
-Zusätzlich in `composeApp`: kotlinx-datetime 0.8.0, `org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose` 2.10.0,
+Zusätzlich in `composeApp`: kotlinx-datetime 0.8.0, MapCompose-MP 1.1.3 (Karte mit OpenStreetMap-Kacheln, kein API-Key; reines Compose Multiplatform), `org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose` 2.10.0,
 `org.jetbrains.compose.ui:ui-backhandler` 1.12.1 (Zurück-Taste) und – nur Desktop – `kotlinx-coroutines-swing` (liefert `Dispatchers.Main` für `viewModelScope`).
 **Alle Versionen nur im Version Catalog pflegen**, nie in einzelnen `build.gradle.kts`.
 Dependency-Injection-Framework: **keines** (manuell per Konstruktor, siehe Abschnitt 6). Koin o. Ä. nur nach Absprache und Eintrag hier.
@@ -339,7 +339,7 @@ Ein Auftrag ist erst fertig, wenn **alle** Punkte gelten:
   Die App hat seit dem Zahlungs-PR eine Zahlungsoberfläche (Stripe-PaymentSheet mit Google Pay / Apple Pay, siehe README „Zahlung“), die aber **nie mit echten Stripe-Testschlüsseln durchgespielt** wurde. Nur die Fake-Zahlung (Dev) ist end-to-end getestet.
 - **iOS** lässt sich auf Linux nur zu Klibs kompilieren, **nicht linken** und nicht in Xcode/Simulator testen – das geht nur auf macOS. Der Keychain-`TokenStore` ist dort ungetestet.
 - **Rate-Limiting** des Backends (Go: `ratelimit.go`) ist nicht portiert.
-- **Karte:** es gibt keine eingebundene Karten-Komponente (kein ausgereiftes KMP-Map-SDK); die Suche zeigt eine Liste mit Platzhalter. Geräte-Standort ist noch nicht angebunden (Standardstandort Bremen); die Freitext-Suche filtert nur die geladenen Ergebnisse (Backend hat keine Textsuche).
+- **Karte:** MapCompose-MP mit OSM-Kacheln, aktiv auf **Android und Desktop**; auf **iOS/Web** zeigt die Suche nur die Liste (`isMapSupported = false`, Freischaltung erst nach Test auf Mac/im Browser). Die OSM-Server sind nur für moderate Nutzung gedacht – vor Release eigenen Kachelserver/Anbieter nutzen. Keine Cluster bei vielen Pins, kein Offline-Kartenmaterial, keine UI-Tests der Karte. Geräte-Standort ist noch nicht angebunden (Standardstandort Bremen); die Freitext-Suche filtert nur die geladenen Ergebnisse (Backend hat keine Textsuche).
 - **Zahlung:** Apple Pay (Swift-Brücke, SPM-Paket, Entitlements) ist nicht auf einem Mac gebaut oder getestet und braucht Merchant-ID + bezahltes Apple-Developer-Konto; Google Pay braucht für Produktion die Freischaltung in der Google Pay & Wallet Console. Unbezahlte `pending`-Buchungen laufen serverseitig nicht ab (Slot bleibt belegt, bis die Fahrerin storniert; der Storno schließt den offenen PaymentIntent bei Stripe, wird aber ein Intent zwischen Abfrage und Storno noch bezahlt, erfolgt keine automatische Erstattung); in der Buchungsliste gibt es noch kein „Jetzt bezahlen“ für offene Buchungen. Rückzahlungen/Teilabrechnung nach kWh fehlen.
 - **Noch nicht in der UI:** Bewertung abgeben (`POST /reviews`), Apple Sign In, Profil bearbeiten, Auszahlungs-Onboarding (Connect), Wallbox bearbeiten/löschen, Fotos, Dunkelmodus.
 - **Tests:** es gibt ViewModel-/Daten-Tests (89 in `composeApp`), aber **keine automatisierten UI-/Composable-Tests** und keine Tests auf echtem Gerät. Der Desktop-Build wurde manuell gegen das lokale Backend geprüft (Login, Liste, Detail, Buchung, Host-Wechsel).
