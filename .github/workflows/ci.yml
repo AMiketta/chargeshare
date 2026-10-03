@@ -15,7 +15,8 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@v3
+      - name: Android-SDK-Lizenzen akzeptieren (vorinstalliertes SDK auf dem Runner)
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
       - uses: gradle/actions/setup-gradle@v4
       - name: Tests und Build
         run: ./gradlew :shared:jvmTest :server:build :composeApp:desktopTest :web:wasmJsBrowserDistribution :androidApp:assembleDebug --no-daemon
