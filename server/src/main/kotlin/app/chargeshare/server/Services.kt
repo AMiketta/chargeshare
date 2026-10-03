@@ -7,6 +7,7 @@ import app.chargeshare.server.services.HostService
 import app.chargeshare.server.services.PaymentService
 import app.chargeshare.server.services.ReviewService
 import app.chargeshare.server.services.WallboxService
+import app.chargeshare.shared.model.PaymentConfig
 
 /** Alle Fachdienste; wird in [module] einmal aufgebaut und an die Routen gereicht. */
 class Services(
@@ -17,4 +18,6 @@ class Services(
     val host: HostService,
     val paymentsSvc: PaymentService,
     val payments: PaymentProvider,
+    /** Öffentliche Zahlungskonfiguration für die Apps (ohne Secrets). */
+    val paymentConfig: PaymentConfig,
 )

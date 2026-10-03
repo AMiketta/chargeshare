@@ -18,6 +18,16 @@ data class AppConfig(
     val stripeSecretKey: String? = null,
     val stripeWebhookSecret: String? = null,
     val stripePlatformFeePercent: Int = 15,
+    /** Oeffentlicher Stripe-Schluessel (`pk_...`); wird an die Apps ausgeliefert. Nie ein Secret Key. */
+    val stripePublishableKey: String? = null,
+    /** Apple-Pay-Merchant-ID (`merchant.app.chargeshare`); nur fuer iOS noetig. */
+    val applePayMerchantId: String? = null,
+    /** `test` oder `production`; ohne Angabe abgeleitet aus dem Publishable Key (`pk_live_` = Produktion). */
+    val googlePayEnvironment: String = deriveGooglePayEnvironment(stripePublishableKey),
+    /** Name des Haendlers in den Zahlungsdialogen (Google Pay / Apple Pay / PaymentSheet). */
+    val merchantDisplayName: String = "ChargeShare",
+    /** ISO-3166-Land des Haendlers, Pflicht fuer Google Pay und Apple Pay. */
+    val merchantCountryCode: String = "DE",
     /** bcrypt-Kosten (Go-Backend: 12). Tests senken den Wert, damit sie schnell bleiben. */
     val bcryptCost: Int = 12,
     val refreshTokenTtlDays: Long = 30,
@@ -32,11 +42,26 @@ data class AppConfig(
             require(jwtSecret != DEV_JWT_SECRET && jwtSecret.length >= 32) { "JWT_SECRET muss in Produktion gesetzt sein (>= 32 Zeichen)" }
             require(jwtRefreshSecret != DEV_JWT_REFRESH_SECRET) { "JWT_REFRESH_SECRET muss in Produktion gesetzt sein" }
             require(!devSeed) { "devSeed ist in Produktion nicht erlaubt" }
+            if (!stripeSecretKey.isNullOrBlank()) {
+                require(!stripePublishableKey.isNullOrBlank()) { "STRIPE_PUBLISHABLE_KEY muss in Produktion gesetzt sein" }
+            }
         }
+        // Schutz vor Verwechslung: dieser Wert geht ungeschuetzt an jede App, ein Secret Key duerfte nie hier landen.
+        require(stripePublishableKey.isNullOrBlank() || stripePublishableKey.startsWith(PUBLISHABLE_KEY_PREFIX)) {
+            "STRIPE_PUBLISHABLE_KEY muss mit pk_ beginnen (kein Secret Key!)"
+        }
+        require(googlePayEnvironment in GOOGLE_PAY_ENVIRONMENTS) { "GOOGLE_PAY_ENVIRONMENT muss test oder production sein" }
     }
 
     companion object {
         const val DEV_JWT_SECRET = "dev-only-insecure-access-secret-change-me-0123456789"
+        const val PUBLISHABLE_KEY_PREFIX = "pk_"
+        private const val LIVE_PUBLISHABLE_KEY_PREFIX = "pk_live_"
+        private val GOOGLE_PAY_ENVIRONMENTS = setOf("test", "production")
+
+        private fun deriveGooglePayEnvironment(publishableKey: String?): String =
+            if (publishableKey?.startsWith(LIVE_PUBLISHABLE_KEY_PREFIX) == true) "production" else "test"
+
         const val DEV_JWT_REFRESH_SECRET = "dev-only-insecure-refresh-secret-change-me-0123456789"
 
         fun fromEnv(env: Map<String, String> = System.getenv()): AppConfig = AppConfig(
@@ -51,6 +76,12 @@ data class AppConfig(
             stripeSecretKey = env["STRIPE_SECRET_KEY"],
             stripeWebhookSecret = env["STRIPE_WEBHOOK_SECRET"],
             stripePlatformFeePercent = env["STRIPE_PLATFORM_FEE_PERCENT"]?.toIntOrNull() ?: 15,
+            stripePublishableKey = env["STRIPE_PUBLISHABLE_KEY"]?.takeIf { it.isNotBlank() },
+            applePayMerchantId = env["APPLE_PAY_MERCHANT_ID"]?.takeIf { it.isNotBlank() },
+            googlePayEnvironment = env["GOOGLE_PAY_ENVIRONMENT"]?.takeIf { it.isNotBlank() }?.lowercase()
+                ?: deriveGooglePayEnvironment(env["STRIPE_PUBLISHABLE_KEY"]),
+            merchantDisplayName = env["MERCHANT_DISPLAY_NAME"]?.takeIf { it.isNotBlank() } ?: "ChargeShare",
+            merchantCountryCode = env["MERCHANT_COUNTRY_CODE"]?.takeIf { it.isNotBlank() }?.uppercase() ?: "DE",
             // Dev-Seed: nur ENV=development und solange DEV_SEED nicht explizit "false" ist
             devSeed = (env["ENV"] ?: "development").equals("development", ignoreCase = true) &&
                 !(env["DEV_SEED"] ?: "true").equals("false", ignoreCase = true),

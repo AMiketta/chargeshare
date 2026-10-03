@@ -137,4 +137,28 @@ class ModelSerializationTest {
         assertEquals(7, h.sessions)
         assertEquals(4.8, h.avgRating)
     }
+
+    @Test
+    fun decodesPaymentConfigFromServer() {
+        val json = """
+            {"provider":"stripe","publishable_key":"pk_test_1","merchant_display_name":"ChargeShare",
+             "merchant_country_code":"DE","currency":"eur","google_pay_test_environment":true,
+             "apple_pay_merchant_id":"merchant.app.chargeshare","unbekanntes_feld":1}
+        """.trimIndent()
+        val config = ChargeShareJson.decodeFromString<PaymentConfig>(json)
+        assertEquals(PaymentProviderKind.STRIPE, config.provider)
+        assertTrue(config.requiresClientPayment)
+        assertEquals("pk_test_1", config.publishableKey)
+        assertEquals("merchant.app.chargeshare", config.applePayMerchantId)
+        assertTrue(config.googlePayTestEnvironment)
+    }
+
+    @Test
+    fun fakePaymentConfigNeedsNoClientPayment() {
+        val json = """{"provider":"fake","merchant_display_name":"ChargeShare","merchant_country_code":"DE","currency":"eur","google_pay_test_environment":true}"""
+        val config = ChargeShareJson.decodeFromString<PaymentConfig>(json)
+        assertFalse(config.requiresClientPayment)
+        assertNull(config.publishableKey)
+        assertNull(config.applePayMerchantId)
+    }
 }
