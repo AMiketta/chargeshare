@@ -4,6 +4,7 @@ import app.chargeshare.shared.api.ChargeShareApi
 import app.chargeshare.shared.model.ChargingSession
 import app.chargeshare.shared.model.CreateWallboxRequest
 import app.chargeshare.shared.model.HostEarnings
+import app.chargeshare.shared.model.UpdateWallboxRequest
 import app.chargeshare.shared.model.Wallbox
 import app.chargeshare.shared.model.WallboxSearch
 
@@ -20,6 +21,9 @@ interface HostRepository {
      */
     suspend fun myWallboxes(ownerId: String): Outcome<List<Wallbox>>
     suspend fun createWallbox(request: CreateWallboxRequest): Outcome<Wallbox>
+
+    /** Ändert die Wallbox; der Server erlaubt das nur dem Eigentümer (sonst [AppError.Forbidden]). */
+    suspend fun updateWallbox(wallboxId: String, request: UpdateWallboxRequest): Outcome<Wallbox>
     suspend fun setOnline(wallboxId: String, isOnline: Boolean): Outcome<Boolean>
 
     companion object {
@@ -42,6 +46,9 @@ class ApiHostRepository(private val api: ChargeShareApi) : HostRepository {
 
     override suspend fun createWallbox(request: CreateWallboxRequest): Outcome<Wallbox> =
         runCatchingOutcome { api.createWallbox(request) }
+
+    override suspend fun updateWallbox(wallboxId: String, request: UpdateWallboxRequest): Outcome<Wallbox> =
+        runCatchingOutcome { api.updateWallbox(wallboxId, request) }
 
     override suspend fun setOnline(wallboxId: String, isOnline: Boolean): Outcome<Boolean> =
         runCatchingOutcome { api.setWallboxOnline(wallboxId, isOnline).isOnline }

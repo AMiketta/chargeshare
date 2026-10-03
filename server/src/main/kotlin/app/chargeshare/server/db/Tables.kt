@@ -46,6 +46,7 @@ object Wallboxes : Table("wallboxes") {
     val ocppId = text("ocpp_id").nullable()
     val model = text("model").nullable()
     val manufacturer = text("manufacturer").nullable()
+    val description = text("description").nullable()
     val photos = array<String>("photos").nullable()
     val availability = jsonb<WeeklyAvailability>("availability", Json.Default)
     val ratingAvg = decimal("rating_avg", 3, 2).nullable()

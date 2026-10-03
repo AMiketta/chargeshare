@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import app.chargeshare.presentation.host.CreateWallboxUiState
 import app.chargeshare.presentation.host.CreateWallboxViewModel
+import app.chargeshare.presentation.host.EditWallboxViewModel
 import app.chargeshare.presentation.host.WEEKDAY_KEYS
 import app.chargeshare.presentation.host.WallboxField
 import app.chargeshare.shared.model.ConnectorType
@@ -46,11 +47,23 @@ fun CreateWallboxRoute(
 ) {
     val state by viewModel.state.collectAsState()
     // Nach dem Anlegen zurück zum Dashboard, das sich beim Einblenden neu lädt.
-    LaunchedEffect(state.created) { if (state.created) onBack() }
+    LaunchedEffect(state.saved) { if (state.saved) onBack() }
     CreateWallboxScreen(state, viewModel::onChange, viewModel::onDayToggled, viewModel::onSubmit, onBack, modifier)
 }
 
-/** Formular zum Anlegen einer Wallbox. */
+@Composable
+fun EditWallboxRoute(
+    viewModel: EditWallboxViewModel,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val state by viewModel.state.collectAsState()
+    // Nach dem Speichern zurück zum Dashboard, das sich beim Einblenden neu lädt.
+    LaunchedEffect(state.saved) { if (state.saved) onBack() }
+    CreateWallboxScreen(state, viewModel::onChange, viewModel::onDayToggled, viewModel::onSubmit, onBack, modifier, isEdit = true)
+}
+
+/** Formular zum Anlegen ([isEdit] = `false`) oder Bearbeiten einer Wallbox. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CreateWallboxScreen(
@@ -60,11 +73,12 @@ fun CreateWallboxScreen(
     onSubmit: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    isEdit: Boolean = false,
 ) {
     fun error(field: WallboxField) = if (field in state.errors) Strings.wallboxFieldError(field) else null
     Scaffold(
         modifier = modifier,
-        topBar = { HeroHeader(title = Strings.CreateWallboxTitle, onBack = onBack) },
+        topBar = { HeroHeader(title = if (isEdit) Strings.EditWallboxTitle else Strings.CreateWallboxTitle, onBack = onBack) },
         bottomBar = {
             Surface(shadowElevation = Spacing.Small) {
                 Column(modifier = Modifier.padding(Spacing.Medium), verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
@@ -93,6 +107,16 @@ fun CreateWallboxScreen(
                 FormTextField(state.powerKw, { v -> onChange { it.copy(powerKw = v) } }, Strings.FieldPowerKw, Modifier.weight(1f), error(WallboxField.PowerKw), keyboardType = KeyboardType.Decimal)
                 FormTextField(state.price, { v -> onChange { it.copy(price = v) } }, Strings.FieldPrice, Modifier.weight(1f), error(WallboxField.Price), keyboardType = KeyboardType.Decimal)
             }
+            if (isEdit) {
+                Text(Strings.PriceChangeHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            FormTextField(
+                state.description,
+                { v -> onChange { it.copy(description = v) } },
+                Strings.FieldDescription,
+                errorText = error(WallboxField.Description),
+                singleLine = false,
+            )
             SectionTitle(Strings.Connector)
             ChoiceChips(ConnectorType.entries, state.connector, { it.displayName }, { c -> onChange { it.copy(connector = c) } }, contentPadding = PaddingValues())
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Spacing.Small)) {
@@ -101,18 +125,22 @@ fun CreateWallboxScreen(
             }
             Text(Strings.MeteredHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             SectionTitle(Strings.Availability)
-            Row(horizontalArrangement = Arrangement.spacedBy(Spacing.Small)) {
-                FormTextField(state.availabilityStart, { v -> onChange { it.copy(availabilityStart = v) } }, Strings.FieldAvailabilityStart, Modifier.weight(1f), error(WallboxField.AvailabilityStart))
-                FormTextField(state.availabilityEnd, { v -> onChange { it.copy(availabilityEnd = v) } }, Strings.FieldAvailabilityEnd, Modifier.weight(1f), error(WallboxField.AvailabilityEnd))
-            }
-            Text(Strings.AvailabilityUtcHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(Strings.FieldDays, style = MaterialTheme.typography.labelLarge)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.Small)) {
-                WEEKDAY_KEYS.forEach { key ->
-                    FilterChip(selected = key in state.days, onClick = { onDayToggled(key) }, label = { Text(weekdayShortFromKey(key)) })
+            if (!state.availabilityEditable) {
+                Text(Strings.AvailabilityNotEditable, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(Spacing.Small)) {
+                    FormTextField(state.availabilityStart, { v -> onChange { it.copy(availabilityStart = v) } }, Strings.FieldAvailabilityStart, Modifier.weight(1f), error(WallboxField.AvailabilityStart))
+                    FormTextField(state.availabilityEnd, { v -> onChange { it.copy(availabilityEnd = v) } }, Strings.FieldAvailabilityEnd, Modifier.weight(1f), error(WallboxField.AvailabilityEnd))
                 }
+                Text(Strings.AvailabilityUtcHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(Strings.FieldDays, style = MaterialTheme.typography.labelLarge)
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.Small)) {
+                    WEEKDAY_KEYS.forEach { key ->
+                        FilterChip(selected = key in state.days, onClick = { onDayToggled(key) }, label = { Text(weekdayShortFromKey(key)) })
+                    }
+                }
+                error(WallboxField.Days)?.let { ErrorText(it) }
             }
-            error(WallboxField.Days)?.let { ErrorText(it) }
         }
     }
 }

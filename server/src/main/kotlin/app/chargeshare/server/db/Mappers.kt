@@ -51,6 +51,7 @@ fun ResultRow.toWallbox(distanceM: Double? = null): Wallbox = Wallbox(
     ocppId = this[Wallboxes.ocppId],
     model = this[Wallboxes.model],
     manufacturer = this[Wallboxes.manufacturer],
+    description = this[Wallboxes.description],
     photos = this[Wallboxes.photos] ?: emptyList(),
     availability = this[Wallboxes.availability],
     ratingAvg = this[Wallboxes.ratingAvg]?.toDouble() ?: 0.0,

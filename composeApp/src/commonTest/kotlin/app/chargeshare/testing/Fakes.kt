@@ -16,6 +16,7 @@ import app.chargeshare.shared.model.BookingStatus
 import app.chargeshare.shared.model.ChargingSession
 import app.chargeshare.shared.model.ConnectorType
 import app.chargeshare.shared.model.CreateWallboxRequest
+import app.chargeshare.shared.model.UpdateWallboxRequest
 import app.chargeshare.shared.model.HostEarnings
 import app.chargeshare.shared.model.PaymentConfig
 import app.chargeshare.shared.model.PaymentProviderKind
@@ -216,7 +217,10 @@ class FakeHostRepository : HostRepository {
     var createResult: Outcome<Wallbox> = Outcome.Success(testWallbox())
     var setOnlineResult: Outcome<Boolean>? = null
 
+    var updateResult: Outcome<Wallbox>? = null
+
     val createdRequests = mutableListOf<CreateWallboxRequest>()
+    val updatedRequests = mutableListOf<Pair<String, UpdateWallboxRequest>>()
 
     override suspend fun earnings(): Outcome<HostEarnings> = earningsResult
 
@@ -227,6 +231,11 @@ class FakeHostRepository : HostRepository {
     override suspend fun createWallbox(request: CreateWallboxRequest): Outcome<Wallbox> {
         createdRequests += request
         return createResult
+    }
+
+    override suspend fun updateWallbox(wallboxId: String, request: UpdateWallboxRequest): Outcome<Wallbox> {
+        updatedRequests += wallboxId to request
+        return updateResult ?: Outcome.Success(testWallbox(wallboxId))
     }
 
     override suspend fun setOnline(wallboxId: String, isOnline: Boolean): Outcome<Boolean> =

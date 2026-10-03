@@ -26,6 +26,7 @@ sealed interface Screen {
     data class WallboxDetail(val wallboxId: String) : Screen
     data class Booking(val wallbox: Wallbox) : Screen
     data object CreateWallbox : Screen
+    data class EditWallbox(val wallbox: Wallbox) : Screen
 }
 
 /** Zustandsbasierte Navigation: ein gewählter Tab plus ein Stapel von Vollbild-Screens. */

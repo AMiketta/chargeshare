@@ -93,8 +93,8 @@ curl localhost:8080/health      # {"status":"ok","database":"ok"}
 ```
 
 Ohne `DATABASE_URL` läuft der Server ohne Datenbank (`"database":"disabled"`). Beim Start mit Datenbank wendet
-Flyway `server/src/main/resources/db/migration/V1__init.sql` an (1:1 aus `legacy/go-backend/.../000001_init.up.sql`;
-braucht die PostgreSQL-Extensions `pgcrypto`, `cube`, `earthdistance`, `btree_gist` – im offiziellen `postgres`-Image enthalten).
+Flyway `server/src/main/resources/db/migration/V1__init.sql` (1:1 aus `legacy/go-backend/.../000001_init.up.sql`) und `V2__wallbox_description.sql` (Beschreibung der Wallbox) an;
+V1 braucht die PostgreSQL-Extensions `pgcrypto`, `cube`, `earthdistance`, `btree_gist` – im offiziellen `postgres`-Image enthalten.
 Konfiguration über Umgebungsvariablen, siehe `.env.example` (gleiche Namen wie im Go-Backend).
 
 ### Lokal ohne Docker (Entwicklung)
@@ -228,6 +228,6 @@ Alle Versionen stehen in `gradle/libs.versions.toml`.
 ## Nächste Schritte
 
 1. Server: Rate-Limiting, Stripe gegen Testkonto pruefen (Google Pay/Apple Pay mit echten Testschlüsseln durchspielen), Zahlung nach OCPP-Abschluss auf tatsaechliche kWh abrechnen, RemoteStart/Stop
-2. composeApp: Karte auf iOS/Web freischalten (nach Test), Gerätestandort mit Einwilligung, Wallbox bearbeiten
+2. composeApp: Karte auf iOS/Web freischalten (nach Test), Gerätestandort mit Einwilligung
 3. iOS auf einem Mac bauen und testen (Keychain-`TokenStore` ist ungetestet)
 4. CI (GitHub Actions: Linux für shared/server/web/android, macOS für iOS)

@@ -23,6 +23,18 @@ data class TimeSlot(val start: String, val end: String)
  */
 typealias WeeklyAvailability = Map<String, List<TimeSlot>>
 
+/** Grenzen der Wallbox-Felder; Server und Apps prüfen dieselben Werte. */
+object WallboxLimits {
+    const val MAX_NAME_LENGTH = 200
+    const val MAX_DESCRIPTION_LENGTH = 1000
+
+    /** Obergrenze der Ladeleistung (Schnellladesäulen liegen bei 350 kW); schützt auch vor Tippfehlern. */
+    const val MAX_POWER_KW = 350.0
+
+    /** Obergrenze des Preises in Euro pro kWh (Tippfehler-Schutz, z. B. „34“ statt „0,34“). */
+    const val MAX_PRICE_PER_KWH = 5.0
+}
+
 /** Go: `models.Wallbox`. */
 @Serializable
 data class Wallbox(
@@ -44,6 +56,8 @@ data class Wallbox(
     @SerialName("ocpp_id") val ocppId: String? = null,
     val model: String? = null,
     val manufacturer: String? = null,
+    /** Freitext des Hosts (max. [WallboxLimits.MAX_DESCRIPTION_LENGTH] Zeichen). */
+    val description: String? = null,
     val photos: List<String> = emptyList(),
     val availability: WeeklyAvailability = emptyMap(),
     @SerialName("rating_avg") val ratingAvg: Double = 0.0,
@@ -73,6 +87,7 @@ data class CreateWallboxRequest(
     @SerialName("ocpp_id") val ocppId: String? = null,
     val model: String? = null,
     val manufacturer: String? = null,
+    val description: String? = null,
     val photos: List<String>? = null,
     val availability: WeeklyAvailability = emptyMap(),
 )
@@ -94,6 +109,8 @@ data class UpdateWallboxRequest(
     @SerialName("ocpp_id") val ocppId: String? = null,
     val model: String? = null,
     val manufacturer: String? = null,
+    /** Leerer Text entfernt die Beschreibung. */
+    val description: String? = null,
     val photos: List<String>? = null,
     val availability: WeeklyAvailability? = null,
 )

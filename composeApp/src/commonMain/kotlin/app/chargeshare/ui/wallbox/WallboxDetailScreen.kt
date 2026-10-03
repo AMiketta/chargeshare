@@ -107,6 +107,10 @@ private fun DetailContent(wallbox: Wallbox, state: WallboxDetailUiState, modifie
                 Text(it.joinToString(" "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        wallbox.description?.takeIf { it.isNotBlank() }?.let {
+            SectionTitle(Strings.AboutWallbox)
+            Text(it, style = MaterialTheme.typography.bodyMedium)
+        }
         AvailabilityCard(wallbox, state.freeSlotsToday)
         SectionTitle(Strings.Reviews)
         if (state.reviews.isEmpty()) {
