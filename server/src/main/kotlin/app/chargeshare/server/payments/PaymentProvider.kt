@@ -58,6 +58,12 @@ interface PaymentProvider {
 
     fun refund(paymentIntentId: String)
 
+    /**
+     * Storniert einen noch offenen PaymentIntent (unbezahlte Buchung wurde storniert), damit er nicht bei Stripe offen bleibt.
+     * Fehlertolerant: ein bereits bezahlter (`succeeded`) oder stornierter (`canceled`) Intent ist kein Fehler.
+     */
+    fun cancelIntent(paymentIntentId: String)
+
     /** Legt (falls noetig) ein Connect-Express-Konto an und liefert den Onboarding-Link. */
     fun createOnboardingLink(email: String, existingAccountId: String?): OnboardingInfo
 
@@ -83,6 +89,7 @@ class FakePaymentProvider : PaymentProvider {
     override val name = "fake"
     override val autoConfirms = true
     val refunded: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+    val canceledIntents: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
 
     override fun createCustomer(email: String, name: String): String? = null
 
@@ -97,6 +104,10 @@ class FakePaymentProvider : PaymentProvider {
 
     override fun refund(paymentIntentId: String) {
         refunded += paymentIntentId
+    }
+
+    override fun cancelIntent(paymentIntentId: String) {
+        canceledIntents += paymentIntentId
     }
 
     override fun createOnboardingLink(email: String, existingAccountId: String?): OnboardingInfo {
@@ -115,6 +126,10 @@ class StripePaymentProvider(
     private val returnUrl: String = "https://chargeshare.app/host/onboard/return",
 ) : PaymentProvider {
     private val client = StripeClient(secretKey)
+    private companion object {
+        /** Intents in diesen Zustaenden lassen sich nicht mehr stornieren; sie muessen den Storno der Buchung nicht blockieren. */
+        val FINISHED_INTENT_STATUSES = setOf("succeeded", "canceled")
+    }
     override val name = "stripe"
     override val autoConfirms = false
 
@@ -134,6 +149,12 @@ class StripePaymentProvider(
 
     override fun refund(paymentIntentId: String) {
         client.refunds().create(RefundCreateParams.builder().setPaymentIntent(paymentIntentId).build())
+    }
+
+    override fun cancelIntent(paymentIntentId: String) {
+        val status = client.paymentIntents().retrieve(paymentIntentId).status
+        if (status in FINISHED_INTENT_STATUSES) return
+        client.paymentIntents().cancel(paymentIntentId)
     }
 
     override fun createOnboardingLink(email: String, existingAccountId: String?): OnboardingInfo {
