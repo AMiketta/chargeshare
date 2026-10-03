@@ -3,17 +3,21 @@ package app.chargeshare.ui.wallbox
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -27,6 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import app.chargeshare.data.WallboxFilter
+import app.chargeshare.presentation.map.toPin
+import app.chargeshare.presentation.wallbox.SearchViewMode
 import app.chargeshare.presentation.wallbox.WallboxListUiState
 import app.chargeshare.presentation.wallbox.WallboxListViewModel
 import app.chargeshare.shared.model.ConnectorType
@@ -45,6 +51,9 @@ import app.chargeshare.ui.components.SectionTitle
 import app.chargeshare.ui.formatDistance
 import app.chargeshare.ui.formatPowerKw
 import app.chargeshare.ui.formatPricePerKwh
+import app.chargeshare.ui.map.WallboxMap
+import androidx.compose.ui.unit.dp
+import ovh.plrapps.mapcompose.core.TileStreamProvider
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 
@@ -55,6 +64,7 @@ private val PRICE_OPTIONS_EUR = listOf(0.30, 0.40, 0.50)
 @Composable
 fun WallboxListRoute(
     viewModel: WallboxListViewModel,
+    tileSource: TileStreamProvider,
     onOpenWallbox: (Wallbox) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -67,15 +77,17 @@ fun WallboxListRoute(
         onMinPowerChange = viewModel::onMinPowerChange,
         onMaxPriceChange = viewModel::onMaxPriceChange,
         onOnlyOnlineChange = viewModel::onOnlyOnlineChange,
+        onViewModeChange = viewModel::onViewModeChange,
         onRetry = viewModel::onRefresh,
         onOpenWallbox = onOpenWallbox,
+        tileSource = tileSource,
         modifier = modifier,
     )
 }
 
 /**
- * Karte/Suche. Die interaktive Karte ist noch nicht angebunden (kein ausgereiftes KMP-Map-SDK);
- * stattdessen gibt es einen Platzhalter und die nach Entfernung sortierte Liste.
+ * Suche mit Umschalter Karte/Liste. Wo die Plattform keine Karte zeigt ([WallboxListUiState.mapSupported] = `false`),
+ * gibt es nur die Liste mit einem Hinweis.
  */
 @Composable
 fun WallboxListScreen(
@@ -86,36 +98,131 @@ fun WallboxListScreen(
     onMinPowerChange: (Double?) -> Unit,
     onMaxPriceChange: (Double?) -> Unit,
     onOnlyOnlineChange: (Boolean) -> Unit,
+    onViewModeChange: (SearchViewMode) -> Unit,
     onRetry: () -> Unit,
     onOpenWallbox: (Wallbox) -> Unit,
+    tileSource: TileStreamProvider,
     modifier: Modifier = Modifier,
 ) {
+    // Rein visueller Zustand: ob die Filter über der Karte eingeblendet sind.
+    var showMapFilters by remember { mutableStateOf(false) }
+    val filters: @Composable () -> Unit = {
+        Filters(state.filter, onRadiusChange, onConnectorChange, onMinPowerChange, onMaxPriceChange, onOnlyOnlineChange)
+    }
     Column(modifier = modifier.fillMaxSize()) {
         HeroHeader(title = Strings.AppName, subtitle = Strings.SearchCenterNote) {
             SearchField(state.query, onQueryChange)
         }
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(vertical = Spacing.Medium),
-            verticalArrangement = Arrangement.spacedBy(Spacing.Small),
-        ) {
-            item(key = "filters") {
-                Filters(state.filter, onRadiusChange, onConnectorChange, onMinPowerChange, onMaxPriceChange, onOnlyOnlineChange)
-            }
-            item(key = "map") { MapPlaceholder(Modifier.padding(horizontal = Spacing.Medium)) }
-            when {
-                state.isLoading -> item(key = "loading") { LoadingBox(Modifier.padding(Spacing.XLarge)) }
-                state.error != null -> item(key = "error") { ErrorBox(state.error, onRetry) }
-                state.visibleWallboxes.isEmpty() -> item(key = "empty") { EmptyBox(Strings.NoWallboxes) }
-                else -> {
-                    item(key = "count") {
-                        SectionTitle(Strings.stationsNearby(state.visibleWallboxes.size), Modifier.padding(horizontal = Spacing.Medium))
-                    }
-                    items(state.visibleWallboxes, key = { it.id }) { wallbox ->
-                        WallboxCard(wallbox, onClick = { onOpenWallbox(wallbox) }, modifier = Modifier.padding(horizontal = Spacing.Medium))
-                    }
+        if (state.mapSupported) {
+            ViewModeSwitch(
+                viewMode = state.viewMode,
+                onViewModeChange = onViewModeChange,
+                showFilters = showMapFilters,
+                onShowFiltersChange = { showMapFilters = it },
+                modifier = Modifier.padding(vertical = Spacing.Small),
+            )
+        }
+        if (state.showMap) {
+            MapResults(state, showMapFilters, filters, onRetry, onOpenWallbox, tileSource)
+        } else {
+            ListResults(state, filters, onRetry, onOpenWallbox)
+        }
+    }
+}
+
+@Composable
+private fun ListResults(
+    state: WallboxListUiState,
+    filters: @Composable () -> Unit,
+    onRetry: () -> Unit,
+    onOpenWallbox: (Wallbox) -> Unit,
+) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(vertical = Spacing.Medium),
+        verticalArrangement = Arrangement.spacedBy(Spacing.Small),
+    ) {
+        item(key = "filters") { filters() }
+        if (!state.mapSupported) {
+            item(key = "map") { MapUnavailableNote(Modifier.padding(horizontal = Spacing.Medium)) }
+        }
+        when {
+            state.isLoading -> item(key = "loading") { LoadingBox(Modifier.padding(Spacing.XLarge)) }
+            state.error != null -> item(key = "error") { ErrorBox(state.error, onRetry) }
+            state.visibleWallboxes.isEmpty() -> item(key = "empty") { EmptyBox(Strings.NoWallboxes) }
+            else -> {
+                item(key = "count") {
+                    SectionTitle(Strings.stationsNearby(state.visibleWallboxes.size), Modifier.padding(horizontal = Spacing.Medium))
+                }
+                items(state.visibleWallboxes, key = { it.id }) { wallbox ->
+                    WallboxCard(wallbox, onClick = { onOpenWallbox(wallbox) }, modifier = Modifier.padding(horizontal = Spacing.Medium))
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun MapResults(
+    state: WallboxListUiState,
+    showFilters: Boolean,
+    filters: @Composable () -> Unit,
+    onRetry: () -> Unit,
+    onOpenWallbox: (Wallbox) -> Unit,
+    tileSource: TileStreamProvider,
+) {
+    val wallboxes = state.visibleWallboxes
+    val pins = remember(wallboxes) { wallboxes.map(Wallbox::toPin) }
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (showFilters) {
+            Column(Modifier.heightIn(max = MAP_FILTER_MAX_HEIGHT).verticalScroll(rememberScrollState())) { filters() }
+        }
+        if (state.isLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+        state.error?.let { ErrorBox(it, onRetry) }
+        if (!state.isLoading && state.error == null && wallboxes.isEmpty()) EmptyBox(Strings.NoWallboxes)
+        WallboxMap(
+            pins = pins,
+            tileSource = tileSource,
+            onPinClick = { id -> wallboxes.firstOrNull { it.id == id }?.let(onOpenWallbox) },
+            modifier = Modifier.fillMaxWidth().weight(1f),
+        )
+    }
+}
+
+private val MAP_FILTER_MAX_HEIGHT = 220.dp
+
+/** Umschalter Karte/Liste; über der Karte zusätzlich ein Knopf, der die Filter ein- und ausblendet. */
+@Composable
+private fun ViewModeSwitch(
+    viewMode: SearchViewMode,
+    onViewModeChange: (SearchViewMode) -> Unit,
+    showFilters: Boolean,
+    onShowFiltersChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier.padding(horizontal = Spacing.Medium),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.Small),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        FilterChip(
+            selected = viewMode == SearchViewMode.Map,
+            onClick = { onViewModeChange(SearchViewMode.Map) },
+            label = { Text(Strings.ViewMap) },
+            leadingIcon = { Icon(AppIcons.Map, contentDescription = null) },
+        )
+        FilterChip(
+            selected = viewMode == SearchViewMode.List,
+            onClick = { onViewModeChange(SearchViewMode.List) },
+            label = { Text(Strings.ViewList) },
+            leadingIcon = { Icon(AppIcons.List, contentDescription = null) },
+        )
+        if (viewMode == SearchViewMode.Map) {
+            FilterChip(
+                selected = showFilters,
+                onClick = { onShowFiltersChange(!showFilters) },
+                label = { Text(if (showFilters) Strings.HideFilters else Strings.ShowFilters) },
+            )
         }
     }
 }
@@ -190,7 +297,7 @@ private fun Filters(
 }
 
 @Composable
-private fun MapPlaceholder(modifier: Modifier = Modifier) {
+private fun MapUnavailableNote(modifier: Modifier = Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = ChargeShareColors.PrimarySurface),
@@ -202,8 +309,8 @@ private fun MapPlaceholder(modifier: Modifier = Modifier) {
         ) {
             Icon(AppIcons.Map, contentDescription = null, tint = ChargeShareColors.Primary)
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.XSmall)) {
-                Text(Strings.MapPlaceholderTitle, style = MaterialTheme.typography.titleSmall, color = ChargeShareColors.Primary)
-                Text(Strings.MapPlaceholderBody, style = MaterialTheme.typography.bodySmall)
+                Text(Strings.MapUnavailableTitle, style = MaterialTheme.typography.titleSmall, color = ChargeShareColors.Primary)
+                Text(Strings.MapUnavailableBody, style = MaterialTheme.typography.bodySmall)
             }
         }
     }

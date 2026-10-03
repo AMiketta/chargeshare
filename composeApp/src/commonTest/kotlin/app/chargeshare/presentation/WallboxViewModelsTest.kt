@@ -3,6 +3,7 @@ package app.chargeshare.presentation
 import app.chargeshare.data.AppError
 import app.chargeshare.data.Outcome
 import app.chargeshare.presentation.wallbox.DEFAULT_CENTER
+import app.chargeshare.presentation.wallbox.SearchViewMode
 import app.chargeshare.presentation.wallbox.WallboxDetailViewModel
 import app.chargeshare.presentation.wallbox.WallboxListViewModel
 import app.chargeshare.shared.model.ConnectorType
@@ -19,6 +20,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 
@@ -76,6 +78,38 @@ class WallboxViewModelsTest {
         val viewModel = WallboxListViewModel(repository)
         viewModel.onOnlyOnlineChange(true)
         assertEquals(listOf("on"), viewModel.state.value.visibleWallboxes.map { it.id })
+    }
+
+    @Test
+    fun listIsOnlyViewWhenPlatformHasNoMap() {
+        val state = WallboxListViewModel(repository, mapSupported = false).state.value
+        assertFalse(state.mapSupported)
+        assertEquals(SearchViewMode.List, state.viewMode)
+        assertFalse(state.showMap)
+    }
+
+    @Test
+    fun mapIsDefaultViewWhenPlatformSupportsIt() {
+        val state = WallboxListViewModel(repository, mapSupported = true).state.value
+        assertEquals(SearchViewMode.Map, state.viewMode)
+        assertTrue(state.showMap)
+    }
+
+    @Test
+    fun switchingViewModeTogglesBetweenMapAndListWithoutNewSearch() {
+        val viewModel = WallboxListViewModel(repository, mapSupported = true)
+        viewModel.onViewModeChange(SearchViewMode.List)
+        assertFalse(viewModel.state.value.showMap)
+        viewModel.onViewModeChange(SearchViewMode.Map)
+        assertTrue(viewModel.state.value.showMap)
+        assertEquals(1, repository.searches.size)
+    }
+
+    @Test
+    fun mapIsNeverShownWithoutPlatformSupportEvenIfRequested() {
+        val viewModel = WallboxListViewModel(repository, mapSupported = false)
+        viewModel.onViewModeChange(SearchViewMode.Map)
+        assertFalse(viewModel.state.value.showMap)
     }
 
     @Test

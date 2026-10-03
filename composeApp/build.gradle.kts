@@ -47,11 +47,13 @@ kotlin {
             implementation(libs.compose.ui)
             implementation(libs.compose.ui.backhandler)
             implementation(libs.kotlinx.datetime)
+            implementation(libs.mapcompose)
             implementation(libs.lifecycle.viewmodel.compose)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.ktor.client.mock)
         }
         sourceSets.getByName("desktopMain").dependencies {
             implementation(compose.desktop.currentOs)
