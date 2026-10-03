@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.chargeshare.data.HostRepository
 import app.chargeshare.data.Outcome
+import app.chargeshare.data.WALLBOX_ZONE
+import app.chargeshare.data.localToUtc
+import app.chargeshare.data.utcToLocal
 import app.chargeshare.shared.model.UpdateWallboxRequest
 import app.chargeshare.shared.model.Wallbox
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,6 +14,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Wallbox bearbeiten (Host). Nutzt dasselbe Formular wie [CreateWallboxViewModel].
@@ -22,9 +28,11 @@ import kotlinx.coroutines.launch
 class EditWallboxViewModel(
     private val wallbox: Wallbox,
     private val repository: HostRepository,
+    private val zone: TimeZone = WALLBOX_ZONE,
+    private val clock: Clock = Clock.System,
 ) : ViewModel() {
 
-    private val initial = formStateOf(wallbox)
+    private val initial = formStateOf(wallbox, zone, clock.now())
     private val _state = MutableStateFlow(initial)
     val state: StateFlow<CreateWallboxUiState> = _state.asStateFlow()
 
@@ -58,7 +66,7 @@ class EditWallboxViewModel(
             isMetered = current.isMetered,
             // Leerer Text löscht die Beschreibung auf dem Server.
             description = form.description,
-            availability = if (availabilityChanged) form.availability else null,
+            availability = if (availabilityChanged) form.availability?.localToUtc(zone, clock.now()) else null,
         )
         _state.update { it.copy(isSubmitting = true, submitError = null) }
         viewModelScope.launch {
@@ -75,9 +83,12 @@ class EditWallboxViewModel(
     private fun availabilityOf(s: CreateWallboxUiState) = Triple(s.availabilityStart.trim(), s.availabilityEnd.trim(), s.days)
 }
 
-/** Formularzustand aus einer bestehenden Wallbox; Zahlen deutsch formatiert, ohne überflüssiges „.0“. */
-internal fun formStateOf(wallbox: Wallbox): CreateWallboxUiState {
-    val slots = wallbox.availability.filterValues { it.isNotEmpty() }
+/**
+ * Formularzustand aus einer bestehenden Wallbox; Zahlen deutsch formatiert, ohne überflüssiges „.0“.
+ * Die Verfügbarkeit (UTC vom Server) wird für [zone] in lokale Zeit umgerechnet.
+ */
+internal fun formStateOf(wallbox: Wallbox, zone: TimeZone, reference: Instant): CreateWallboxUiState {
+    val slots = wallbox.availability.utcToLocal(zone, reference).filterValues { it.isNotEmpty() }
     val uniform = slots.values.map { it.singleOrNull() }.distinct().singleOrNull()
     val representable = slots.isEmpty() || (uniform != null && slots.keys.all { it in WEEKDAY_KEYS })
     val base = CreateWallboxUiState(

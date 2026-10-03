@@ -10,9 +10,11 @@ import app.chargeshare.presentation.host.parseTime
 import app.chargeshare.shared.model.ConnectorType
 import app.chargeshare.shared.model.TimeSlot
 import app.chargeshare.testing.FakeHostRepository
+import app.chargeshare.testing.FixedClock
 import app.chargeshare.testing.TestMain
 import app.chargeshare.testing.failure
 import app.chargeshare.testing.testWallbox
+import kotlinx.datetime.TimeZone
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -21,6 +23,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 class HostViewModelsTest {
     private val repository = FakeHostRepository()
@@ -76,7 +79,7 @@ class HostViewModelsTest {
 
     @Test
     fun emptyFormShowsFieldErrorsAndDoesNotCallServer() {
-        val viewModel = CreateWallboxViewModel(repository)
+        val viewModel = CreateWallboxViewModel(repository, TimeZone.UTC)
         viewModel.onSubmit()
         val errors = viewModel.state.value.errors
         assertTrue(WallboxField.Name in errors)
@@ -86,7 +89,7 @@ class HostViewModelsTest {
 
     @Test
     fun validFormSendsRequestWithParsedNumbersAndAvailability() {
-        val viewModel = CreateWallboxViewModel(repository)
+        val viewModel = CreateWallboxViewModel(repository, TimeZone.UTC)
         viewModel.fillValid()
         viewModel.onChange { it.copy(price = "0,29", powerKw = "7,4", connector = ConnectorType.CCS) }
         viewModel.onSubmit()
@@ -101,7 +104,7 @@ class HostViewModelsTest {
 
     @Test
     fun invalidNumbersAndTimesAreRejected() {
-        val viewModel = CreateWallboxViewModel(repository)
+        val viewModel = CreateWallboxViewModel(repository, TimeZone.UTC)
         viewModel.fillValid()
         viewModel.onChange { it.copy(price = "0", lat = "95", availabilityStart = "20:00", availabilityEnd = "08:00") }
         viewModel.onSubmit()
@@ -113,7 +116,7 @@ class HostViewModelsTest {
 
     @Test
     fun createSendsTrimmedDescriptionAndRejectsImplausibleValues() {
-        val viewModel = CreateWallboxViewModel(repository)
+        val viewModel = CreateWallboxViewModel(repository, TimeZone.UTC)
         viewModel.fillValid()
         viewModel.onChange { it.copy(description = " Hinterhof ", price = "34", powerKw = "400") }
         viewModel.onSubmit()
@@ -126,8 +129,33 @@ class HostViewModelsTest {
     }
 
     @Test
+    fun createConvertsBerlinTimesToUtc() {
+        val summer = CreateWallboxViewModel(repository, TimeZone.of("Europe/Berlin"), FixedClock(Instant.parse("2026-07-15T10:00:00Z")))
+        summer.fillValid()
+        summer.onSubmit()
+        assertEquals(listOf(TimeSlot("05:00", "17:00")), repository.createdRequests.single().availability["monday"])
+
+        val winter = CreateWallboxViewModel(repository, TimeZone.of("Europe/Berlin"), FixedClock(Instant.parse("2026-12-15T10:00:00Z")))
+        winter.fillValid()
+        winter.onSubmit()
+        assertEquals(listOf(TimeSlot("06:00", "18:00")), repository.createdRequests.last().availability["monday"])
+    }
+
+    @Test
+    fun createShiftsWindowsAcrossMidnightToThePreviousUtcDay() {
+        val viewModel = CreateWallboxViewModel(repository, TimeZone.of("Europe/Berlin"), FixedClock(Instant.parse("2026-12-15T10:00:00Z")))
+        viewModel.fillValid()
+        viewModel.onChange { it.copy(availabilityStart = "00:30", availabilityEnd = "06:00", days = setOf("monday")) }
+        viewModel.onSubmit()
+        // 00:30–06:00 Uhr (MEZ, UTC+1) am Montag = Sonntag 23:30–24:00 UTC und Montag 00:00–05:00 UTC
+        val availability = repository.createdRequests.single().availability
+        assertEquals(listOf(TimeSlot("23:30", "24:00")), availability["sunday"])
+        assertEquals(listOf(TimeSlot("00:00", "05:00")), availability["monday"])
+    }
+
+    @Test
     fun noWeekdayIsRejected() {
-        val viewModel = CreateWallboxViewModel(repository)
+        val viewModel = CreateWallboxViewModel(repository, TimeZone.UTC)
         viewModel.fillValid()
         viewModel.onChange { it.copy(days = emptySet()) }
         viewModel.onSubmit()
@@ -137,7 +165,7 @@ class HostViewModelsTest {
     @Test
     fun serverErrorOnCreateIsShown() {
         repository.createResult = failure(AppError.Forbidden)
-        val viewModel = CreateWallboxViewModel(repository)
+        val viewModel = CreateWallboxViewModel(repository, TimeZone.UTC)
         viewModel.fillValid()
         viewModel.onSubmit()
         assertEquals(AppError.Forbidden, viewModel.state.value.submitError)

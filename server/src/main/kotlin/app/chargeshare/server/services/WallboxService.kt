@@ -269,9 +269,9 @@ class WallboxService(private val db: Db) {
         val out = mutableListOf<TimeSlot>()
         for (cfg in configured) {
             val s = runCatching { LocalTime.parse(cfg.start) }.getOrNull() ?: continue
-            val e = runCatching { LocalTime.parse(cfg.end) }.getOrNull() ?: continue
+            val e = slotEndMinutes(cfg.end) ?: continue
             var cursor = date.atTime(s).toInstant(ZoneOffset.UTC)
-            val endOfSlot = date.atTime(e).toInstant(ZoneOffset.UTC)
+            val endOfSlot = date.atStartOfDay().toInstant(ZoneOffset.UTC).plus(Duration.ofMinutes(e.toLong()))
             while (!cursor.plus(Duration.ofMinutes(30)).isAfter(endOfSlot)) {
                 val next = cursor.plus(Duration.ofMinutes(30))
                 val overlap = booked.any { (bs, be) -> cursor.isBefore(be) && next.isAfter(bs) }
@@ -316,14 +316,20 @@ class WallboxService(private val db: Db) {
         return trimmed
     }
 
+    /** Ende eines Zeitfensters in Minuten seit Mitternacht; `24:00` (Tagesende) ist erlaubt. */
+    private fun slotEndMinutes(text: String): Int? {
+        if (text == END_OF_DAY) return MINUTES_PER_DAY
+        return runCatching { LocalTime.parse(text) }.getOrNull()?.let { it.toSecondOfDay() / SECONDS_PER_MINUTE }
+    }
+
     private fun validateAvailability(a: WeeklyAvailability) {
         for ((day, slots) in a) {
             if (day.isBlank()) throw validationError("availability: empty weekday key")
             for (s in slots) {
                 val st = runCatching { LocalTime.parse(s.start) }.getOrNull()
-                val en = runCatching { LocalTime.parse(s.end) }.getOrNull()
+                val en = slotEndMinutes(s.end)
                 if (st == null || en == null) throw validationError("availability: times must be HH:MM")
-                if (!en.isAfter(st)) throw validationError("availability: end must be after start")
+                if (en <= st.toSecondOfDay() / SECONDS_PER_MINUTE) throw validationError("availability: end must be after start")
             }
         }
     }
@@ -346,3 +352,7 @@ class WallboxService(private val db: Db) {
         validateAvailability(availability)
     }
 }
+
+private const val END_OF_DAY = "24:00"
+private const val MINUTES_PER_DAY = 24 * 60
+private const val SECONDS_PER_MINUTE = 60

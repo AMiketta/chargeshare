@@ -155,7 +155,7 @@ Im Entwicklungsmodus (`ENV=development`, Standard) gilt:
   - Auth: `POST /auth/register|login|apple|refresh|logout`; Nutzer: `GET|PUT|DELETE /users/me`, `PUT /users/me/role`
   - Wallboxen: `GET /wallboxes` (Query `lat,lng,radius,connector,min_power,max_price,limit,offset`; `limit` 1..100, Standard 20; Standard-Radius 10 km, nur mit `lat`+`lng`),
     `GET|PUT|DELETE /wallboxes/{id}`, `POST /wallboxes`, `PUT /wallboxes/{id}/status`, `GET|PUT /wallboxes/{id}/availability`,
-    `GET /wallboxes/{id}/slots?date=YYYY-MM-DD` (freie 30-Minuten-Slots, `HH:MM`, **UTC**), `GET /wallboxes/{id}/reviews`.
+    `GET /wallboxes/{id}/slots?date=YYYY-MM-DD` (freie 30-Minuten-Slots, `HH:MM`, **UTC**; Verfügbarkeitsfenster dürfen um `24:00` enden), `GET /wallboxes/{id}/reviews`.
     Ändern/Deaktivieren (`PUT /wallboxes/{id}`, `/status`, `/availability`) darf nur der Eigentümer (oder `admin`), sonst `403`.
     `description` (optional, ≤ 1000 Zeichen, getrimmt; bei `PUT` löscht `""` den Text). Grenzen in `WallboxLimits` (Name ≤ 200, Leistung ≤ 350 kW,
     Preis ≤ 5 €/kWh – bewusste Plausibilitätsgrenzen gegen Tippfehler). Preisänderungen gelten nur für neue Buchungen; eine Änderung der Verfügbarkeit
@@ -350,6 +350,6 @@ Ein Auftrag ist erst fertig, wenn **alle** Punkte gelten:
 - **Tests:** es gibt ViewModel-/Daten-Tests (89 in `composeApp`), aber **keine automatisierten UI-/Composable-Tests** und keine Tests auf echtem Gerät. Der Desktop-Build wurde manuell gegen das lokale Backend geprüft (Login, Liste, Detail, Buchung, Host-Wechsel).
 - **Zurück-Taste:** `BackHandler` ist in Compose Multiplatform 1.12 als veraltet markiert (Nachfolger `NavigationEventHandler`); Migration offen.
 - **Host-Wallbox-Liste:** das Backend hat keinen Endpunkt „meine Wallboxen“; die App filtert die Suchergebnisse nach `owner_id` (max. 100).
-- **Verfügbarkeit** wird vom Server in **UTC** gespeichert/berechnet; das Host-Formular erwartet UTC-Zeiten.
+- **Verfügbarkeit** wird vom Server in **UTC** gespeichert/berechnet (feste Wochentage und Uhrzeiten, keine Zeitzone/Sommerzeit). Die App zeigt und erfasst sie in **deutscher Zeit** (`WALLBOX_ZONE` = Europe/Berlin; Umrechnung in `data/AvailabilityTime.kt`, Fenster über Mitternacht werden geteilt, Ende `24:00` ist erlaubt). Es gilt der UTC-Versatz von „jetzt“: nach der Zeitumstellung verschieben sich die Ortszeiten um eine Stunde, bis der Host den Plan neu speichert (Hinweis in der UI). Sauber lösbar nur mit gespeicherter Zeitzone je Wallbox im Backend. Der Dev-Seed (06:00–22:00 UTC) erscheint daher als 07:00/08:00–23:00/24:00 Uhr.
 - Offen im Backend: Zahlung nach OCPP-Abschluss auf tatsächliche kWh abrechnen, RemoteStart/Stop, Bewerten/Einnahmen erst nach echtem OCPP-Ladevorgang durchspielbar.
 - Kein CI (geplant: GitHub Actions – Linux für shared/server/web/android, macOS für iOS).

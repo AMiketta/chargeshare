@@ -8,9 +8,11 @@ import app.chargeshare.shared.model.TimeSlot
 import app.chargeshare.shared.model.Wallbox
 import app.chargeshare.shared.model.WallboxLimits
 import app.chargeshare.testing.FakeHostRepository
+import app.chargeshare.testing.FixedClock
 import app.chargeshare.testing.TestMain
 import app.chargeshare.testing.failure
 import app.chargeshare.testing.testWallbox
+import kotlinx.datetime.TimeZone
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -18,6 +20,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 class EditWallboxViewModelTest {
     private val repository = FakeHostRepository()
@@ -35,7 +38,7 @@ class EditWallboxViewModelTest {
 
     @Test
     fun formStartsWithCurrentValuesInGermanNotation() {
-        val state = EditWallboxViewModel(wallbox, repository).state.value
+        val state = EditWallboxViewModel(wallbox, repository, TimeZone.UTC).state.value
         assertEquals("11", state.powerKw)
         assertEquals("0,34", state.price)
         assertEquals("Einfahrt links", state.description)
@@ -47,7 +50,7 @@ class EditWallboxViewModelTest {
 
     @Test
     fun priceChangeSendsUpdateWithoutAvailability() {
-        val viewModel = EditWallboxViewModel(wallbox, repository)
+        val viewModel = EditWallboxViewModel(wallbox, repository, TimeZone.UTC)
         viewModel.onChange { it.copy(price = "0,29", description = "  Tor ist offen ") }
         viewModel.onSubmit()
         val (id, request) = repository.updatedRequests.single()
@@ -60,7 +63,7 @@ class EditWallboxViewModelTest {
 
     @Test
     fun clearingTheDescriptionSendsEmptyText() {
-        val viewModel = EditWallboxViewModel(wallbox, repository)
+        val viewModel = EditWallboxViewModel(wallbox, repository, TimeZone.UTC)
         viewModel.onChange { it.copy(description = "   ") }
         viewModel.onSubmit()
         assertEquals("", repository.updatedRequests.single().second.description)
@@ -68,7 +71,7 @@ class EditWallboxViewModelTest {
 
     @Test
     fun changedAvailabilityIsSent() {
-        val viewModel = EditWallboxViewModel(wallbox, repository)
+        val viewModel = EditWallboxViewModel(wallbox, repository, TimeZone.UTC)
         viewModel.onChange { it.copy(availabilityEnd = "18:00") }
         viewModel.onDayToggled("saturday")
         viewModel.onSubmit()
@@ -79,7 +82,7 @@ class EditWallboxViewModelTest {
 
     @Test
     fun invalidAvailabilityIsOnlyCheckedWhenChanged() {
-        val viewModel = EditWallboxViewModel(wallbox, repository)
+        val viewModel = EditWallboxViewModel(wallbox, repository, TimeZone.UTC)
         viewModel.onChange { it.copy(availabilityEnd = "07:00") }
         viewModel.onSubmit()
         assertTrue(WallboxField.AvailabilityEnd in viewModel.state.value.errors)
@@ -89,7 +92,7 @@ class EditWallboxViewModelTest {
     @Test
     fun unrepresentableWeekPlanIsNeverSent() {
         val irregular = wallbox.copy(availability = mapOf("monday" to listOf(TimeSlot("08:00", "10:00")), "tuesday" to listOf(TimeSlot("09:00", "12:00"))))
-        val viewModel = EditWallboxViewModel(irregular, repository)
+        val viewModel = EditWallboxViewModel(irregular, repository, TimeZone.UTC)
         assertFalse(viewModel.state.value.availabilityEditable)
         viewModel.onChange { it.copy(price = "0,50") }
         viewModel.onSubmit()
@@ -110,7 +113,7 @@ class EditWallboxViewModelTest {
 
     @Test
     fun limitsAreEnforcedBeforeCallingTheServer() {
-        val viewModel = EditWallboxViewModel(wallbox, repository)
+        val viewModel = EditWallboxViewModel(wallbox, repository, TimeZone.UTC)
         viewModel.onChange {
             it.copy(
                 name = " ",
@@ -131,7 +134,7 @@ class EditWallboxViewModelTest {
 
     @Test
     fun connectorChangeIsSent() {
-        val viewModel = EditWallboxViewModel(wallbox, repository)
+        val viewModel = EditWallboxViewModel(wallbox, repository, TimeZone.UTC)
         viewModel.onChange { it.copy(connector = ConnectorType.CCS) }
         viewModel.onSubmit()
         assertEquals(ConnectorType.CCS, repository.updatedRequests.single().second.connectorType)
@@ -140,10 +143,39 @@ class EditWallboxViewModelTest {
     @Test
     fun forbiddenFromServerIsShownAndNotSaved() {
         repository.updateResult = failure(AppError.Forbidden)
-        val viewModel = EditWallboxViewModel(wallbox, repository)
+        val viewModel = EditWallboxViewModel(wallbox, repository, TimeZone.UTC)
         viewModel.onSubmit()
         assertEquals(AppError.Forbidden, viewModel.state.value.submitError)
         assertFalse(viewModel.state.value.saved)
         assertFalse(viewModel.state.value.isSubmitting)
+    }
+
+    @Test
+    fun berlinTimesAreShownLocallyAndSentAsUtc() {
+        val berlin = TimeZone.of("Europe/Berlin")
+        val summer = Instant.parse("2026-07-15T10:00:00Z")
+        val winter = Instant.parse("2026-12-15T10:00:00Z")
+        // Server speichert UTC 06:00–14:30 → im Sommer 08:00–16:30, im Winter 07:00–15:30 Ortszeit
+        val stored = wallbox.copy(availability = weekdays.associateWith { listOf(TimeSlot("06:00", "14:30")) })
+        val inSummer = EditWallboxViewModel(stored, repository, berlin, FixedClock(summer))
+        assertEquals("08:00", inSummer.state.value.availabilityStart)
+        assertEquals("16:30", inSummer.state.value.availabilityEnd)
+        val inWinter = EditWallboxViewModel(stored, repository, berlin, FixedClock(winter))
+        assertEquals("07:00", inWinter.state.value.availabilityStart)
+
+        inSummer.onChange { it.copy(availabilityStart = "09:00") }
+        inSummer.onSubmit()
+        val sent = repository.updatedRequests.single().second.availability
+        assertEquals(listOf(TimeSlot("07:00", "14:30")), sent?.get("monday"))
+    }
+
+    @Test
+    fun unchangedAvailabilityIsNotResentEvenWithTimeZoneConversion() {
+        val berlin = TimeZone.of("Europe/Berlin")
+        val stored = wallbox.copy(availability = weekdays.associateWith { listOf(TimeSlot("06:00", "14:30")) })
+        val viewModel = EditWallboxViewModel(stored, repository, berlin, FixedClock(Instant.parse("2026-07-15T10:00:00Z")))
+        viewModel.onChange { it.copy(price = "0,40") }
+        viewModel.onSubmit()
+        assertNull(repository.updatedRequests.single().second.availability)
     }
 }
