@@ -3,6 +3,8 @@
 Peer-to-Peer Wallbox-Sharing ("Airbnb für Wallboxen"), komplett in **Kotlin Multiplatform**.
 Primärfarbe `#0B6E4F`, Akzent `#F0A500`.
 
+> **Für Entwickler und KI-Agenten:** Projektwissen, Architektur und verbindliche Kotlin-Standards stehen in [`AGENTS.md`](AGENTS.md).
+
 ## Module
 
 | Modul | Inhalt | Targets |
