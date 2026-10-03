@@ -6,6 +6,9 @@ import app.chargeshare.shared.api.ApiException
 import app.chargeshare.shared.model.BookingStatus
 import app.chargeshare.shared.model.CreateBookingRequest
 import app.chargeshare.shared.model.PaymentProviderKind
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
 import io.ktor.http.HttpStatusCode
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -77,6 +80,56 @@ class PaymentConfigApiTest {
         assertEquals(402, assertFailsWith<ApiException> { driver.api.confirmPayment(response.booking!!.id) }.status)
         (payments as ScriptedPaymentProvider).paid = true
         assertEquals(BookingStatus.CONFIRMED, driver.api.confirmPayment(response.booking!!.id).status)
+    }
+
+    /** Das PaymentSheet erlaubt nach abgelehnter Karte einen weiteren Versuch, obwohl der Webhook die Buchung schon `failed` gesetzt hat. */
+    @Test
+    fun retryAfterDeclinedCardStillConfirmsTheBooking() = serverTest(config = stripeConfig, payments = ScriptedPaymentProvider()) {
+        val host = registerUser("host@example.com", host = true)
+        val wallbox = host.api.createWallbox(newWallbox("Marktplatz-Box", power = 11.0, price = 0.40))
+        host.api.setWallboxOnline(wallbox.id, true)
+        val driver = registerUser("fahrer@example.com")
+        val booking = driver.api.createBooking(CreateBookingRequest(wallbox.id, inFuture(1, 10), inFuture(1, 12))).booking!!
+
+        forceBookingStatus(booking.id, "failed") // Webhook payment_intent.payment_failed nach abgelehnter Karte
+        (payments as ScriptedPaymentProvider).paid = true // zweiter Versuch im Sheet klappt
+        assertEquals(BookingStatus.CONFIRMED, driver.api.confirmPayment(booking.id).status)
+        assertTrue(payments.refunds.isEmpty())
+    }
+
+    @Test
+    fun paidFailedBookingWhoseSlotWasTakenIsRefundedAndRejected() = serverTest(config = stripeConfig, payments = ScriptedPaymentProvider()) {
+        val host = registerUser("host@example.com", host = true)
+        val wallbox = host.api.createWallbox(newWallbox("Marktplatz-Box", power = 11.0, price = 0.40))
+        host.api.setWallboxOnline(wallbox.id, true)
+        val driver = registerUser("fahrer@example.com")
+        val other = registerUser("anderer@example.com")
+        val first = driver.api.createBooking(CreateBookingRequest(wallbox.id, inFuture(1, 10), inFuture(1, 12))).booking!!
+        forceBookingStatus(first.id, "failed")
+        other.api.createBooking(CreateBookingRequest(wallbox.id, inFuture(1, 10), inFuture(1, 12))) // Slot ist wieder frei und wird vergeben
+
+        (payments as ScriptedPaymentProvider).paid = true
+        assertEquals(409, assertFailsWith<ApiException> { driver.api.confirmPayment(first.id) }.status)
+        assertEquals(listOf(first.stripePaymentIntentId), payments.refunds)
+        assertEquals(BookingStatus.FAILED, driver.api.booking(first.id).status)
+    }
+
+    @Test
+    fun succeededWebhookConfirmsBookingThatWasMarkedFailed() = serverTest(config = stripeConfig, payments = ScriptedPaymentProvider()) {
+        val host = registerUser("host@example.com", host = true)
+        val wallbox = host.api.createWallbox(newWallbox("Marktplatz-Box", power = 11.0, price = 0.40))
+        host.api.setWallboxOnline(wallbox.id, true)
+        val driver = registerUser("fahrer@example.com")
+        val booking = driver.api.createBooking(CreateBookingRequest(wallbox.id, inFuture(1, 10), inFuture(1, 12))).booking!!
+        val paymentIntentId = booking.stripePaymentIntentId!!
+        forceBookingStatus(booking.id, "failed")
+
+        val response = raw.post("/api/v1/payments/webhook") {
+            header("Stripe-Signature", "ok")
+            setBody("""{"type":"payment_intent.succeeded","id":"$paymentIntentId"}""")
+        }
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(BookingStatus.CONFIRMED, driver.api.booking(booking.id).status)
     }
 
     @Test
