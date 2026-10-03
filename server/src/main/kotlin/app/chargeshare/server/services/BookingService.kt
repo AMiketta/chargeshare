@@ -177,6 +177,10 @@ class BookingService(
             }
             Triple(st, b[Bookings.stripePaymentIntentId], b[Bookings.startTime])
         }
+        // Unbezahlte Buchung: den offenen PaymentIntent bei Stripe schliessen. Scheitert das, bleibt der Storno trotzdem gueltig.
+        if (piId != null && status == "pending") {
+            runCatching { payments.cancelIntent(piId) }.onFailure { log.warn("cancelling payment intent failed for booking $bookingId", it) }
+        }
         // Erstattung bei Stornierung > 30 Minuten vor Beginn (Go-Regel); nur wenn bereits bezahlt
         if (piId != null && status != "pending" && now.isBefore(start.minusMinutes(30))) {
             runCatching { payments.refund(piId) }.onFailure { log.warn("refund failed for booking $bookingId", it) }
