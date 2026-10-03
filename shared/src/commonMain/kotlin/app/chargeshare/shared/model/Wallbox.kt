@@ -13,7 +13,7 @@ enum class ConnectorType(val displayName: String) {
     @SerialName("type1") TYPE1("Type 1"),
 }
 
-/** Zeitfenster innerhalb eines Tages, `"HH:MM"` (Go: `models.TimeSlot`). */
+/** Zeitfenster innerhalb eines Tages, `"HH:MM"`; als Ende ist auch `"24:00"` (Tagesende) erlaubt (Go: `models.TimeSlot`). */
 @Serializable
 data class TimeSlot(val start: String, val end: String)
 

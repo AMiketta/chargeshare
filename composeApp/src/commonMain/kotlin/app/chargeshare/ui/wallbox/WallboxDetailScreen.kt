@@ -17,10 +17,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import app.chargeshare.data.WALLBOX_ZONE
+import app.chargeshare.data.utcToLocal
 import app.chargeshare.presentation.wallbox.WallboxDetailUiState
 import app.chargeshare.presentation.wallbox.WallboxDetailViewModel
 import app.chargeshare.shared.model.Review
@@ -40,6 +43,7 @@ import app.chargeshare.ui.formatPowerKw
 import app.chargeshare.ui.formatPricePerKwh
 import app.chargeshare.ui.weekdayIndexFromKey
 import app.chargeshare.ui.weekdayShortFromKey
+import kotlin.time.Clock
 
 @Composable
 fun WallboxDetailRoute(
@@ -129,13 +133,14 @@ private fun AvailabilityCard(wallbox: Wallbox, freeSlotsToday: Int?) {
         if (wallbox.availability.isEmpty()) {
             Text(Strings.NoAvailability, style = MaterialTheme.typography.bodyMedium)
         } else {
-            wallbox.availability.entries.sortedBy { weekdayIndexFromKey(it.key) }.forEach { (day, slots) ->
+            val localAvailability = remember(wallbox.availability) { wallbox.availability.utcToLocal(WALLBOX_ZONE, Clock.System.now()) }
+            localAvailability.entries.sortedBy { weekdayIndexFromKey(it.key) }.forEach { (day, slots) ->
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.Medium)) {
                     Text(weekdayShortFromKey(day), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(end = Spacing.Small))
                     Text(slots.joinToString(", ") { "${it.start}–${it.end}" }, style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            Text(Strings.AvailabilityUtcNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(Strings.AvailabilityLocalNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

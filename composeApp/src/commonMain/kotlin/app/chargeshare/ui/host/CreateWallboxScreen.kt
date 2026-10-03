@@ -132,7 +132,7 @@ fun CreateWallboxScreen(
                     FormTextField(state.availabilityStart, { v -> onChange { it.copy(availabilityStart = v) } }, Strings.FieldAvailabilityStart, Modifier.weight(1f), error(WallboxField.AvailabilityStart))
                     FormTextField(state.availabilityEnd, { v -> onChange { it.copy(availabilityEnd = v) } }, Strings.FieldAvailabilityEnd, Modifier.weight(1f), error(WallboxField.AvailabilityEnd))
                 }
-                Text(Strings.AvailabilityUtcHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(Strings.AvailabilityLocalHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(Strings.FieldDays, style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.Small)) {
                     WEEKDAY_KEYS.forEach { key ->

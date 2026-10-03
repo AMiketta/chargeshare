@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import app.chargeshare.data.AppError
 import app.chargeshare.data.HostRepository
 import app.chargeshare.data.Outcome
+import app.chargeshare.data.WALLBOX_ZONE
+import app.chargeshare.data.localToUtc
 import app.chargeshare.presentation.wallbox.DEFAULT_CENTER
 import app.chargeshare.shared.model.ConnectorType
 import app.chargeshare.shared.model.CreateWallboxRequest
@@ -15,6 +17,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
+import kotlin.time.Clock
 
 /** Formularfelder des Anlegens und Bearbeitens; Beschriftungen und Fehlertexte kommen aus der UI. */
 enum class WallboxField { Name, Address, City, PostalCode, Lat, Lng, PowerKw, Price, Description, AvailabilityStart, AvailabilityEnd, Days }
@@ -35,7 +39,7 @@ data class CreateWallboxUiState(
     val price: String = "0,34",
     val isMetered: Boolean = true,
     val description: String = "",
-    /** Verfügbarkeit in **UTC** (Vertrag des Backends), `HH:MM`. */
+    /** Verfügbarkeit in **lokaler Zeit** ([WALLBOX_ZONE]), `HH:MM`; vor dem Senden wird nach UTC umgerechnet. */
     val availabilityStart: String = "07:00",
     val availabilityEnd: String = "19:00",
     val days: Set<String> = WEEKDAY_KEYS.take(WEEKDAYS_DEFAULT_COUNT).toSet(),
@@ -54,7 +58,11 @@ data class CreateWallboxUiState(
 private const val WEEKDAYS_DEFAULT_COUNT = 5
 
 /** Wallbox anlegen (Host). Validiert clientseitig; der Server prüft maßgeblich nach. */
-class CreateWallboxViewModel(private val repository: HostRepository) : ViewModel() {
+class CreateWallboxViewModel(
+    private val repository: HostRepository,
+    private val zone: TimeZone = WALLBOX_ZONE,
+    private val clock: Clock = Clock.System,
+) : ViewModel() {
 
     private val _state = MutableStateFlow(CreateWallboxUiState())
     val state: StateFlow<CreateWallboxUiState> = _state.asStateFlow()
@@ -87,7 +95,7 @@ class CreateWallboxViewModel(private val repository: HostRepository) : ViewModel
             pricePerKwh = form.pricePerKwh,
             isMetered = current.isMetered,
             description = form.description.ifEmpty { null },
-            availability = form.availability.orEmpty(),
+            availability = form.availability.orEmpty().localToUtc(zone, clock.now()),
         )
         _state.update { it.copy(isSubmitting = true, submitError = null) }
         viewModelScope.launch {
