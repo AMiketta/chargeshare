@@ -38,6 +38,18 @@ data class AppConfig(
     val pendingBookingTtlMinutes: Long = 15,
     /** Abstand der Pruefungen auf abgelaufene unbezahlte Buchungen in Sekunden. */
     val pendingBookingSweepSeconds: Long = 60,
+    /**
+     * Wie viele Versuche pro Fenster und Client-Adresse für Registrierung, Login und Apple-Login erlaubt sind (Go-Backend: 10 pro Minute).
+     * `0` schaltet das Rate-Limiting ab.
+     */
+    val authRateLimitPerWindow: Int = 10,
+    /** Länge des Zeitfensters für [authRateLimitPerWindow] in Sekunden. */
+    val authRateLimitWindowSeconds: Long = 60,
+    /**
+     * Client-Adresse aus `X-Forwarded-For` lesen (letzter Eintrag = vom vorgeschalteten Proxy ergänzt). Nur aktivieren, wenn der Server
+     * **ausschließlich** hinter genau einem vertrauenswürdigen Reverse-Proxy erreichbar ist; sonst lässt sich das Limit umgehen.
+     */
+    val trustProxyHeaders: Boolean = false,
     /** Legt beim Start Beispieldaten (Demo-Host + Wallboxen in Bremen) an. Nie in Produktion. */
     val devSeed: Boolean = false,
 ) {
@@ -58,6 +70,8 @@ data class AppConfig(
             "STRIPE_PUBLISHABLE_KEY muss mit pk_ beginnen (kein Secret Key!)"
         }
         require(pendingBookingTtlMinutes >= 0) { "PENDING_BOOKING_TTL_MINUTES darf nicht negativ sein" }
+        require(authRateLimitPerWindow >= 0) { "AUTH_RATE_LIMIT_PER_WINDOW darf nicht negativ sein" }
+        require(authRateLimitWindowSeconds >= 1) { "AUTH_RATE_LIMIT_WINDOW_SECONDS muss mindestens 1 sein" }
         require(pendingBookingSweepSeconds >= 1) { "PENDING_BOOKING_SWEEP_SECONDS muss mindestens 1 sein" }
         require(googlePayEnvironment in GOOGLE_PAY_ENVIRONMENTS) { "GOOGLE_PAY_ENVIRONMENT muss test oder production sein" }
     }
@@ -93,6 +107,9 @@ data class AppConfig(
             merchantCountryCode = env["MERCHANT_COUNTRY_CODE"]?.takeIf { it.isNotBlank() }?.uppercase() ?: "DE",
             pendingBookingTtlMinutes = env["PENDING_BOOKING_TTL_MINUTES"]?.toLongOrNull() ?: 15,
             pendingBookingSweepSeconds = env["PENDING_BOOKING_SWEEP_SECONDS"]?.toLongOrNull() ?: 60,
+            authRateLimitPerWindow = env["AUTH_RATE_LIMIT_PER_WINDOW"]?.toIntOrNull() ?: 10,
+            authRateLimitWindowSeconds = env["AUTH_RATE_LIMIT_WINDOW_SECONDS"]?.toLongOrNull() ?: 60,
+            trustProxyHeaders = env["TRUST_PROXY_HEADERS"].equals("true", ignoreCase = true),
             // Dev-Seed: nur ENV=development und solange DEV_SEED nicht explizit "false" ist
             devSeed = (env["ENV"] ?: "development").equals("development", ignoreCase = true) &&
                 !(env["DEV_SEED"] ?: "true").equals("false", ignoreCase = true),

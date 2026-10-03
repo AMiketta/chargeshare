@@ -301,6 +301,7 @@ object Strings {
         AppError.Conflict -> "Dieser Zeitslot wurde gerade vergeben. Bitte wähle einen anderen."
         is AppError.Validation -> "Die Eingabe wurde abgelehnt. Bitte prüfe deine Angaben."
         AppError.PaymentRequired -> "Die Zahlung konnte nicht abgeschlossen werden."
+        AppError.RateLimited -> "Zu viele Versuche. Bitte warte eine Minute und versuche es dann erneut."
         AppError.Server -> "Der Server hat ein Problem. Bitte versuche es später erneut."
         AppError.Unknown -> "Etwas ist schiefgelaufen. Bitte versuche es erneut."
     }

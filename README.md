@@ -126,7 +126,7 @@ Alle Pfade, JSON-Feldnamen und das Fehlerformat (`{"error": "...", "code": "VALI
 | Host (`/host/bookings`, `/host/earnings`, `/host/sessions`), `POST /reviews` | implementiert; Bewertung nur durch den Fahrer einer `completed`-Buchung, einmal pro Buchung (`409`), 1–5 Sterne, Kommentar ≤ 2000 Zeichen (leer = kein Kommentar); `Booking.reviewed` zeigt, ob schon bewertet wurde; Durchschnitt/Anzahl werden an der Wallbox exakt neu berechnet |
 | Zahlung | `PaymentProvider`-Interface: `FakePaymentProvider` (Dev) oder `StripePaymentProvider` (PaymentIntent mit Connect-Transfer + Plattformgebuehr, Refund, Connect-Onboarding, Webhook mit Signaturpruefung). **Stripe ist nicht gegen echte Stripe-Konten getestet** (nur Webhook-Signatur) |
 | OCPP 1.6J `GET /ocpp/{id}` (WebSocket) | implementiert: BootNotification, Heartbeat, Authorize, Start-/StopTransaction, MeterValues (nur Log), StatusNotification. RemoteStart/Stop (im Go-Code ungenutzt) nicht portiert |
-| Rate-Limiting (Go: `ratelimit.go`) | **nicht portiert** |
+| Rate-Limiting (Go: `ratelimit.go`) | portiert: `POST /auth/register\|login\|apple` max. 10 Versuche/Minute je Client-Adresse (`AUTH_RATE_LIMIT_*`), danach `429` mit `Retry-After`; im Speicher je Instanz; Refresh und übrige Routen ungebremst |
 
 Bewusste Abweichungen vom Go-Code (Fehler/Luecken dort): Stornieren liefert `204` (Client laedt die Buchung danach neu); Booking-Insert vor
 Payment-Intent; Exclusion-Verletzung -> `409` statt `500`; `confirm-payment` prueft den Zahlungsstatus beim Provider (`402`);
@@ -227,7 +227,7 @@ Alle Versionen stehen in `gradle/libs.versions.toml`.
 
 ## Nächste Schritte
 
-1. Server: Rate-Limiting, Stripe gegen Testkonto pruefen (Google Pay/Apple Pay mit echten Testschlüsseln durchspielen), Zahlung nach OCPP-Abschluss auf tatsaechliche kWh abrechnen, RemoteStart/Stop
+1. Server: Stripe gegen Testkonto pruefen (Google Pay/Apple Pay mit echten Testschlüsseln durchspielen), Zahlung nach OCPP-Abschluss auf tatsaechliche kWh abrechnen, RemoteStart/Stop
 2. composeApp: Karte auf iOS/Web freischalten (nach Test), Gerätestandort mit Einwilligung
 3. iOS auf einem Mac bauen und testen (Keychain-`TokenStore` ist ungetestet)
 4. CI (GitHub Actions: Linux für shared/server/web/android, macOS für iOS)

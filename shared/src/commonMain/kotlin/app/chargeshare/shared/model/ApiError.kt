@@ -21,4 +21,5 @@ object ErrorCodes {
     const val BAD_REQUEST = "BAD_REQUEST"
     const val PAYMENT_REQUIRED = "PAYMENT_REQUIRED"
     const val NOT_IMPLEMENTED = "NOT_IMPLEMENTED"
+    const val RATE_LIMITED = "RATE_LIMITED"
 }
