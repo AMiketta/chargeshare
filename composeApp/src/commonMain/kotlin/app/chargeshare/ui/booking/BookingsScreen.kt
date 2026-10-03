@@ -1,0 +1,151 @@
+package app.chargeshare.ui.booking
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import app.chargeshare.presentation.booking.BookingFilter
+import app.chargeshare.presentation.booking.BookingsUiState
+import app.chargeshare.presentation.booking.BookingsViewModel
+import app.chargeshare.presentation.booking.isCancellable
+import app.chargeshare.shared.model.Booking
+import app.chargeshare.shared.model.BookingStatus
+import app.chargeshare.ui.ChargeShareColors
+import app.chargeshare.ui.Spacing
+import app.chargeshare.ui.Strings
+import app.chargeshare.ui.components.ChoiceChips
+import app.chargeshare.ui.components.EmptyBox
+import app.chargeshare.ui.components.ErrorBox
+import app.chargeshare.ui.components.ErrorText
+import app.chargeshare.ui.components.HeroHeader
+import app.chargeshare.ui.components.InfoPill
+import app.chargeshare.ui.components.LoadingBox
+import app.chargeshare.ui.components.SurfaceCard
+import app.chargeshare.ui.formatDateTime
+import app.chargeshare.ui.formatEuro
+import app.chargeshare.ui.formatTime
+import kotlinx.datetime.TimeZone
+
+@Composable
+fun BookingsRoute(
+    viewModel: BookingsViewModel,
+    modifier: Modifier = Modifier,
+    zone: TimeZone = TimeZone.currentSystemDefault(),
+) {
+    // Beim Einblenden des Tabs neu laden, damit frisch gebuchte/stornierte Slots sichtbar sind.
+    LaunchedEffect(viewModel) { viewModel.refresh() }
+    val state by viewModel.state.collectAsState()
+    BookingsScreen(
+        state = state,
+        zone = zone,
+        onFilterChange = viewModel::onFilterChange,
+        onCancelRequested = viewModel::onCancelRequested,
+        onCancelConfirmed = viewModel::onCancelConfirmed,
+        onCancelDismissed = viewModel::onCancelDismissed,
+        onRetry = viewModel::refresh,
+        modifier = modifier,
+    )
+}
+
+/** Buchungsliste (kommend/vergangen) mit Stornieren. */
+@Composable
+fun BookingsScreen(
+    state: BookingsUiState,
+    zone: TimeZone,
+    onFilterChange: (BookingFilter) -> Unit,
+    onCancelRequested: (Booking) -> Unit,
+    onCancelConfirmed: () -> Unit,
+    onCancelDismissed: () -> Unit,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxSize()) {
+        HeroHeader(title = Strings.BookingsTitle)
+        ChoiceChips(
+            options = BookingFilter.entries,
+            selected = state.filter,
+            label = { if (it == BookingFilter.Upcoming) Strings.BookingsUpcoming else Strings.BookingsPast },
+            onSelected = onFilterChange,
+            modifier = Modifier.padding(vertical = Spacing.Small),
+        )
+        state.cancelError?.let { ErrorText(Strings.errorMessage(it), Modifier.padding(horizontal = Spacing.Medium)) }
+        when {
+            state.isLoading && state.bookings.isEmpty() -> LoadingBox()
+            state.error != null -> ErrorBox(state.error, onRetry)
+            state.visibleBookings.isEmpty() ->
+                EmptyBox(if (state.filter == BookingFilter.Upcoming) Strings.NoUpcomingBookings else Strings.NoPastBookings)
+            else -> LazyColumn(
+                contentPadding = PaddingValues(Spacing.Medium),
+                verticalArrangement = Arrangement.spacedBy(Spacing.Small),
+            ) {
+                items(state.visibleBookings, key = { it.id }) { booking ->
+                    BookingCard(booking, zone, isCancelling = state.cancellingId == booking.id, onCancel = { onCancelRequested(booking) })
+                }
+            }
+        }
+    }
+    state.cancelCandidate?.let { candidate ->
+        AlertDialog(
+            onDismissRequest = onCancelDismissed,
+            title = { Text(Strings.CancelBookingTitle) },
+            text = { Text(Strings.cancelBookingBody(candidate.wallbox?.name ?: Strings.UnknownWallbox)) },
+            confirmButton = { TextButton(onClick = onCancelConfirmed) { Text(Strings.CancelBookingConfirm) } },
+            dismissButton = { TextButton(onClick = onCancelDismissed) { Text(Strings.CancelBookingKeep) } },
+        )
+    }
+}
+
+@Composable
+private fun BookingCard(booking: Booking, zone: TimeZone, isCancelling: Boolean, onCancel: () -> Unit) {
+    SurfaceCard {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(booking.wallbox?.name ?: Strings.UnknownWallbox, style = MaterialTheme.typography.titleMedium)
+                booking.wallbox?.let { Text(it.fullAddress, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            }
+            StatusPill(booking.status)
+        }
+        Text(
+            "${formatDateTime(booking.startTime, zone)} – ${formatTime(booking.endTime, zone)}",
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        booking.totalAmount?.let { Text(formatEuro(it), style = MaterialTheme.typography.titleMedium, color = ChargeShareColors.Primary) }
+        if (booking.isCancellable()) {
+            TextButton(onClick = onCancel, enabled = !isCancelling) { Text(Strings.CancelBooking, color = MaterialTheme.colorScheme.error) }
+        }
+    }
+}
+
+@Composable
+private fun StatusPill(status: BookingStatus) {
+    val isProblem = status == BookingStatus.CANCELLED || status == BookingStatus.FAILED
+    val isPending = status == BookingStatus.PENDING
+    InfoPill(
+        text = Strings.bookingStatus(status),
+        containerColor = when {
+            isProblem -> ChargeShareColors.ErrorLight
+            isPending -> ChargeShareColors.AccentLight
+            else -> ChargeShareColors.PrimarySurface
+        },
+        contentColor = when {
+            isProblem -> ChargeShareColors.Error
+            isPending -> ChargeShareColors.OnAccent
+            else -> ChargeShareColors.Primary
+        },
+    )
+}
