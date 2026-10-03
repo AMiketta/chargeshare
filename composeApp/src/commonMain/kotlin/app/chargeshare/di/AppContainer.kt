@@ -8,12 +8,14 @@ import app.chargeshare.data.ApiWallboxRepository
 import app.chargeshare.data.AuthRepository
 import app.chargeshare.data.BookingRepository
 import app.chargeshare.data.HostRepository
+import app.chargeshare.data.OsmTileSource
 import app.chargeshare.data.PaymentRepository
 import app.chargeshare.data.WallboxRepository
 import app.chargeshare.shared.api.ChargeShareApi
 import app.chargeshare.shared.api.TokenStore
 import app.chargeshare.shared.api.createHttpClient
 import io.ktor.client.plugins.HttpTimeout
+import ovh.plrapps.mapcompose.core.TileStreamProvider
 
 /**
  * Verdrahtet die Abhängigkeiten der App per Hand (kein DI-Framework): Http-Client → API → Repositories.
@@ -38,6 +40,9 @@ class AppContainer(
     val bookingRepository: BookingRepository = ApiBookingRepository(api)
     val hostRepository: HostRepository = ApiHostRepository(api)
     val paymentRepository: PaymentRepository = ApiPaymentRepository(api)
+
+    /** Kachelquelle der Karte (OpenStreetMap); eigener Http-Client, ohne Login-Daten. */
+    val tileSource: TileStreamProvider by lazy { OsmTileSource() }
 
     private companion object {
         const val REQUEST_TIMEOUT_MS = 15_000L

@@ -55,9 +55,15 @@ object Strings {
     const val FilterAllConnectors = "Alle Stecker"
     const val FilterAnyPower = "Beliebige Leistung"
     const val FilterAnyPrice = "Beliebiger Preis"
-    const val MapPlaceholderTitle = "Kartenansicht folgt"
-    const val MapPlaceholderBody =
-        "Die interaktive Karte wird in einem späteren Schritt angebunden. Bis dahin findest du alle Wallboxen in der Liste."
+    const val MapUnavailableTitle = "Karte hier nicht verfügbar"
+    const val MapUnavailableBody = "Auf dieser Plattform gibt es noch keine Karte. Alle Wallboxen findest du in der Liste."
+    const val ViewMap = "Karte"
+    const val ViewList = "Liste"
+    const val ShowFilters = "Filter"
+    const val HideFilters = "Filter ausblenden"
+    const val MapAttribution = "© OpenStreetMap-Mitwirkende"
+
+    fun mapPinDescription(name: String, isOnline: Boolean) = "$name, ${if (isOnline) Online else Offline}"
     const val NoWallboxes = "Keine Wallbox gefunden. Vergrößere den Umkreis oder lockere die Filter."
     const val SearchCenterNote = "Suche rund um Bremen-Zentrum (Standortfreigabe folgt)."
     const val Online = "Verfügbar"

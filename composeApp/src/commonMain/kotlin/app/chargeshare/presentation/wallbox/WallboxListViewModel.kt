@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.updateAndGet
 import kotlinx.coroutines.launch
 
+/** Darstellung der Suchergebnisse. */
+enum class SearchViewMode { Map, List }
+
 data class WallboxListUiState(
     val center: GeoPoint = DEFAULT_CENTER,
     val filter: WallboxFilter = WallboxFilter(),
@@ -25,7 +28,13 @@ data class WallboxListUiState(
     val wallboxes: List<Wallbox> = emptyList(),
     val isLoading: Boolean = true,
     val error: AppError? = null,
+    /** Ob die Plattform eine Karte anzeigen kann; sonst gibt es nur die Liste. */
+    val mapSupported: Boolean = false,
+    val viewMode: SearchViewMode = SearchViewMode.List,
 ) {
+    /** Karte nur anzeigen, wenn die Plattform sie unterstützt und sie gewählt ist. */
+    val showMap: Boolean get() = mapSupported && viewMode == SearchViewMode.Map
+
     /** Ergebnisliste nach Freitext und Online-Filter. */
     val visibleWallboxes: List<Wallbox>
         get() = wallboxes.filter { box ->
@@ -37,10 +46,23 @@ data class WallboxListUiState(
 /** Standard-Suchzentrum Bremen, solange der Gerätestandort nicht (mit Einwilligung) angebunden ist. */
 val DEFAULT_CENTER = GeoPoint(lat = 53.0793, lng = 8.8017)
 
-/** Umkreis-/Filtersuche nach Wallboxen. */
-class WallboxListViewModel(private val repository: WallboxRepository) : ViewModel() {
+/**
+ * Umkreis-/Filtersuche nach Wallboxen.
+ *
+ * @param mapSupported `true`, wenn die Plattform eine Karte zeigt (`isMapSupported`); dann ist die Karte die Startansicht,
+ * sonst gibt es nur die Liste.
+ */
+class WallboxListViewModel(
+    private val repository: WallboxRepository,
+    mapSupported: Boolean = false,
+) : ViewModel() {
 
-    private val _state = MutableStateFlow(WallboxListUiState())
+    private val _state = MutableStateFlow(
+        WallboxListUiState(
+            mapSupported = mapSupported,
+            viewMode = if (mapSupported) SearchViewMode.Map else SearchViewMode.List,
+        ),
+    )
     val state: StateFlow<WallboxListUiState> = _state.asStateFlow()
     private var searchJob: Job? = null
 
@@ -59,6 +81,8 @@ class WallboxListViewModel(private val repository: WallboxRepository) : ViewMode
     fun onMaxPriceChange(maxPricePerKwh: Double?) = changeFilter { it.copy(maxPricePerKwh = maxPricePerKwh) }
 
     fun onOnlyOnlineChange(onlyOnline: Boolean) = _state.update { it.copy(filter = it.filter.copy(onlyOnline = onlyOnline)) }
+
+    fun onViewModeChange(viewMode: SearchViewMode) = _state.update { it.copy(viewMode = viewMode) }
 
     fun onRefresh() = search()
 

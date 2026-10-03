@@ -36,6 +36,7 @@ import app.chargeshare.presentation.host.HostDashboardViewModel
 import app.chargeshare.presentation.profile.ProfileViewModel
 import app.chargeshare.presentation.session.SessionViewModel
 import app.chargeshare.presentation.wallbox.WallboxDetailViewModel
+import app.chargeshare.platform.isMapSupported
 import app.chargeshare.presentation.wallbox.WallboxListViewModel
 import app.chargeshare.shared.model.User
 import app.chargeshare.ui.auth.AuthRoute
@@ -133,8 +134,8 @@ private fun MainContent(container: AppContainer, user: User, paymentLauncher: Pa
 private fun TabContent(tab: MainTab, container: AppContainer, user: User, navigation: NavigationState, modifier: Modifier) {
     when (tab) {
         MainTab.Search -> {
-            val viewModel = viewModel(key = "search") { WallboxListViewModel(container.wallboxRepository) }
-            WallboxListRoute(viewModel, onOpenWallbox = { navigation.push(Screen.WallboxDetail(it.id)) }, modifier = modifier)
+            val viewModel = viewModel(key = "search") { WallboxListViewModel(container.wallboxRepository, mapSupported = isMapSupported) }
+            WallboxListRoute(viewModel, container.tileSource, onOpenWallbox = { navigation.push(Screen.WallboxDetail(it.id)) }, modifier = modifier)
         }
         MainTab.Bookings -> {
             val viewModel = viewModel(key = "bookings") { BookingsViewModel(container.bookingRepository) }
