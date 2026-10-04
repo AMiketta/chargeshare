@@ -24,7 +24,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - name: Android-SDK-Lizenzen akzeptieren (SDK: vorinstalliert auf ubuntu-latest, ANDROID_HOME im Runner-.env auf dem Laptop)
+      - name: Android-SDK-Lizenzen akzeptieren (SDK vorinstalliert auf ubuntu-latest, auf dem Laptop per ANDROID_HOME im Runner-.env)
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
       - uses: gradle/actions/setup-gradle@v4
         with:
