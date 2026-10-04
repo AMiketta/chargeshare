@@ -33,9 +33,10 @@ fun barFractions(amounts: List<Double>): List<Float> {
 fun todayIndex(week: List<DailyEarnings>, today: LocalDate?): Int =
     if (today == null) -1 else week.indexOfFirst { it.date == today.toString() }
 
-/** `Andreas Miketta` → `Andreas M.`; ein einzelner Name bleibt unverändert. */
+/** `Andreas Miketta` → `Andreas M.`; Klammer-Zusätze werden vor dem Kürzen ignoriert. */
 fun shortName(fullName: String): String {
-    val parts = fullName.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    val nameWithoutParentheticalParts = fullName.replace(Regex("\\([^)]*\\)"), " ")
+    val parts = nameWithoutParentheticalParts.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
     return if (parts.size < 2) parts.firstOrNull().orEmpty() else "${parts.first()} ${parts.last().first().uppercase()}."
 }
 
