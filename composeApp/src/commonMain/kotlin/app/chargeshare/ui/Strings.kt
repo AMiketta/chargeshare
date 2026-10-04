@@ -94,6 +94,8 @@ object Strings {
     const val NoReviews = "Noch keine Bewertungen."
     const val BookNow = "Zeitslot buchen"
     const val OfflineCannotBook = "Diese Wallbox ist gerade offline und kann nicht gebucht werden."
+    const val HostPayoutsPendingTitle = "Bald buchbar"
+    const val HostPayoutsPendingHint = "Der Host richtet gerade seine Auszahlungen ein. Diese Wallbox ist in Kürze buchbar."
     const val NoAvailability = "Keine festen Zeiten hinterlegt."
     const val ByAnonymous = "Anonym"
 
@@ -371,6 +373,7 @@ object Strings {
         AppError.NotFound -> "Der Eintrag wurde nicht gefunden."
         AppError.Conflict -> "Dieser Zeitslot wurde gerade vergeben. Bitte wähle einen anderen."
         is AppError.Validation -> "Die Eingabe wurde abgelehnt. Bitte prüfe deine Angaben."
+        AppError.HostPayoutsPending -> HostPayoutsPendingHint
         AppError.PaymentRequired -> "Die Zahlung konnte nicht abgeschlossen werden."
         AppError.RateLimited -> "Zu viele Versuche. Bitte warte eine Minute und versuche es dann erneut."
         AppError.Server -> "Der Server hat ein Problem. Bitte versuche es später erneut."

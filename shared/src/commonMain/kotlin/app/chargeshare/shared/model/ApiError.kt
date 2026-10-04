@@ -22,4 +22,7 @@ object ErrorCodes {
     const val PAYMENT_REQUIRED = "PAYMENT_REQUIRED"
     const val NOT_IMPLEMENTED = "NOT_IMPLEMENTED"
     const val RATE_LIMITED = "RATE_LIMITED"
+
+    /** Der Host hat sein Stripe-Auszahlungskonto noch nicht fertig eingerichtet (HTTP 409); die Wallbox ist noch nicht buchbar. */
+    const val HOST_PAYOUTS_PENDING = "HOST_PAYOUTS_PENDING"
 }

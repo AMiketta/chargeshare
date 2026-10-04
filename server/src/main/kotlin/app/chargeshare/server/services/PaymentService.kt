@@ -20,7 +20,7 @@ import org.jetbrains.exposed.v1.jdbc.update
 import org.slf4j.LoggerFactory
 
 /** Stripe Connect Onboarding fuer Hosts (Go: `handlers/payments.go`). */
-class PaymentService(private val db: Db, private val payments: PaymentProvider) {
+class PaymentService(private val db: Db, private val payments: PaymentProvider, private val payouts: PayoutService) {
     private val log = LoggerFactory.getLogger(PaymentService::class.java)
 
     suspend fun onboardingUrl(userId: Uuid): String {
@@ -44,8 +44,9 @@ class PaymentService(private val db: Db, private val payments: PaymentProvider) 
         return info.url
     }
 
-    /** Nach dem Onboarding wird aus `driver` die Rolle `both` (wie im Go-Backend, ohne Stripe-Statuspruefung). */
+    /** Nach dem Onboarding wird aus `driver` die Rolle `both` (wie im Go-Backend); zusaetzlich wird der Kontostatus bei Stripe geprueft ([PayoutService.refresh]). */
     suspend fun onboardingReturn(userId: Uuid) {
+        payouts.refresh(userId)
         db.tx {
             val current = Users.selectAll().where { Users.id eq userId }.singleOrNull()?.get(Users.role) ?: throw notFound("user not found")
             if (current == "driver") {

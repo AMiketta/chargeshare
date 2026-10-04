@@ -59,7 +59,7 @@ fun WallboxCard(
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
                 Text(formatPricePerKwh(wallbox.pricePerKwh), style = MaterialTheme.typography.titleMedium, color = ChargeShareColors.PrimaryText)
-                AvailabilityPill(wallbox.isOnline)
+                AvailabilityPill(wallbox.isOnline, wallbox.payoutsReady)
             }
         }
     }
@@ -67,9 +67,11 @@ fun WallboxCard(
 
 /** Status immer auch als Text, nicht nur über die Farbe. */
 @Composable
-fun AvailabilityPill(isOnline: Boolean, modifier: Modifier = Modifier) {
-    if (isOnline) {
+fun AvailabilityPill(isOnline: Boolean, payoutsReady: Boolean = true, modifier: Modifier = Modifier) {
+    if (isOnline && payoutsReady) {
         InfoPill(Strings.Online, modifier)
+    } else if (isOnline) {
+        InfoPill(Strings.HostPayoutsPendingTitle, modifier, containerColor = ChargeShareColors.AccentLight, contentColor = ChargeShareColors.OnAccentLight)
     } else {
         InfoPill(Strings.Offline, modifier, containerColor = ChargeShareColors.SurfaceVariant, contentColor = ChargeShareColors.OnSurfaceVariant)
     }

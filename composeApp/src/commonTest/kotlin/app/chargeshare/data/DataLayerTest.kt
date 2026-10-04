@@ -1,6 +1,7 @@
 package app.chargeshare.data
 
 import app.chargeshare.shared.api.ApiException
+import app.chargeshare.shared.model.ErrorCodes
 import app.chargeshare.shared.model.TimeSlot
 import app.chargeshare.shared.api.TokenStore
 import kotlin.test.Test
@@ -30,6 +31,14 @@ class DataLayerTest {
         assertIs<AppError.Validation>(errorFor(400))
         assertEquals(AppError.Server, errorFor(503))
         assertEquals(AppError.Unknown, errorFor(418))
+    }
+
+    @Test
+    fun pendingHostPayoutsHaveTheirOwnError() = runTest {
+        val result = runCatchingOutcome<Unit> { throw ApiException(409, ErrorCodes.HOST_PAYOUTS_PENDING, "Der Host richtet gerade seine Auszahlungen ein.") }
+        assertEquals(Outcome.Failure(AppError.HostPayoutsPending), result)
+        // Ein normaler Konflikt (Slot vergeben) bleibt ein Konflikt
+        assertEquals(Outcome.Failure(AppError.Conflict), runCatchingOutcome<Unit> { throw ApiException(409, ErrorCodes.CONFLICT, "x") })
     }
 
     @Test

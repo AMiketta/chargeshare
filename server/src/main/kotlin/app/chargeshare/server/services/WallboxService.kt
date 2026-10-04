@@ -70,7 +70,7 @@ private class EarthDistance(private val lat: Double, private val lng: Double) : 
     }
 }
 
-class WallboxService(private val db: Db) {
+class WallboxService(private val db: Db, private val payouts: PayoutService) {
 
     // ---- Suche / Lesen ----------------------------------------------------------------------
 
@@ -100,11 +100,18 @@ class WallboxService(private val db: Db) {
             q.orderBy(Wallboxes.createdAt to SortOrder.DESC)
             q.limit(limit).offset(offset.toLong())
                 .map { row -> row.toWallbox(if (dist != null) row[dist] else null) }
+                .let { markPayoutState(it) }
         }
         return WallboxListResponse(list, limit, offset)
     }
 
-    suspend fun get(id: Uuid): Wallbox = db.tx { fetch(id) }
+    suspend fun get(id: Uuid): Wallbox = db.tx { markPayoutState(listOf(fetch(id))).single() }
+
+    /** Markiert Wallboxes von Hosts ohne eingerichtetes Auszahlungskonto (`payouts_ready = false`). */
+    private fun JdbcTransaction.markPayoutState(list: List<Wallbox>): List<Wallbox> {
+        val ready = with(payouts) { readyOwners(list.map { it.ownerId }) }
+        return list.map { if (it.ownerId in ready) it else it.copy(payoutsReady = false) }
+    }
 
     fun JdbcTransaction.fetch(id: Uuid): Wallbox =
         Wallboxes.selectAll().where { Wallboxes.id eq id }.singleOrNull()?.toWallbox() ?: throw notFound("wallbox not found")

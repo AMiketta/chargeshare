@@ -20,6 +20,8 @@ object Users : Table("users") {
     val role = text("role")
     val stripeCustomerId = text("stripe_customer_id").nullable()
     val stripeAccountId = text("stripe_account_id").nullable()
+    /** Stripe-Auszahlungskonto vollständig eingerichtet (Wallboxes des Hosts sind buchbar). */
+    val payoutsReady = bool("payouts_ready").default(false)
     val avatarUrl = text("avatar_url").nullable()
     val isVerified = bool("is_verified")
     val createdAt = timestampWithTimeZone("created_at")

@@ -179,6 +179,12 @@ für die Zahlungsart „card“; die Fahrerin wählt im Buchungsflow zwischen *W
 (ohne Stripe-Rohtext oder Schlüssel) beantwortet: `503`, wenn Stripe Connect im Konto nicht aktiviert (Dashboard → Connect, im Testmodus ohne
 Firmendaten möglich) oder Stripe nicht erreichbar ist; `502` bei falschem API-Schlüssel oder sonstiger Ablehnung. Code ist jeweils `INTERNAL_ERROR`.
 
+**Buchbarkeit nach Auszahlungskonto (nur mit echtem Stripe):** Wallboxes sind erst buchbar, wenn der Host das Connect-Onboarding abgeschlossen hat
+(`users.payouts_ready`, Migration V4). Davor antwortet `POST /bookings` mit `409` und Code `HOST_PAYOUTS_PENDING` und deutscher Meldung; die Wallbox
+meldet `payouts_ready: false` (Liste und Detail), die App zeigt „Bald buchbar“ und sperrt den Buchen-Button. Der Server fragt den Kontostatus bei Stripe
+ab (`stripe_transfers` aktiv): beim Buchungsversuch, nach `GET /payments/onboard/return` und alle 2 Minuten im Hintergrund (`PayoutSweeper`). Ein
+Stripe-Ausfall führt zu `409`, nie zu `500`. Der Dev-Seed-Host ist freigeschaltet; mit dem Fake-Provider gibt es die Sperre nicht.
+
 **Dev-Modus (ohne `STRIPE_SECRET_KEY`):** `GET /payments/config` meldet `provider: "fake"`; Buchungen sind sofort `confirmed`, die App zeigt
 nur den Hinweis „Testzahlung“ und öffnet kein Zahlungsfenster. Das gilt auch für Desktop und Web.
 

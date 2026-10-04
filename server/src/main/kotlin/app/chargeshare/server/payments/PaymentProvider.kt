@@ -6,7 +6,9 @@ import com.stripe.net.Webhook
 import com.stripe.param.CustomerCreateParams
 import com.stripe.param.PaymentIntentCreateParams
 import com.stripe.param.RefundCreateParams
+import com.stripe.model.v2.core.Account
 import com.stripe.param.v2.core.AccountCreateParams
+import com.stripe.param.v2.core.AccountRetrieveParams
 import com.stripe.param.v2.core.AccountLinkCreateParams
 import java.util.UUID
 import kotlinx.serialization.json.Json
@@ -71,6 +73,15 @@ interface PaymentProvider {
      * wenn der Intent storniert ist und ein neuer angelegt werden muss
      */
     fun resumeIntent(paymentIntentId: String): PaymentIntentInfo?
+
+    /**
+     * `true`: Wallboxes sind erst buchbar, wenn der Host ein vollstaendig eingerichtetes Auszahlungskonto hat
+     * (siehe [isPayoutReady]). Der Fake-Provider (Dev/Test) verlangt das nicht.
+     */
+    val requiresPayoutAccount: Boolean get() = false
+
+    /** Fragt beim Zahlungsanbieter ab, ob das Konto Auszahlungen empfangen kann (Onboarding abgeschlossen). */
+    fun isPayoutReady(accountId: String): Boolean = true
 
     /** Legt (falls noetig) ein Connect-Express-Konto an und liefert den Onboarding-Link. */
     fun createOnboardingLink(email: String, existingAccountId: String?): OnboardingInfo
@@ -143,6 +154,12 @@ class StripePaymentProvider(
     }
     override val name = "stripe"
     override val autoConfirms = false
+    override val requiresPayoutAccount = true
+
+    override fun isPayoutReady(accountId: String): Boolean {
+        val params = AccountRetrieveParams.builder().addInclude(AccountRetrieveParams.Include.CONFIGURATION__RECIPIENT).build()
+        return client.v2().core().accounts().retrieve(accountId, params).canReceiveTransfers()
+    }
 
     override fun createCustomer(email: String, name: String): String? =
         client.customers().create(CustomerCreateParams.builder().setEmail(email).setName(name).build()).id
@@ -294,3 +311,7 @@ internal fun buildOnboardingLinkParams(accountId: String, refreshUrl: String, re
                 .build(),
         )
         .build()
+
+/** Das Konto darf Ueberweisungen empfangen (`stripe_transfers` aktiv), also ist das Onboarding abgeschlossen. */
+internal fun Account.canReceiveTransfers(): Boolean =
+    configuration?.recipient?.capabilities?.stripeBalance?.stripeTransfers?.status == "active"

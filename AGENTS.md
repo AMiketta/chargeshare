@@ -167,9 +167,10 @@ Im Entwicklungsmodus (`ENV=development`, Standard) gilt:
   (`type2`, `ccs`, `chademo`, `type1`; `pending`, `confirmed`, `active`, `completed`, `cancelled`, `failed`). Gemeinsame Konfiguration: `ChargeShareJson`
   (`ignoreUnknownKeys`, `explicitNulls=false`, `coerceInputValues`).
 - **Fehlerformat:** HTTP-Status ≠ 2xx mit Body `{"error": "…", "code": "VALIDATION_ERROR"}`. Der Client wirft daraus eine `ApiException(status, code, message)`.
-  Codes stehen in `ErrorCodes` (`RATE_LIMITED`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`, `CONFLICT`, `INTERNAL_ERROR`, `BAD_REQUEST`, `PAYMENT_REQUIRED`, `NOT_IMPLEMENTED`).
+  Codes stehen in `ErrorCodes` (`RATE_LIMITED`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`, `CONFLICT`, `INTERNAL_ERROR`, `BAD_REQUEST`, `PAYMENT_REQUIRED`, `NOT_IMPLEMENTED`, `HOST_PAYOUTS_PENDING`).
   Die Fehlertexte des Servers sind **englisch und technisch** – sie werden nie 1:1 dem Nutzer gezeigt, sondern in `AppError` übersetzt (Abschnitt 8).
   Ausnahme: Stripe-Fehler beim Connect-Onboarding (`PaymentService.onboardingUrl`) kommen als `503`/`502` mit lesbarer deutscher Meldung; Stripe-Rohtexte und Schlüssel werden nie durchgereicht oder geloggt.
+  Zweite Ausnahme: `409 HOST_PAYOUTS_PENDING` (Wallbox eines Hosts ohne abgeschlossenes Stripe-Onboarding, `PayoutService`) hat eine deutsche Meldung; die App übersetzt sie in `AppError.HostPayoutsPending`. Nur mit `PaymentProvider.requiresPayoutAccount` (Stripe), nicht mit dem Fake-Provider.
 - **Auth:** Access-JWT (15 min) per `Authorization: Bearer`; Refresh-Token rotiert bei jedem Refresh (Einmalverwendung).
   Der Client (`createHttpClient`) erneuert bei `401` automatisch; scheitert das, wird der `TokenStore` geleert.
 - **Geld:** Beträge sind `Double` in Euro (Vertragsentscheidung aus dem Go-Backend). Nie selbst mit Fließkomma „weiterrechnen“,

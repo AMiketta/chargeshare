@@ -1,6 +1,7 @@
 package app.chargeshare.data
 
 import app.chargeshare.shared.api.ApiException
+import app.chargeshare.shared.model.ErrorCodes
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.SerializationException
 
@@ -36,6 +37,9 @@ sealed interface AppError {
 
     /** Zahlung nicht abgeschlossen (HTTP 402). */
     data object PaymentRequired : AppError
+
+    /** Der Host richtet gerade sein Auszahlungskonto ein; die Wallbox ist noch nicht buchbar (HTTP 409, Code `HOST_PAYOUTS_PENDING`). */
+    data object HostPayoutsPending : AppError
 
     /** Zu viele Versuche in kurzer Zeit, z. B. beim Login (HTTP 429). */
     data object RateLimited : AppError
@@ -79,7 +83,9 @@ suspend fun <T> runCatchingOutcome(block: suspend () -> T): Outcome<T> =
         Outcome.Failure(AppError.Network)
     }
 
-internal fun ApiException.toAppError(): AppError = when (status) {
+internal fun ApiException.toAppError(): AppError = if (code == ErrorCodes.HOST_PAYOUTS_PENDING) AppError.HostPayoutsPending else toAppErrorByStatus()
+
+private fun ApiException.toAppErrorByStatus(): AppError = when (status) {
     HTTP_UNAUTHORIZED -> AppError.Unauthorized
     HTTP_PAYMENT_REQUIRED -> AppError.PaymentRequired
     HTTP_FORBIDDEN -> AppError.Forbidden

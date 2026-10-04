@@ -13,6 +13,8 @@ import app.chargeshare.server.services.BookingService
 import app.chargeshare.server.services.FavoriteService
 import app.chargeshare.server.services.HostService
 import app.chargeshare.server.services.PaymentService
+import app.chargeshare.server.services.PayoutService
+import app.chargeshare.server.services.PayoutSweeper
 import app.chargeshare.server.services.PendingBookingSweeper
 import app.chargeshare.server.services.ReviewService
 import app.chargeshare.server.services.WallboxService
@@ -95,19 +97,24 @@ private fun Application.buildServices(
 ): Services {
     val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     monitor.subscribe(io.ktor.server.application.ApplicationStopping) { background.coroutineContext[kotlinx.coroutines.Job]?.cancel() }
-    val bookings = BookingService(db, payments, config.stripePlatformFeePercent)
+    val payouts = PayoutService(db, payments)
+    if (payments.requiresPayoutAccount) PayoutSweeper(payouts, PAYOUT_SWEEP_INTERVAL).start(background)
+    val bookings = BookingService(db, payments, config.stripePlatformFeePercent, payouts)
     if (config.pendingBookingTtlMinutes > 0) {
         PendingBookingSweeper(bookings, config.pendingBookingTtlMinutes.minutes, config.pendingBookingSweepSeconds.seconds).start(background)
     }
     return Services(
         auth = AuthService(db, tokens, config, payments, apple, background),
-        wallboxes = WallboxService(db),
+        wallboxes = WallboxService(db, payouts),
         reviews = ReviewService(db),
         bookings = bookings,
         host = HostService(db, bookings),
         favorites = FavoriteService(db),
-        paymentsSvc = PaymentService(db, payments),
+        paymentsSvc = PaymentService(db, payments, payouts),
         payments = payments,
         paymentConfig = clientPaymentConfig(config, payments),
     )
 }
+
+/** So oft werden Hosts mit unvollstaendigem Onboarding bei Stripe neu geprueft. */
+private val PAYOUT_SWEEP_INTERVAL = 2.minutes
