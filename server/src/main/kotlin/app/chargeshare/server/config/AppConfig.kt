@@ -59,6 +59,8 @@ data class AppConfig(
     val onboardingReturnUrl: String? = null,
     /** Stripe-URL, wenn der Onboarding-Link abgelaufen ist; Standard: `<Basis>/onboarding/refresh`. */
     val onboardingRefreshUrl: String? = null,
+    /** Gültigkeit eines „Passwort vergessen“-Links in Minuten. */
+    val passwordResetTtlMinutes: Long = 60,
     /** Legt beim Start Beispieldaten (Demo-Host + Wallboxen in Bremen) an. Nie in Produktion. */
     val devSeed: Boolean = false,
 ) {
@@ -78,6 +80,7 @@ data class AppConfig(
         require(stripePublishableKey.isNullOrBlank() || stripePublishableKey.startsWith(PUBLISHABLE_KEY_PREFIX)) {
             "STRIPE_PUBLISHABLE_KEY muss mit pk_ beginnen (kein Secret Key!)"
         }
+        require(passwordResetTtlMinutes >= 1) { "PASSWORD_RESET_TTL_MINUTES muss mindestens 1 sein" }
         require(pendingBookingTtlMinutes >= 0) { "PENDING_BOOKING_TTL_MINUTES darf nicht negativ sein" }
         require(authRateLimitPerWindow >= 0) { "AUTH_RATE_LIMIT_PER_WINDOW darf nicht negativ sein" }
         require(authRateLimitWindowSeconds >= 1) { "AUTH_RATE_LIMIT_WINDOW_SECONDS muss mindestens 1 sein" }
@@ -118,6 +121,7 @@ data class AppConfig(
             pendingBookingSweepSeconds = env["PENDING_BOOKING_SWEEP_SECONDS"]?.toLongOrNull() ?: 60,
             authRateLimitPerWindow = env["AUTH_RATE_LIMIT_PER_WINDOW"]?.toIntOrNull() ?: 10,
             authRateLimitWindowSeconds = env["AUTH_RATE_LIMIT_WINDOW_SECONDS"]?.toLongOrNull() ?: 60,
+            passwordResetTtlMinutes = env["PASSWORD_RESET_TTL_MINUTES"]?.toLongOrNull() ?: 60,
             publicBaseUrl = env["PUBLIC_BASE_URL"]?.takeIf { it.isNotBlank() },
             onboardingReturnUrl = env["ONBOARDING_RETURN_URL"]?.takeIf { it.isNotBlank() },
             onboardingRefreshUrl = env["ONBOARDING_REFRESH_URL"]?.takeIf { it.isNotBlank() },

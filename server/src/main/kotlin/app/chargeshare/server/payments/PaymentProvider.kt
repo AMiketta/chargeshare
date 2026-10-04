@@ -3,7 +3,11 @@ package app.chargeshare.server.payments
 import app.chargeshare.server.config.AppConfig
 import com.stripe.StripeClient
 import com.stripe.net.Webhook
+import com.stripe.exception.InvalidRequestException
 import com.stripe.param.CustomerCreateParams
+import com.stripe.param.CustomerSessionCreateParams
+import com.stripe.param.PaymentMethodListParams
+import com.stripe.param.SetupIntentCreateParams
 import com.stripe.param.PaymentIntentCreateParams
 import com.stripe.param.RefundCreateParams
 import com.stripe.model.v2.core.Account
@@ -28,6 +32,9 @@ data class OnboardingInfo(val accountId: String, val url: String)
 
 /** Adressen, auf die Stripe nach dem Onboarding zurückleitet (Fertig bzw. Link abgelaufen). */
 data class OnboardingUrls(val returnUrl: String, val refreshUrl: String)
+
+/** Eine gespeicherte Karte; [id] ist die Stripe-PaymentMethod-ID (`pm_…`). Kartennummern kennt der Server nie. */
+data class SavedCardInfo(val id: String, val brand: String, val last4: String, val expMonth: Int, val expYear: Int)
 
 sealed interface PaymentEvent {
     data class Succeeded(val paymentIntentId: String) : PaymentEvent
@@ -88,6 +95,28 @@ interface PaymentProvider {
 
     /** Legt (falls noetig) ein Connect-Express-Konto an und liefert den Onboarding-Link. */
     fun createOnboardingLink(email: String, existingAccountId: String?, urls: OnboardingUrls): OnboardingInfo
+
+    /** `true`, wenn Karten des Kunden gespeichert werden koennen (Stripe). Der Fake-Provider kennt keine Kunden. */
+    val supportsSavedCards: Boolean get() = false
+
+    /** Gespeicherte Karten des Stripe-Kunden [customerId]. */
+    fun listCards(customerId: String): List<SavedCardInfo> = emptyList()
+
+    /**
+     * Entfernt die gespeicherte Karte [paymentMethodId], sofern sie dem Kunden [customerId] gehoert.
+     *
+     * @return `false`, wenn es die Karte nicht gibt oder sie einem anderen Kunden gehoert
+     */
+    fun detachCard(customerId: String, paymentMethodId: String): Boolean = false
+
+    /** Legt einen SetupIntent an, mit dem die App eine Karte ohne Zahlung speichert; liefert dessen `client_secret`. */
+    fun createSetupIntent(customerId: String): String = throw UnsupportedOperationException("saved cards are not supported")
+
+    /**
+     * Legt eine Customer Session an: damit zeigt das PaymentSheet gespeicherte Karten und bietet „Karte merken“ an.
+     * Liefert das `client_secret` der Session oder `null`, wenn der Anbieter das nicht kann.
+     */
+    fun createCustomerSession(customerId: String): String? = null
 
     /** Prueft die Signatur und uebersetzt das Event. */
     fun parseWebhook(payload: String, signatureHeader: String?): PaymentEvent
@@ -207,6 +236,45 @@ class StripePaymentProvider(
         return OnboardingInfo(accountId, link.url)
     }
 
+    override val supportsSavedCards = true
+
+    override fun listCards(customerId: String): List<SavedCardInfo> {
+        val params = PaymentMethodListParams.builder().setCustomer(customerId).setType(PaymentMethodListParams.Type.CARD).build()
+        return client.paymentMethods().list(params).data.mapNotNull { method ->
+            val card = method.card ?: return@mapNotNull null
+            SavedCardInfo(method.id, card.brand.orEmpty(), card.last4.orEmpty(), card.expMonth?.toInt() ?: 0, card.expYear?.toInt() ?: 0)
+        }
+    }
+
+    override fun detachCard(customerId: String, paymentMethodId: String): Boolean {
+        val method = try {
+            client.paymentMethods().retrieve(paymentMethodId)
+        } catch (e: InvalidRequestException) {
+            if (e.code == "resource_missing") return false
+            throw e
+        }
+        if (method.customer != customerId) return false
+        client.paymentMethods().detach(paymentMethodId)
+        return true
+    }
+
+    override fun createSetupIntent(customerId: String): String {
+        val params = SetupIntentCreateParams.builder()
+            .setCustomer(customerId)
+            .setAutomaticPaymentMethods(
+                SetupIntentCreateParams.AutomaticPaymentMethods.builder()
+                    .setEnabled(true)
+                    .setAllowRedirects(SetupIntentCreateParams.AutomaticPaymentMethods.AllowRedirects.NEVER)
+                    .build(),
+            )
+            .setUsage(SetupIntentCreateParams.Usage.ON_SESSION)
+            .build()
+        return requireNotNull(client.setupIntents().create(params).clientSecret) { "Stripe lieferte kein client_secret" }
+    }
+
+    override fun createCustomerSession(customerId: String): String? =
+        client.customerSessions().create(buildCustomerSessionParams(customerId)).clientSecret
+
     override fun parseWebhook(payload: String, signatureHeader: String?): PaymentEvent {
         val secret = webhookSecret?.takeIf { it.isNotBlank() }
             ?: throw WebhookVerificationException("STRIPE_WEBHOOK_SECRET ist nicht konfiguriert")
@@ -257,6 +325,23 @@ internal fun buildPaymentIntentParams(
         builder.setTransferData(PaymentIntentCreateParams.TransferData.builder().setDestination(connectedAccountId).build())
     }
     return builder.build()
+}
+
+/**
+ * Customer Session fuer das PaymentSheet der App: gespeicherte Karten anzeigen (`redisplay`), neue Karten merken (`save`)
+ * und entfernen (`remove`). Die Karte wird nur gespeichert, wenn der Fahrer im PaymentSheet zustimmt.
+ */
+internal fun buildCustomerSessionParams(customerId: String): CustomerSessionCreateParams {
+    val features = CustomerSessionCreateParams.Components.MobilePaymentElement.Features.builder()
+        .setPaymentMethodSave(CustomerSessionCreateParams.Components.MobilePaymentElement.Features.PaymentMethodSave.ENABLED)
+        .setPaymentMethodRedisplay(CustomerSessionCreateParams.Components.MobilePaymentElement.Features.PaymentMethodRedisplay.ENABLED)
+        .setPaymentMethodRemove(CustomerSessionCreateParams.Components.MobilePaymentElement.Features.PaymentMethodRemove.ENABLED)
+        .build()
+    val element = CustomerSessionCreateParams.Components.MobilePaymentElement.builder().setEnabled(true).setFeatures(features).build()
+    return CustomerSessionCreateParams.builder()
+        .setCustomer(customerId)
+        .setComponents(CustomerSessionCreateParams.Components.builder().setMobilePaymentElement(element).build())
+        .build()
 }
 
 /** Hosts sitzen in Deutschland (Konzept); das Land eines Connect-Kontos laesst sich spaeter nicht aendern. */

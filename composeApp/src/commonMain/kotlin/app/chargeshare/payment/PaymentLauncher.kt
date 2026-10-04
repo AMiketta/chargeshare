@@ -28,6 +28,13 @@ data class PaymentRequest(
     val method: PaymentMethodChoice,
 )
 
+/**
+ * Alles, was die Plattform braucht, um eine Karte ohne Zahlung zu speichern (Stripe-SetupIntent).
+ *
+ * @property clientSecret `client_secret` des SetupIntents aus `POST /payments/setup-intent`
+ */
+data class SaveCardRequest(val clientSecret: String, val config: PaymentConfig)
+
 /** Ausgang einer Zahlung im plattformeigenen Zahlungsfenster. */
 sealed interface PaymentResult {
     /** Stripe meldet die Zahlung als abgeschlossen; der Server prüft sie danach noch einmal (`confirm-payment`). */
@@ -59,6 +66,16 @@ interface PaymentLauncher {
      * Erwartbare Ausgänge (Abbruch, Ablehnung) kommen als [PaymentResult], nicht als Exception.
      */
     suspend fun pay(request: PaymentRequest): PaymentResult
+
+    /** Kann diese Plattform eine Karte ohne Zahlung speichern ([saveCard])? Sonst bleibt „Karte hinzufügen“ ausgeblendet. */
+    val supportsCardSetup: Boolean get() = false
+
+    /**
+     * Zeigt das Kartenformular von Stripe und speichert die Karte für den Nutzer (SetupIntent).
+     * [PaymentResult.Completed] bedeutet: die Karte ist gespeichert.
+     */
+    suspend fun saveCard(request: SaveCardRequest): PaymentResult =
+        PaymentResult.Failed(reason = "Karten speichern wird auf dieser Plattform nicht unterstützt")
 }
 
 /** Für Desktop und Web: dort gibt es weder Google Pay noch Apple Pay über Stripe (siehe README, „Zahlung“). */
@@ -68,6 +85,16 @@ object UnsupportedPaymentLauncher : PaymentLauncher {
     override suspend fun pay(request: PaymentRequest): PaymentResult =
         PaymentResult.Failed(reason = "Zahlungsfenster wird auf dieser Plattform nicht unterstützt")
 }
+
+/** Wie [payCatching], für [PaymentLauncher.saveCard]. */
+suspend fun PaymentLauncher.saveCardCatching(request: SaveCardRequest): PaymentResult =
+    try {
+        saveCard(request)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        PaymentResult.Failed(reason = e.message)
+    }
 
 /**
  * Wie [PaymentLauncher.pay], übersetzt aber unerwartete Ausnahmen des Plattform-SDKs in [PaymentResult.Failed],

@@ -26,7 +26,6 @@ import app.chargeshare.data.isHost
 import app.chargeshare.di.AppContainer
 import app.chargeshare.payment.PaymentLauncher
 import app.chargeshare.payment.UnsupportedPaymentLauncher
-import app.chargeshare.presentation.auth.AuthViewModel
 import app.chargeshare.presentation.booking.BookingFlowViewModel
 import app.chargeshare.presentation.booking.BookingsViewModel
 import app.chargeshare.presentation.host.CreateWallboxViewModel
@@ -42,7 +41,6 @@ import app.chargeshare.presentation.wallbox.WallboxDetailViewModel
 import app.chargeshare.platform.isMapSupported
 import app.chargeshare.presentation.wallbox.WallboxListViewModel
 import app.chargeshare.shared.model.User
-import app.chargeshare.ui.auth.AuthRoute
 import app.chargeshare.ui.booking.BookingFlowRoute
 import app.chargeshare.ui.booking.BookingsRoute
 import app.chargeshare.ui.components.AppNavigationBar
@@ -50,7 +48,9 @@ import app.chargeshare.ui.host.BecomeHostScreen
 import app.chargeshare.ui.host.CreateWallboxRoute
 import app.chargeshare.ui.host.EditWallboxRoute
 import app.chargeshare.ui.host.HostDashboardRoute
+import app.chargeshare.presentation.profile.SavedCardsViewModel
 import app.chargeshare.ui.profile.ProfileRoute
+import app.chargeshare.ui.profile.SavedCardsRoute
 import app.chargeshare.ui.wallbox.WallboxDetailRoute
 import app.chargeshare.ui.wallbox.WallboxListRoute
 
@@ -69,10 +69,7 @@ fun App(container: AppContainer, paymentLauncher: PaymentLauncher = UnsupportedP
             val session by sessionViewModel.session.collectAsState()
             when (val current = session) {
                 SessionState.Restoring -> RestoringSession()
-                SessionState.SignedOut -> {
-                    val authViewModel = viewModel { AuthViewModel(container.authRepository) }
-                    AuthRoute(authViewModel)
-                }
+                SessionState.SignedOut -> SignedOutContent(container)
                 // Pro Nutzer ein eigener ViewModel-Speicher: nach Abmelden/Konto-Wechsel bleiben keine Daten des Vorgängers übrig.
                 is SessionState.SignedIn -> key(current.user.id) {
                     val owner = rememberScopedViewModelStoreOwner()
@@ -159,7 +156,7 @@ private fun TabContent(
                     supportedPaymentMethods = paymentLauncher.supportedMethods,
                 )
             }
-            BookingsRoute(viewModel, paymentLauncher, modifier = modifier)
+            BookingsRoute(viewModel, paymentLauncher, container.receiptSharer, modifier = modifier)
         }
         MainTab.Host -> {
             if (user.isHost) {
@@ -193,6 +190,7 @@ private fun TabContent(
                 themeMode = themeMode,
                 onThemeModeChange = container.themeSettings::select,
                 onOpenHost = { navigation.selectTab(MainTab.Host) },
+                onOpenPaymentMethods = { navigation.push(Screen.PaymentMethods) },
                 modifier = modifier,
                 debugInfo = container.apiBaseUrl.takeIf { container.showDebugInfo },
             )
@@ -225,6 +223,10 @@ private fun FullScreen(
             }
             BookingFlowRoute(viewModel, paymentLauncher, onBack = { navigation.pop() }, onShowBookings = { navigation.popToTab(MainTab.Bookings) })
         }
+        Screen.PaymentMethods -> {
+            val viewModel = viewModel { SavedCardsViewModel(container.paymentRepository, canAddCard = paymentLauncher.supportsCardSetup) }
+            SavedCardsRoute(viewModel, paymentLauncher, onBack = { navigation.pop() })
+        }
         Screen.CreateWallbox -> {
             val viewModel = viewModel { CreateWallboxViewModel(container.hostRepository) }
             CreateWallboxRoute(viewModel, onBack = { navigation.pop() })
@@ -242,10 +244,12 @@ private fun DeepLinkEffect(inbox: DeepLinkInbox, payoutViewModel: PayoutViewMode
     val link by inbox.pending.collectAsState()
     LaunchedEffect(link) {
         val current = link ?: return@LaunchedEffect
-        navigation.selectTab(MainTab.Host)
+        if (current !is DeepLink.ResetPassword) navigation.selectTab(MainTab.Host)
         when (current) {
-            DeepLink.ONBOARDING_DONE -> payoutViewModel.onReturnedFromOnboarding()
-            DeepLink.ONBOARDING_REFRESH -> payoutViewModel.onOnboardingExpired()
+            DeepLink.OnboardingDone -> payoutViewModel.onReturnedFromOnboarding()
+            DeepLink.OnboardingRefresh -> payoutViewModel.onOnboardingExpired()
+            // Passwort-Links gelten nur abgemeldet (siehe SignedOutContent); angemeldet wird der Link verworfen.
+            is DeepLink.ResetPassword -> Unit
         }
         inbox.consume(current)
     }

@@ -24,10 +24,16 @@ import app.chargeshare.ui.components.ErrorText
 import app.chargeshare.ui.components.FormTextField
 import app.chargeshare.ui.components.HeroHeader
 import app.chargeshare.ui.components.PrimaryButton
+import app.chargeshare.ui.components.SuccessText
 
 /** Verbindet [AuthViewModel] mit dem zustandslosen [AuthScreen]. */
 @Composable
-fun AuthRoute(viewModel: AuthViewModel, modifier: Modifier = Modifier) {
+fun AuthRoute(
+    viewModel: AuthViewModel,
+    modifier: Modifier = Modifier,
+    notice: String? = null,
+    onForgotPassword: () -> Unit = {},
+) {
     val state by viewModel.state.collectAsState()
     AuthScreen(
         state = state,
@@ -37,6 +43,8 @@ fun AuthRoute(viewModel: AuthViewModel, modifier: Modifier = Modifier) {
         onPasswordChange = viewModel::onPasswordChange,
         onSubmit = viewModel::onSubmit,
         modifier = modifier,
+        notice = notice,
+        onForgotPassword = onForgotPassword,
     )
 }
 
@@ -50,6 +58,8 @@ fun AuthScreen(
     onPasswordChange: (String) -> Unit,
     onSubmit: () -> Unit,
     modifier: Modifier = Modifier,
+    notice: String? = null,
+    onForgotPassword: () -> Unit = {},
 ) {
     val isRegister = state.mode == AuthMode.Register
     Column(modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -63,6 +73,7 @@ fun AuthScreen(
                 style = MaterialTheme.typography.headlineSmall,
                 color = ChargeShareColors.PrimaryText,
             )
+            notice?.let { SuccessText(it) }
             if (isRegister) {
                 FormTextField(
                     value = state.name,
@@ -97,6 +108,9 @@ fun AuthScreen(
                 onClick = onSubmit,
                 isLoading = state.isSubmitting,
             )
+            if (!isRegister) {
+                TextButton(onClick = onForgotPassword, enabled = !state.isSubmitting) { Text(Strings.ForgotPasswordLink) }
+            }
             TextButton(
                 onClick = { onModeChange(if (isRegister) AuthMode.Login else AuthMode.Register) },
                 enabled = !state.isSubmitting,

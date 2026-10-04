@@ -28,6 +28,12 @@ interface AuthRepository {
     suspend fun register(name: String, email: String, password: String): Outcome<User>
     suspend fun logout()
 
+    /** Fordert eine Reset-Mail an. Der Server antwortet immer gleich, auch bei unbekannter Adresse. */
+    suspend fun forgotPassword(email: String): Outcome<Unit>
+
+    /** Setzt das Passwort mit dem Token aus der Mail neu. Danach muss man sich neu anmelden. */
+    suspend fun resetPassword(token: String, newPassword: String): Outcome<Unit>
+
     /** Setzt die Rolle auf `host`, damit Wallboxen angelegt werden können. */
     suspend fun becomeHost(): Outcome<User>
     suspend fun deleteAccount(): Outcome<Unit>
@@ -78,6 +84,12 @@ class ApiAuthRepository(
         tokenStore.clear()
         state.value = SessionState.SignedOut
     }
+
+    override suspend fun forgotPassword(email: String): Outcome<Unit> =
+        runCatchingOutcome { api.forgotPassword(email.trim()) }
+
+    override suspend fun resetPassword(token: String, newPassword: String): Outcome<Unit> =
+        runCatchingOutcome { api.resetPassword(token.trim(), newPassword) }
 
     override suspend fun becomeHost(): Outcome<User> {
         val result = runCatchingOutcome { api.updateRole(UserRole.HOST) }

@@ -24,7 +24,10 @@ import app.chargeshare.shared.model.CreateWallboxRequest
 import app.chargeshare.shared.model.UpdateWallboxRequest
 import app.chargeshare.shared.model.HostEarnings
 import app.chargeshare.shared.model.HostProfile
+import app.chargeshare.shared.model.CustomerSessionResponse
 import app.chargeshare.shared.model.PaymentConfig
+import app.chargeshare.shared.model.SavedCardsResponse
+import app.chargeshare.shared.model.SetupIntentResponse
 import app.chargeshare.shared.model.PaymentProviderKind
 import app.chargeshare.shared.model.Review
 import app.chargeshare.shared.model.User
@@ -131,6 +134,21 @@ class FakeAuthRepository(initial: SessionState = SessionState.SignedOut) : AuthR
     override suspend fun register(name: String, email: String, password: String): Outcome<User> {
         registerCalls += Triple(name, email, password)
         return registerResult.also { if (it is Outcome.Success) state.value = SessionState.SignedIn(it.value) }
+    }
+
+    var forgotPasswordResult: Outcome<Unit> = Outcome.Success(Unit)
+    var resetPasswordResult: Outcome<Unit> = Outcome.Success(Unit)
+    val forgotPasswordCalls = mutableListOf<String>()
+    val resetPasswordCalls = mutableListOf<Pair<String, String>>()
+
+    override suspend fun forgotPassword(email: String): Outcome<Unit> {
+        forgotPasswordCalls += email
+        return forgotPasswordResult
+    }
+
+    override suspend fun resetPassword(token: String, newPassword: String): Outcome<Unit> {
+        resetPasswordCalls += token to newPassword
+        return resetPasswordResult
     }
 
     override suspend fun logout() {
@@ -256,6 +274,14 @@ class FakeBookingRepository : BookingRepository {
         )
     }
 
+    var receiptResult: Outcome<ByteArray> = Outcome.Success("%PDF-1.4 test".encodeToByteArray())
+    val receiptRequests = mutableListOf<String>()
+
+    override suspend fun receipt(bookingId: String): Outcome<ByteArray> {
+        receiptRequests += bookingId
+        return receiptResult
+    }
+
     override suspend fun list(): Outcome<List<Booking>> = listResult
 
     override suspend fun cancel(bookingId: String): Outcome<Booking> {
@@ -319,11 +345,31 @@ fun stripePaymentConfig(applePayMerchantId: String? = "merchant.app.chargeshare"
 
 class FakePaymentRepository(var configResult: Outcome<PaymentConfig> = Outcome.Success(fakePaymentConfig())) : PaymentRepository {
     var configCalls = 0
+    var savedCardsResult: Outcome<SavedCardsResponse> = Outcome.Success(SavedCardsResponse(supported = true, cards = emptyList()))
+    var removeResult: Outcome<Unit> = Outcome.Success(Unit)
+    var setupIntentResult: Outcome<SetupIntentResponse> = Outcome.Success(SetupIntentResponse("seti_1_secret_x", "cus_1"))
+    var customerSessionResult: Outcome<CustomerSessionResponse> = Outcome.Success(CustomerSessionResponse("cus_1", "cuss_secret_x"))
+    val removedCards = mutableListOf<String>()
+    var setupIntentCalls = 0
 
     override suspend fun config(): Outcome<PaymentConfig> {
         configCalls++
         return configResult
     }
+
+    override suspend fun savedCards(): Outcome<SavedCardsResponse> = savedCardsResult
+
+    override suspend fun removeCard(paymentMethodId: String): Outcome<Unit> {
+        removedCards += paymentMethodId
+        return removeResult
+    }
+
+    override suspend fun createSetupIntent(): Outcome<SetupIntentResponse> {
+        setupIntentCalls++
+        return setupIntentResult
+    }
+
+    override suspend fun customerSession(): Outcome<CustomerSessionResponse> = customerSessionResult
 }
 
 /** Auszahlungskonto: [statusResult] für den gespeicherten Stand, [refreshResult] für den Stripe-Abgleich (Standard: wie [statusResult]). */

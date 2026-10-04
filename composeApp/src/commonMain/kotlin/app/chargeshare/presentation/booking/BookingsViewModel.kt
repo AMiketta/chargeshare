@@ -37,6 +37,8 @@ data class BookingsUiState(
     val payNow: PayNowState = PayNowState.Idle,
     /** Auf diesem Gerät gibt es ein Zahlungsfenster (Google Pay/Apple Pay); sonst wird „Jetzt bezahlen“ nicht angeboten. */
     val canPayOnline: Boolean = false,
+    /** Stand des Quittungs-Downloads. */
+    val receipt: ReceiptState = ReceiptState.Idle,
     /** Zeitpunkt, an dem die Liste aufgeteilt wurde (bestimmt „kommend“ vs. „vergangen“). */
     val now: Instant,
 ) {
@@ -46,6 +48,22 @@ data class BookingsUiState(
             BookingFilter.Past -> bookings.filterNot { it.isUpcoming(now) }.sortedByDescending { it.startTime }
         }
 }
+
+/** Stand von „Quittung (PDF)“. */
+sealed interface ReceiptState {
+    data object Idle : ReceiptState
+
+    data class Loading(val bookingId: String) : ReceiptState
+
+    /** Das PDF liegt vor und muss von der Plattform ausgegeben werden ([BookingsViewModel.onReceiptHandled]). */
+    class Ready(val bookingId: String, val fileName: String, val pdf: ByteArray) : ReceiptState
+
+    /** @property error `null`, wenn das PDF geladen, aber auf diesem Gerät nicht ausgegeben werden konnte */
+    data class Failed(val bookingId: String, val error: AppError?) : ReceiptState
+}
+
+/** Quittungen gibt es nur für abgeschlossene Buchungen (der Server liefert sonst 404 bzw. 409). */
+fun Booking.hasReceipt(): Boolean = status == BookingStatus.COMPLETED
 
 /** Kommend: noch nicht beendet und weder storniert noch fehlgeschlagen noch abgeschlossen. */
 fun Booking.isUpcoming(now: Instant): Boolean =
@@ -118,6 +136,37 @@ class BookingsViewModel(
             }
         }
     }
+
+    // ---- Quittung ---------------------------------------------------------------------------
+
+    /** Lädt die Quittung der abgeschlossenen Buchung; die Ausgabe (Teilen, Öffnen) übernimmt die Plattform. */
+    fun onReceiptRequested(booking: Booking) {
+        if (!booking.hasReceipt() || _state.value.receipt is ReceiptState.Loading) return
+        _state.update { it.copy(receipt = ReceiptState.Loading(booking.id)) }
+        viewModelScope.launch {
+            val result = repository.receipt(booking.id)
+            _state.update {
+                it.copy(
+                    receipt = when (result) {
+                        is Outcome.Success -> ReceiptState.Ready(booking.id, receiptFileName(booking.id), result.value)
+                        is Outcome.Failure -> ReceiptState.Failed(booking.id, result.error)
+                    },
+                )
+            }
+        }
+    }
+
+    /** Die Plattform hat die Quittung ausgegeben ([delivered] = `true`) oder nicht ausgeben können. */
+    fun onReceiptHandled(delivered: Boolean) {
+        _state.update {
+            val ready = it.receipt as? ReceiptState.Ready ?: return@update it
+            it.copy(receipt = if (delivered) ReceiptState.Idle else ReceiptState.Failed(ready.bookingId, error = null))
+        }
+    }
+
+    fun onReceiptErrorShown() = _state.update { if (it.receipt is ReceiptState.Failed) it.copy(receipt = ReceiptState.Idle) else it }
+
+    private fun receiptFileName(bookingId: String): String = "Quittung-ChargeShare-${bookingId.take(RECEIPT_ID_LENGTH)}.pdf"
 
     // ---- Bewerten ---------------------------------------------------------------------------
 
@@ -268,4 +317,8 @@ class BookingsViewModel(
 
     /** Die nachgeladene Buchung enthält ggf. keine Wallbox-Relation; die bekannte bleibt erhalten. */
     private fun Booking.withWallboxOf(previous: Booking): Booking = if (wallbox == null) copy(wallbox = previous.wallbox) else this
+
+    private companion object {
+        const val RECEIPT_ID_LENGTH = 8
+    }
 }

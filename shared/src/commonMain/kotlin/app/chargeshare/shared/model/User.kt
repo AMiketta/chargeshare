@@ -106,3 +106,19 @@ data class UserStats(
 
 @Serializable
 data class UpdateRoleRequest(val role: UserRole)
+
+/** Passwortregeln; Server und Apps prüfen denselben Wert. */
+object PasswordLimits {
+    const val MIN_LENGTH = 8
+}
+
+/** `POST /auth/forgot-password`: die Antwort ist immer `204`, egal ob es das Konto gibt. */
+@Serializable
+data class ForgotPasswordRequest(val email: String)
+
+/** `POST /auth/reset-password` mit dem Token aus der E-Mail. `204` bei Erfolg, `422` bei ungültigem/abgelaufenem Token oder zu kurzem Passwort. */
+@Serializable
+data class ResetPasswordRequest(
+    val token: String,
+    @SerialName("new_password") val newPassword: String,
+)

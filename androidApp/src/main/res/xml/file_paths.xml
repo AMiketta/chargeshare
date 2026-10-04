@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Quittungs-PDFs werden vor dem Teilen in cache/receipts abgelegt (siehe AndroidReceiptSharer). -->
+<paths>
+    <cache-path name="receipts" path="receipts/" />
+</paths>

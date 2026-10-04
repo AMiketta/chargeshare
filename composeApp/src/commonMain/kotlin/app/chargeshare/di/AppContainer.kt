@@ -15,6 +15,8 @@ import app.chargeshare.data.PaymentRepository
 import app.chargeshare.data.PayoutRepository
 import app.chargeshare.data.ApiPayoutRepository
 import app.chargeshare.data.DeepLinkInbox
+import app.chargeshare.platform.ReceiptSharer
+import app.chargeshare.platform.UnsupportedReceiptSharer
 import app.chargeshare.platform.UnsupportedUrlOpener
 import app.chargeshare.platform.UrlOpener
 import app.chargeshare.data.PreferenceStorage
@@ -35,6 +37,7 @@ import ovh.plrapps.mapcompose.core.TileStreamProvider
  * @param preferenceStorage dauerhafter Speicher für Einstellungen wie den Dunkelmodus (`createPreferenceStorage`)
  * @param showDebugInfo `true` nur in Debug-Builds: die UI zeigt dann Entwicklerangaben (z. B. die API-Adresse im Profil)
  * @param urlOpener öffnet Web-Adressen im Browser (Stripe-Onboarding); ohne Angabe nicht unterstützt
+ * @param receiptSharer gibt Quittungs-PDFs aus (Teilen-Dialog, Download, Öffnen); ohne Angabe nicht unterstützt
  */
 class AppContainer(
     val apiBaseUrl: String,
@@ -42,6 +45,7 @@ class AppContainer(
     preferenceStorage: PreferenceStorage,
     val showDebugInfo: Boolean = false,
     val urlOpener: UrlOpener = UnsupportedUrlOpener,
+    val receiptSharer: ReceiptSharer = UnsupportedReceiptSharer,
 ) {
     private val api = ChargeShareApi(
         http = createHttpClient(apiBaseUrl, tokenStore) {

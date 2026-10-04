@@ -101,6 +101,12 @@ object AppIcons {
             "M19,3h-1V1h-2v2H8V1H6v2H5C3.89,3 3.01,3.9 3.01,5L3,19c0,1.1 0.89,2 2,2h14c1.1,0 2,-0.9 2,-2V5c0,-1.1 -0.9,-2 -2,-2zM19,19H5V8h14v11zM7,10h5v5H7z",
         )
     }
+    val CreditCard: ImageVector by lazy {
+        icon(
+            "CreditCard",
+            "M20,4H4c-1.11,0 -1.99,0.89 -1.99,2L2,18c0,1.11 0.89,2 2,2h16c1.11,0 2,-0.89 2,-2V6c0,-1.11 -0.89,-2 -2,-2zM20,18H4v-6h16v6zM20,8H4V6h16v2z",
+        )
+    }
     val Place: ImageVector by lazy {
         icon(
             "Place",

@@ -6,21 +6,34 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /** Ziele, auf die ein Deep Link (`chargeshare://…`) die App führen kann. */
-enum class DeepLink {
+sealed interface DeepLink {
     /** Rückkehr vom Stripe-Onboarding: Kontostatus sofort prüfen. */
-    ONBOARDING_DONE,
+    data object OnboardingDone : DeepLink
 
     /** Der Onboarding-Link ist abgelaufen: neuen Link holen. */
-    ONBOARDING_REFRESH,
-    ;
+    data object OnboardingRefresh : DeepLink
+
+    /** Link aus der „Passwort vergessen“-Mail; [token] ist das Einmal-Token für `POST /auth/reset-password`. */
+    data class ResetPassword(val token: String) : DeepLink
 
     companion object {
         /** Erkennt [uri]; unbekannte oder fremde Adressen ergeben `null`. */
-        fun parse(uri: String?): DeepLink? = when (uri?.trim()?.trimEnd('/')) {
-            AppDeepLinks.ONBOARDING_DONE -> ONBOARDING_DONE
-            AppDeepLinks.ONBOARDING_REFRESH -> ONBOARDING_REFRESH
-            else -> null
+        fun parse(uri: String?): DeepLink? {
+            val trimmed = uri?.trim() ?: return null
+            val path = trimmed.substringBefore('?').trimEnd('/')
+            return when (path) {
+                AppDeepLinks.ONBOARDING_DONE -> OnboardingDone
+                AppDeepLinks.ONBOARDING_REFRESH -> OnboardingRefresh
+                AppDeepLinks.RESET_PASSWORD -> tokenOf(trimmed)?.let(::ResetPassword)
+                else -> null
+            }
         }
+
+        private fun tokenOf(uri: String): String? =
+            uri.substringAfter('?', "").split('&')
+                .firstOrNull { it.startsWith("token=") }
+                ?.removePrefix("token=")
+                ?.takeIf { it.isNotBlank() }
     }
 }
 

@@ -11,12 +11,16 @@ import app.chargeshare.shared.model.CreateBookingRequest
 import app.chargeshare.shared.model.CreateReviewRequest
 import app.chargeshare.shared.model.MessageResponse
 import app.chargeshare.shared.model.OnboardingLink
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.auth.authenticate
 import io.ktor.server.request.header
 import io.ktor.server.request.receive
 import io.ktor.server.request.receiveText
+import io.ktor.server.response.header
 import io.ktor.server.response.respond
+import io.ktor.server.response.respondBytes
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
@@ -43,6 +47,12 @@ fun Route.bookingRoutes(s: Services) {
                 s.bookings.cancel(id, call.userId(), reason)
                 call.respond(HttpStatusCode.NoContent)
             }
+            get("/{id}/receipt") {
+                val id = call.pathUuid("id", "booking id")
+                val pdf = s.receipts.render(id, call.userId())
+                call.response.header(HttpHeaders.ContentDisposition, "attachment; filename=\"ChargeShare-Quittung-${id.toString().take(8)}.pdf\"")
+                call.respondBytes(pdf, ContentType.Application.Pdf)
+            }
             post("/{id}/pay") { call.respond(s.bookings.payPending(call.pathUuid("id", "booking id"), call.userId())) }
             post("/{id}/confirm-payment") {
                 call.respond(s.bookings.confirmPayment(call.pathUuid("id", "booking id"), call.userId()))
@@ -68,6 +78,13 @@ fun Route.bookingRoutes(s: Services) {
         route("/payments") {
             get("/config") { call.respond(s.paymentConfig) }
             post("/onboard") { call.respond(OnboardingLink(s.paymentsSvc.onboardingUrl(call.userId(), call.requestBaseUrl()))) }
+            get("/methods") { call.respond(s.savedCards.list(call.userId())) }
+            delete("/methods/{id}") {
+                s.savedCards.remove(call.userId(), call.parameters["id"].orEmpty())
+                call.respond(HttpStatusCode.NoContent)
+            }
+            post("/setup-intent") { call.respond(s.savedCards.createSetupIntent(call.userId())) }
+            post("/customer-session") { call.respond(s.savedCards.createCustomerSession(call.userId())) }
             get("/payout-status") { call.respond(s.paymentsSvc.payoutStatus(call.userId(), refresh = false)) }
             post("/payout-status/refresh") { call.respond(s.paymentsSvc.payoutStatus(call.userId(), refresh = true)) }
             get("/onboard/return") {

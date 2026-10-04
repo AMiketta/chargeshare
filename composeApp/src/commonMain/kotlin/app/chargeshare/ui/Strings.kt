@@ -39,6 +39,67 @@ object Strings {
     const val FieldPassword = "Passwort"
     const val PasswordHint = "Mindestens 8 Zeichen"
     const val SessionRestoring = "Anmeldung wird geprüft …"
+    const val ReceiptAction = "Quittung (PDF)"
+    const val ReceiptLoading = "Quittung wird geladen …"
+    const val ReceiptOpenFailed = "Die Quittung konnte auf diesem Gerät nicht geöffnet werden."
+    const val ReceiptNotAvailable = "Für diese Buchung gibt es noch keine Quittung."
+
+    fun receiptErrorMessage(error: AppError?): String = when (error) {
+        null -> ReceiptOpenFailed
+        AppError.Conflict, AppError.NotFound -> ReceiptNotAvailable
+        else -> errorMessage(error)
+    }
+
+    const val PaymentMethodsTitle = "Zahlungsmethoden"
+    const val PaymentMethodsSubtitle = "Gespeicherte Karten verwalten"
+    const val SavedCardsHint = "Karten werden bei Stripe gespeichert, ChargeShare sieht nur Marke und die letzten vier Ziffern. Bei der nächsten Buchung kannst du sie im Zahlungsfenster auswählen."
+    const val SavedCardsEmpty = "Noch keine Karte gespeichert."
+    const val SavedCardsUnsupported = "Gespeicherte Karten sind nur mit Stripe-Zahlungen verfügbar. Dieser Server läuft im Testmodus ohne Stripe."
+    const val SavedCardsAddUnsupported = "Neue Karten kannst du hier in der Android-App hinzufügen oder beim Bezahlen im Zahlungsfenster speichern."
+    const val AddCard = "Karte hinzufügen"
+    const val AddCardPreparing = "Kartenformular wird vorbereitet …"
+    const val AddCardFailed = "Die Karte konnte nicht gespeichert werden. Bitte versuche es mit einer anderen Karte."
+    const val RemoveCard = "Entfernen"
+    const val RemoveCardTitle = "Karte entfernen?"
+    const val RemoveCardConfirm = "Karte entfernen"
+
+    fun removeCardBody(label: String) = "$label wird bei Stripe gelöscht. Offene Buchungen bleiben davon unberührt."
+
+    fun cardLabel(brand: String, last4: String): String = "${brandName(brand)} •••• $last4"
+
+    fun cardExpiry(month: Int, year: Int): String = "gültig bis ${month.toString().padStart(2, '0')}/${(year % 100).toString().padStart(2, '0')}"
+
+    /** Stripe liefert Marken klein geschrieben (`visa`, `amex`, `diners`, …). */
+    fun brandName(brand: String): String = when (brand.lowercase()) {
+        "visa" -> "Visa"
+        "mastercard" -> "Mastercard"
+        "amex" -> "American Express"
+        "discover" -> "Discover"
+        "diners" -> "Diners Club"
+        "jcb" -> "JCB"
+        "unionpay" -> "UnionPay"
+        else -> "Karte"
+    }
+
+    const val ForgotPasswordLink = "Passwort vergessen?"
+    const val ForgotPasswordTitle = "Passwort zurücksetzen"
+    const val ForgotPasswordIntro = "Gib die E-Mail-Adresse deines Kontos ein. Wir schicken dir einen Link zum Zurücksetzen."
+    const val ForgotPasswordSend = "Link senden"
+    const val ForgotPasswordSent = "Wenn zu dieser Adresse ein Konto existiert, ist eine E-Mail mit dem Link unterwegs. Er ist 60 Minuten gültig."
+    const val ForgotPasswordHaveToken = "Ich habe schon einen Code"
+    const val ResetPasswordTitle = "Neues Passwort festlegen"
+    const val ResetPasswordIntro = "Wähle ein neues Passwort. Danach musst du dich auf allen Geräten neu anmelden."
+    const val ResetPasswordToken = "Code aus der E-Mail"
+    const val ResetPasswordNewPassword = "Neues Passwort"
+    const val ResetPasswordSave = "Passwort speichern"
+    const val ResetPasswordDone = "Dein Passwort wurde geändert. Bitte melde dich jetzt an."
+    const val BackToLogin = "Zurück zur Anmeldung"
+
+    /** 422 heißt hier: Token abgelaufen, schon benutzt oder ungültig. */
+    fun resetPasswordErrorMessage(error: AppError): String =
+        if (error is AppError.Validation) "Der Link ist abgelaufen oder wurde schon benutzt. Fordere bitte einen neuen an."
+        else errorMessage(error)
+
     const val ShowPassword = "Passwort anzeigen"
     const val HidePassword = "Passwort verbergen"
 

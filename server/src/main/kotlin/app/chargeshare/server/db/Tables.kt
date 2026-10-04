@@ -118,3 +118,13 @@ object RefreshTokens : Table("refresh_tokens") {
     val createdAt = timestampWithTimeZone("created_at")
     override val primaryKey = PrimaryKey(id)
 }
+
+object PasswordResetTokens : Table("password_reset_tokens") {
+    val id = uuid("id")
+    val userId = uuid("user_id").references(Users.id)
+    val tokenHash = text("token_hash")
+    val expiresAt = timestampWithTimeZone("expires_at")
+    val usedAt = timestampWithTimeZone("used_at").nullable()
+    val createdAt = timestampWithTimeZone("created_at")
+    override val primaryKey = PrimaryKey(id)
+}

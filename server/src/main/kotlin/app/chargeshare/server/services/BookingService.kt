@@ -62,6 +62,7 @@ class BookingService(
     private val payments: PaymentProvider,
     private val platformFeePercent: Int,
     private val payouts: PayoutService,
+    private val customers: CustomerService,
 ) {
     private val log = LoggerFactory.getLogger(BookingService::class.java)
 
@@ -80,6 +81,9 @@ class BookingService(
                 ?: throw notFound("wallbox not found")
             payouts.ensureBookable(ownerId)
         }
+
+        // Stripe-Kunde des Fahrers sicherstellen: nur mit Kunde kann das PaymentSheet Karten merken und anzeigen.
+        if (payments.supportsSavedCards) ensureCustomerQuietly(driverId)
 
         // 1) Buchung als `pending` anlegen – der Exclusion-Constraint serialisiert konkurrierende Anfragen
         val bookingId = Uuid.random()
@@ -151,6 +155,16 @@ class BookingService(
             load(bookingId, withWallbox = true)
         }
         return BookingResponse(booking, intent.clientSecret)
+    }
+
+    private suspend fun ensureCustomerQuietly(driverId: Uuid) {
+        try {
+            customers.ensure(driverId)
+        } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            log.warn("ensuring stripe customer failed: {}", e.javaClass.simpleName)
+        }
     }
 
     // ---- Lesen ------------------------------------------------------------------------------

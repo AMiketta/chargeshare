@@ -64,6 +64,7 @@ fun ProfileRoute(
     onThemeModeChange: (ThemeMode) -> Unit,
     modifier: Modifier = Modifier,
     debugInfo: String? = null,
+    onOpenPaymentMethods: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
     ProfileScreen(
@@ -75,6 +76,7 @@ fun ProfileRoute(
         onLogout = viewModel::onLogout,
         onBecomeHost = viewModel::onBecomeHost,
         onOpenHost = onOpenHost,
+        onOpenPaymentMethods = onOpenPaymentMethods,
         onEditRequested = { viewModel.onEditRequested(user) },
         onEditNameChanged = viewModel::onEditNameChanged,
         onEditPhoneChanged = viewModel::onEditPhoneChanged,
@@ -103,6 +105,7 @@ fun ProfileScreen(
     onLogout: () -> Unit,
     onBecomeHost: () -> Unit,
     onOpenHost: () -> Unit,
+    onOpenPaymentMethods: () -> Unit,
     onEditRequested: () -> Unit,
     onEditNameChanged: (String) -> Unit,
     onEditPhoneChanged: (String) -> Unit,
@@ -138,6 +141,8 @@ fun ProfileScreen(
             }
             MenuGroup(label = Strings.ProfileAccountGroup) {
                 MenuItem(AppIcons.Edit, Strings.EditProfile, onEditRequested, enabled = !state.isBusy)
+                MenuDivider()
+                MenuItem(AppIcons.CreditCard, Strings.PaymentMethodsTitle, onOpenPaymentMethods, subtitle = Strings.PaymentMethodsSubtitle)
                 MenuDivider()
                 MenuItem(AppIcons.Shield, Strings.ProfilePrivacy, { showPrivacy = true })
             }

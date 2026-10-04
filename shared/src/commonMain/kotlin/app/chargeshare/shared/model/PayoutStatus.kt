@@ -35,4 +35,7 @@ object AppDeepLinks {
 
     /** Der Onboarding-Link ist abgelaufen oder wurde schon benutzt; die App holt einen neuen. */
     const val ONBOARDING_REFRESH = "$SCHEME://onboarding-refresh"
+
+    /** Link aus der „Passwort vergessen“-Mail: `chargeshare://reset-password?token=…`. */
+    const val RESET_PASSWORD = "$SCHEME://reset-password"
 }

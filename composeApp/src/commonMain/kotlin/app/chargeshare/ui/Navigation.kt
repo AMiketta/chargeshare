@@ -25,6 +25,7 @@ enum class MainTab(val title: String, val icon: ImageVector) {
 sealed interface Screen {
     data class WallboxDetail(val wallboxId: String) : Screen
     data class Booking(val wallbox: Wallbox) : Screen
+    data object PaymentMethods : Screen
     data object CreateWallbox : Screen
     data class EditWallbox(val wallbox: Wallbox) : Screen
 }

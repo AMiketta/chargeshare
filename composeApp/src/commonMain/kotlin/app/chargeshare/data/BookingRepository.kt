@@ -31,6 +31,9 @@ interface BookingRepository {
     /** Bewertet die abgeschlossene Buchung [bookingId] mit [rating] (1..5) und optionalem [comment]. Eine Bewertung pro Buchung. */
     suspend fun review(bookingId: String, rating: Int, comment: String?): Outcome<Review>
 
+    /** Quittung (PDF) einer abgeschlossenen Buchung. */
+    suspend fun receipt(bookingId: String): Outcome<ByteArray>
+
     /** Alle Buchungen des Fahrers (neueste zuerst, wie vom Server geliefert). */
     suspend fun list(): Outcome<List<Booking>>
     suspend fun cancel(bookingId: String): Outcome<Booking>
@@ -60,6 +63,9 @@ class ApiBookingRepository(private val api: ChargeShareApi) : BookingRepository 
 
     override suspend fun review(bookingId: String, rating: Int, comment: String?): Outcome<Review> =
         runCatchingOutcome { api.createReview(CreateReviewRequest(bookingId, rating, comment)) }
+
+    override suspend fun receipt(bookingId: String): Outcome<ByteArray> =
+        runCatchingOutcome { api.bookingReceipt(bookingId) }
 
     override suspend fun list(): Outcome<List<Booking>> =
         runCatchingOutcome { api.bookings(limit = LIST_LIMIT).bookings }

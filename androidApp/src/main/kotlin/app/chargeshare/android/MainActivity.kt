@@ -8,6 +8,7 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.DisposableEffect
+import app.chargeshare.data.Outcome
 import app.chargeshare.ui.App
 import app.chargeshare.ui.rememberIsDarkTheme
 
@@ -28,7 +29,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val container = (application as ChargeShareApplication).container
         // Das PaymentSheet muss vor dem Start der Activity registriert werden, daher hier und nicht erst in der UI.
-        val paymentLauncher = StripePaymentLauncher(this)
+        val paymentLauncher = StripePaymentLauncher(this) {
+            // Customer Session lässt das Zahlungsfenster gespeicherte Karten anzeigen; Fehler = Fenster ohne Karten-Speicher.
+            (container.paymentRepository.customerSession() as? Outcome.Success)?.value
+        }
         // Kaltstart über einen Deep Link (z. B. App wurde im Browser-Onboarding beendet).
         offerDeepLink(intent)
         setContent {
