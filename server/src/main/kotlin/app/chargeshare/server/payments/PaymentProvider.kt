@@ -3,11 +3,11 @@ package app.chargeshare.server.payments
 import app.chargeshare.server.config.AppConfig
 import com.stripe.StripeClient
 import com.stripe.net.Webhook
-import com.stripe.param.AccountCreateParams
-import com.stripe.param.AccountLinkCreateParams
 import com.stripe.param.CustomerCreateParams
 import com.stripe.param.PaymentIntentCreateParams
 import com.stripe.param.RefundCreateParams
+import com.stripe.param.v2.core.AccountCreateParams
+import com.stripe.param.v2.core.AccountLinkCreateParams
 import java.util.UUID
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -177,19 +177,15 @@ class StripePaymentProvider(
         }
     }
 
+    /**
+     * Legt (falls noetig) ein Connect-Konto ueber die Accounts-v2-API an (v1 ist fuer neue Stripe-Plattformen gesperrt)
+     * und liefert den Onboarding-Link. Das Konto hat das Express-Dashboard und die Empfaenger-Konfiguration
+     * (`stripe_transfers`), damit Destination Charges mit `transfer_data` funktionieren; Gebuehren und Verluste traegt die Plattform.
+     */
     override fun createOnboardingLink(email: String, existingAccountId: String?): OnboardingInfo {
         val accountId = existingAccountId?.takeIf { it.isNotEmpty() }
-            ?: client.accounts().create(
-                AccountCreateParams.builder().setType(AccountCreateParams.Type.EXPRESS).setEmail(email).build(),
-            ).id
-        val link = client.accountLinks().create(
-            AccountLinkCreateParams.builder()
-                .setAccount(accountId)
-                .setRefreshUrl(refreshUrl)
-                .setReturnUrl(returnUrl)
-                .setType(AccountLinkCreateParams.Type.ACCOUNT_ONBOARDING)
-                .build(),
-        )
+            ?: client.v2().core().accounts().create(buildRecipientAccountParams(email)).id
+        val link = client.v2().core().accountLinks().create(buildOnboardingLinkParams(accountId, refreshUrl, returnUrl))
         return OnboardingInfo(accountId, link.url)
     }
 
@@ -244,3 +240,57 @@ internal fun buildPaymentIntentParams(
     }
     return builder.build()
 }
+
+/** Hosts sitzen in Deutschland (Konzept); das Land eines Connect-Kontos laesst sich spaeter nicht aendern. */
+private const val HOST_COUNTRY_CODE = "de"
+
+/**
+ * Parameter fuer ein Connect-Konto ueber die Accounts-v2-API (v1 ist fuer neue Stripe-Plattformen gesperrt):
+ * Express-Dashboard und Empfaenger-Konfiguration mit `stripe_transfers`, damit Destination Charges mit `transfer_data`
+ * funktionieren; Gebuehren und Verluste traegt die Plattform.
+ */
+internal fun buildRecipientAccountParams(email: String): AccountCreateParams {
+    val transfers = AccountCreateParams.Configuration.Recipient.Capabilities.StripeBalance.StripeTransfers.builder()
+        .setRequested(true)
+        .build()
+    val recipient = AccountCreateParams.Configuration.Recipient.builder()
+        .setCapabilities(
+            AccountCreateParams.Configuration.Recipient.Capabilities.builder()
+                .setStripeBalance(
+                    AccountCreateParams.Configuration.Recipient.Capabilities.StripeBalance.builder()
+                        .setStripeTransfers(transfers)
+                        .build(),
+                )
+                .build(),
+        )
+        .build()
+    val responsibilities = AccountCreateParams.Defaults.Responsibilities.builder()
+        .setFeesCollector(AccountCreateParams.Defaults.Responsibilities.FeesCollector.APPLICATION)
+        .setLossesCollector(AccountCreateParams.Defaults.Responsibilities.LossesCollector.APPLICATION)
+        .build()
+    return AccountCreateParams.builder()
+        .setContactEmail(email)
+        .setDisplayName(email.substringBefore('@'))
+        .setIdentity(AccountCreateParams.Identity.builder().setCountry(HOST_COUNTRY_CODE).build())
+        .setDashboard(AccountCreateParams.Dashboard.EXPRESS)
+        .setDefaults(AccountCreateParams.Defaults.builder().setResponsibilities(responsibilities).build())
+        .setConfiguration(AccountCreateParams.Configuration.builder().setRecipient(recipient).build())
+        .build()
+}
+
+/** Parameter fuer den einmalig nutzbaren Onboarding-Link eines Connect-Kontos (Accounts v2). */
+internal fun buildOnboardingLinkParams(accountId: String, refreshUrl: String, returnUrl: String): AccountLinkCreateParams =
+    AccountLinkCreateParams.builder()
+        .setAccount(accountId)
+        .setUseCase(
+            AccountLinkCreateParams.UseCase.builder()
+                .setType(AccountLinkCreateParams.UseCase.Type.ACCOUNT_ONBOARDING)
+                .setAccountOnboarding(
+                    AccountLinkCreateParams.UseCase.AccountOnboarding.builder()
+                        .setRefreshUrl(refreshUrl)
+                        .setReturnUrl(returnUrl)
+                        .build(),
+                )
+                .build(),
+        )
+        .build()
