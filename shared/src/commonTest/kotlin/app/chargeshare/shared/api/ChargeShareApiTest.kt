@@ -40,6 +40,26 @@ class ChargeShareApiTest {
     }
 
     @Test
+    fun hostEarningsSendsTimeZoneAndDecodesDashboardValues() = runTest {
+        val api = api { req ->
+            assertEquals("/api/v1/host/earnings", req.url.encodedPath)
+            assertEquals("Europe/Berlin", req.url.parameters["tz"])
+            assertNull(req.url.parameters["from"])
+            respond(
+                """{"total":100,"month":15.5,"sessions":4,"avg_rating":4.5,"kwh":300.5,"month_sessions":2,"month_kwh":39.5,
+                    "previous_month":12,"month_change_pct":29.2,"week":[{"date":"2026-10-12","amount":2.5},{"date":"2026-10-13","amount":0}]}""",
+                HttpStatusCode.OK,
+                jsonHeaders,
+            )
+        }
+        val earnings = api.hostEarnings(timeZone = "Europe/Berlin")
+        assertEquals(29.2, earnings.monthChangePct)
+        assertEquals(39.5, earnings.monthKwh)
+        assertEquals(listOf(2.5, 0.0), earnings.week.map { it.amount })
+        assertEquals("2026-10-12", earnings.week.first().date)
+    }
+
+    @Test
     fun errorResponseBecomesApiException() = runTest {
         val api = api { respond("""{"error":"wallbox not found","code":"NOT_FOUND"}""", HttpStatusCode.NotFound, jsonHeaders) }
         val ex = assertFailsWith<ApiException> { api.wallbox("missing") }

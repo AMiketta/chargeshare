@@ -8,12 +8,15 @@ import app.chargeshare.presentation.host.WallboxField
 import app.chargeshare.presentation.host.parseDecimal
 import app.chargeshare.presentation.host.parseTime
 import app.chargeshare.shared.model.ConnectorType
+import app.chargeshare.shared.model.DailyEarnings
+import app.chargeshare.shared.model.HostEarnings
 import app.chargeshare.shared.model.TimeSlot
 import app.chargeshare.testing.FakeHostRepository
 import app.chargeshare.testing.FixedClock
 import app.chargeshare.testing.TestMain
 import app.chargeshare.testing.failure
 import app.chargeshare.testing.testWallbox
+import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -42,6 +45,27 @@ class HostViewModelsTest {
         assertEquals(1, state.wallboxes.size)
         assertFalse(state.isLoading)
         assertNull(state.error)
+    }
+
+    @Test
+    fun dashboardRequestsEarningsInDeviceZoneAndStoresLocalTime() {
+        val berlin = TimeZone.of("Europe/Berlin")
+        val viewModel = HostDashboardViewModel("host-1", repository, FixedClock(), berlin)
+        viewModel.refresh()
+        assertEquals(berlin, repository.earningsZone)
+        // 2026-10-05 08:00 UTC = 10:00 Uhr in Berlin
+        assertEquals(LocalDateTime(2026, 10, 5, 10, 0), viewModel.state.value.now)
+    }
+
+    @Test
+    fun dashboardKeepsWeekAndMonthComparison() {
+        repository.earningsResult = Outcome.Success(
+            HostEarnings(month = 15.5, previousMonth = 12.0, monthChangePct = 29.2, week = listOf(DailyEarnings("2026-10-05", 4.0))),
+        )
+        val viewModel = HostDashboardViewModel("host-1", repository, FixedClock(), TimeZone.UTC)
+        viewModel.refresh()
+        assertEquals(29.2, viewModel.state.value.earnings?.monthChangePct)
+        assertEquals(1, viewModel.state.value.earnings?.week?.size)
     }
 
     @Test

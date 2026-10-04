@@ -7,6 +7,7 @@ import kotlin.time.Instant
 import app.chargeshare.shared.model.TimeSlot
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
@@ -62,6 +63,9 @@ fun formatDate(date: LocalDate): String =
 fun formatDateTime(instant: Instant, zone: TimeZone): String =
     "${formatDate(instant.toLocalDateTime(zone).date)}, ${formatTime(instant, zone)}"
 
+/** Voller Monatsname, z. B. `Oktober`. */
+fun monthName(month: Month): String = MONTHS_FULL[month.ordinal]
+
 fun weekdayShort(day: DayOfWeek): String = WEEKDAYS_SHORT[day.ordinal]
 
 /** Wochentag des Backends (`"monday"`) als Kurzname (`Mo`); unbekannte Schlüssel bleiben unverändert. */
@@ -92,4 +96,5 @@ private const val COMPACT_KWH_THRESHOLD = 100.0
 private const val METERS_PER_KM = 1000.0
 private val WEEKDAYS_SHORT = listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 private val WEEKDAY_KEYS_ORDERED = listOf("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")
+private val MONTHS_FULL = listOf("Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember")
 private val MONTHS_SHORT = listOf("Jan.", "Feb.", "März", "Apr.", "Mai", "Juni", "Juli", "Aug.", "Sep.", "Okt.", "Nov.", "Dez.")

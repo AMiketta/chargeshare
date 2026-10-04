@@ -273,7 +273,12 @@ class FakeHostRepository : HostRepository {
     val createdRequests = mutableListOf<CreateWallboxRequest>()
     val updatedRequests = mutableListOf<Pair<String, UpdateWallboxRequest>>()
 
-    override suspend fun earnings(): Outcome<HostEarnings> = earningsResult
+    var earningsZone: TimeZone? = null
+
+    override suspend fun earnings(zone: TimeZone): Outcome<HostEarnings> {
+        earningsZone = zone
+        return earningsResult
+    }
 
     override suspend fun sessions(): Outcome<List<ChargingSession>> = sessionsResult
 

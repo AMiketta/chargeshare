@@ -23,8 +23,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import app.chargeshare.presentation.host.HostDashboardUiState
 import app.chargeshare.presentation.host.HostDashboardViewModel
+import app.chargeshare.presentation.host.shortName
 import app.chargeshare.shared.model.ChargingSession
-import app.chargeshare.shared.model.HostEarnings
 import app.chargeshare.shared.model.Wallbox
 import app.chargeshare.ui.ChargeShareColors
 import app.chargeshare.ui.Spacing
@@ -39,7 +39,6 @@ import app.chargeshare.ui.components.LoadingBox
 import app.chargeshare.ui.components.SectionTitle
 import app.chargeshare.ui.components.SurfaceCard
 import app.chargeshare.ui.formatDateTime
-import app.chargeshare.ui.formatDecimal
 import app.chargeshare.ui.formatEuro
 import app.chargeshare.ui.formatPowerKw
 import app.chargeshare.ui.formatPricePerKwh
@@ -48,6 +47,7 @@ import kotlinx.datetime.TimeZone
 @Composable
 fun HostDashboardRoute(
     viewModel: HostDashboardViewModel,
+    userName: String,
     onAddWallbox: () -> Unit,
     onEditWallbox: (Wallbox) -> Unit,
     modifier: Modifier = Modifier,
@@ -58,6 +58,7 @@ fun HostDashboardRoute(
     val state by viewModel.state.collectAsState()
     HostDashboardScreen(
         state = state,
+        userName = userName,
         zone = zone,
         onAddWallbox = onAddWallbox,
         onEditWallbox = onEditWallbox,
@@ -71,6 +72,7 @@ fun HostDashboardRoute(
 @Composable
 fun HostDashboardScreen(
     state: HostDashboardUiState,
+    userName: String,
     zone: TimeZone,
     onAddWallbox: () -> Unit,
     onEditWallbox: (Wallbox) -> Unit,
@@ -79,9 +81,12 @@ fun HostDashboardScreen(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
-        HeroHeader(title = Strings.HostTitle) {
-            state.earnings?.let { EarningsSummary(it) }
-        }
+        HostDashboardHeader(
+            userName = shortName(userName),
+            subtitle = hostSubtitle(state.wallboxes),
+            now = state.now,
+            earnings = state.earnings,
+        )
         when {
             state.isLoading && state.earnings == null -> LoadingBox()
             state.error != null && state.earnings == null -> ErrorBox(state.error, onRetry)
@@ -90,6 +95,7 @@ fun HostDashboardScreen(
                 verticalArrangement = Arrangement.spacedBy(Spacing.Medium),
             ) {
                 state.toggleError?.let { ErrorText(Strings.errorMessage(it)) }
+                state.earnings?.takeIf { it.week.isNotEmpty() }?.let { WeeklyEarningsCard(it.week, state.now?.date) }
                 AmberButton(Strings.AddWallbox, onAddWallbox)
                 SectionTitle(Strings.MyWallboxes)
                 if (state.wallboxes.isEmpty()) {
@@ -107,24 +113,12 @@ fun HostDashboardScreen(
     }
 }
 
-@Composable
-private fun EarningsSummary(earnings: HostEarnings) {
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
-        Text(Strings.EarningsMonth, style = MaterialTheme.typography.labelLarge, color = ChargeShareColors.OnPrimary)
-        Text(formatEuro(earnings.month), style = MaterialTheme.typography.displaySmall, color = ChargeShareColors.OnPrimary)
-        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.Large)) {
-            Stat(Strings.EarningsTotal, formatEuro(earnings.total))
-            Stat(Strings.Sessions, earnings.sessions.toString())
-            Stat(Strings.AverageRating, if (earnings.avgRating > 0) formatDecimal(earnings.avgRating, 1) else "–")
-        }
-    }
-}
-
-@Composable
-private fun Stat(label: String, value: String) {
-    Column {
-        Text(value, style = MaterialTheme.typography.titleMedium, color = ChargeShareColors.OnPrimary)
-        Text(label, style = MaterialTheme.typography.bodySmall, color = ChargeShareColors.OnPrimary)
+private fun hostSubtitle(wallboxes: List<Wallbox>): String {
+    val active = wallboxes.filter { it.isOnline }
+    return when {
+        wallboxes.isEmpty() -> Strings.NoHostWallboxSubtitle
+        active.isEmpty() -> Strings.AllWallboxesBlockedSubtitle
+        else -> Strings.hostSubtitle(active.size, active.first().city)
     }
 }
 
