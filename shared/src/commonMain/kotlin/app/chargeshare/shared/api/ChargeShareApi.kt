@@ -3,6 +3,8 @@ package app.chargeshare.shared.api
 import app.chargeshare.shared.model.*
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.plugins.auth.authProviders
+import io.ktor.client.plugins.auth.providers.BearerAuthProvider
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
@@ -26,19 +28,32 @@ class ChargeShareApi(
         setBody(body)
     }
 
+    /**
+     * Speichert die Tokens und verwirft die im Bearer-Plugin zwischengespeicherten.
+     * Sonst sendet der Client nach einem Kontowechsel weiter das Token des vorherigen Nutzers.
+     */
+    private suspend fun saveTokens(accessToken: String, refreshToken: String) {
+        tokenStore.save(accessToken, refreshToken)
+        clearCachedBearerTokens()
+    }
+
+    private fun clearCachedBearerTokens() {
+        http.authProviders.filterIsInstance<BearerAuthProvider>().forEach { it.clearToken() }
+    }
+
     // ---- Auth -------------------------------------------------------------------------------
 
     suspend fun register(email: String, password: String, name: String): AuthResponse =
         http.post("$V1/auth/register") { json(RegisterRequest(email, password, name)) }
-            .body<AuthResponse>().also { tokenStore.save(it.accessToken, it.refreshToken) }
+            .body<AuthResponse>().also { saveTokens(it.accessToken, it.refreshToken) }
 
     suspend fun login(email: String, password: String): AuthResponse =
         http.post("$V1/auth/login") { json(LoginRequest(email, password)) }
-            .body<AuthResponse>().also { tokenStore.save(it.accessToken, it.refreshToken) }
+            .body<AuthResponse>().also { saveTokens(it.accessToken, it.refreshToken) }
 
     suspend fun loginWithApple(identityToken: String, fullName: String? = null): AuthResponse =
         http.post("$V1/auth/apple") { json(AppleAuthRequest(identityToken, fullName)) }
-            .body<AuthResponse>().also { tokenStore.save(it.accessToken, it.refreshToken) }
+            .body<AuthResponse>().also { saveTokens(it.accessToken, it.refreshToken) }
 
     suspend fun refresh(refreshToken: String): TokenPair =
         http.post("$V1/auth/refresh") { json(RefreshRequest(refreshToken)) }.body<TokenPair>()
@@ -49,6 +64,7 @@ class ChargeShareApi(
             runCatching { http.post("$V1/auth/logout") { json(LogoutRequest(refresh)) } }
         }
         tokenStore.clear()
+        clearCachedBearerTokens()
     }
 
     // ---- Users ------------------------------------------------------------------------------

@@ -150,4 +150,30 @@ class ChargeShareApiTest {
         assertEquals(BookingStatus.PENDING, response.booking?.status)
         assertEquals("pi_1_secret", response.clientSecret)
     }
+
+    @Test
+    fun requestsUseNewTokenAfterLogoutAndLoginAsOtherUser() = runTest {
+        val tokens = InMemoryTokenStore()
+        val usedTokens = mutableListOf<String?>()
+        val api = api(tokens) { req ->
+            when (req.url.encodedPath) {
+                "/api/v1/auth/login" -> {
+                    val isHost = req.body.toByteArray().decodeToString().contains("host@")
+                    val (access, refresh) = if (isHost) "HOST_AT" to "HOST_RT" else "DRIVER_AT" to "DRIVER_RT"
+                    respond("""{"access_token":"$access","refresh_token":"$refresh","user":$userJson}""", HttpStatusCode.OK, jsonHeaders)
+                }
+                "/api/v1/auth/logout" -> respond("", HttpStatusCode.NoContent)
+                else -> {
+                    usedTokens += req.headers[HttpHeaders.Authorization]
+                    respond(userJson, HttpStatusCode.OK, jsonHeaders)
+                }
+            }
+        }
+        api.login("driver@b.de", "secret123")
+        api.me()
+        api.logout()
+        api.login("host@b.de", "secret123")
+        api.me()
+        assertEquals(listOf<String?>("Bearer DRIVER_AT", "Bearer HOST_AT"), usedTokens)
+    }
 }
