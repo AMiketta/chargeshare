@@ -4,6 +4,7 @@ import app.chargeshare.data.AppError
 import app.chargeshare.payment.PaymentMethodChoice
 import app.chargeshare.presentation.auth.FieldError
 import app.chargeshare.presentation.host.PhotoIssue
+import app.chargeshare.presentation.onboarding.OnboardingPage
 import app.chargeshare.presentation.host.WallboxField
 import app.chargeshare.presentation.theme.ThemeMode
 import app.chargeshare.shared.model.BookingStatus
@@ -393,6 +394,29 @@ object Strings {
 
     fun geocodeFailed(error: AppError): String =
         if (error == AppError.RateLimited) "Zu viele Suchen in kurzer Zeit. Bitte warte eine Minute oder trage die Koordinaten von Hand ein." else errorMessage(error)
+
+    // ---- Einführung (Onboarding)
+    const val OnboardingSkip = "Überspringen"
+    const val OnboardingNext = "Weiter"
+    const val OnboardingStart = "Los geht’s"
+    const val OnboardingReplay = "Einführung ansehen"
+    const val OnboardingReplaySubtitle = "Kurze Tour durch ChargeShare"
+
+    fun onboardingTitle(page: OnboardingPage): String = when (page) {
+        OnboardingPage.Find -> "Wallbox in deiner Nähe finden"
+        OnboardingPage.Book -> "Zeitfenster buchen"
+        OnboardingPage.Charge -> "Laden und bezahlen"
+        OnboardingPage.Host -> "Selbst Host werden"
+    }
+
+    fun onboardingBody(page: OnboardingPage): String = when (page) {
+        OnboardingPage.Find -> "Auf der Karte siehst du private Wallboxen mit Preis, Leistung und Stecker. Fotos zeigen dir, wo du ankommst."
+        OnboardingPage.Book -> "Wähle ein freies Zeitfenster und bezahle sicher in der App. Der Preis steht vorher fest."
+        OnboardingPage.Charge -> "Fahre hin, stecke an und lade. Abgerechnet wird nach dem Laden, eine Quittung bekommst du als PDF."
+        OnboardingPage.Host -> "Stelle deine Wallbox ein, lege Preis und Zeiten fest und verdiene mit, wenn sie sonst ungenutzt steht."
+    }
+
+    fun onboardingProgress(current: Int, count: Int): String = "Seite $current von $count"
 
     // ---- Fotos
     const val PhotosTitle = "Fotos"

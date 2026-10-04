@@ -22,6 +22,7 @@ import app.chargeshare.platform.UnsupportedUrlOpener
 import app.chargeshare.platform.UrlOpener
 import app.chargeshare.data.PreferenceStorage
 import app.chargeshare.data.WallboxRepository
+import app.chargeshare.presentation.onboarding.OnboardingSettings
 import app.chargeshare.presentation.theme.ThemeSettings
 import app.chargeshare.shared.api.ChargeShareApi
 import app.chargeshare.shared.api.TokenStore
@@ -71,6 +72,9 @@ class AppContainer(
 
     /** Gewählte Darstellung (Hell/Dunkel/System), dauerhaft gespeichert. */
     val themeSettings = ThemeSettings(preferenceStorage)
+
+    /** Einführung beim ersten Start; das „gesehen“-Flag liegt lokal im Einstellungsspeicher. */
+    val onboarding = OnboardingSettings(preferenceStorage)
 
     /** Kachelquelle der Karte (OpenStreetMap); eigener Http-Client, ohne Login-Daten. */
     val tileSource: TileStreamProvider by lazy { OsmTileSource() }

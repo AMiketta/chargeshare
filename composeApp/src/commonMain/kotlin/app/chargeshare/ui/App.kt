@@ -55,6 +55,7 @@ import app.chargeshare.ui.host.CreateWallboxRoute
 import app.chargeshare.ui.host.EditWallboxRoute
 import app.chargeshare.ui.host.HostDashboardRoute
 import app.chargeshare.presentation.profile.SavedCardsViewModel
+import app.chargeshare.ui.onboarding.OnboardingScreen
 import app.chargeshare.ui.profile.ProfileRoute
 import app.chargeshare.ui.profile.SavedCardsRoute
 import app.chargeshare.ui.wallbox.WallboxDetailRoute
@@ -92,6 +93,10 @@ fun App(
                                 MainContent(container, current.user, paymentLauncher, photoPicker)
                             }
                         }
+                    }
+                    val onboardingVisible by container.onboarding.visible.collectAsState()
+                    if (onboardingVisible) {
+                        OnboardingScreen(onFinished = container.onboarding::finish)
                     }
                     if (splashVisible) {
                         SplashOverlay(
@@ -215,6 +220,7 @@ private fun TabContent(
                 onThemeModeChange = container.themeSettings::select,
                 onOpenHost = { navigation.selectTab(MainTab.Host) },
                 onOpenPaymentMethods = { navigation.push(Screen.PaymentMethods) },
+                onShowIntro = container.onboarding::show,
                 modifier = modifier,
                 debugInfo = container.apiBaseUrl.takeIf { container.showDebugInfo },
             )
