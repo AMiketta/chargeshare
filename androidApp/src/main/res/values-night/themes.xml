@@ -4,4 +4,11 @@
     <style name="Theme.ChargeShare" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowBackground">#141310</item>
     </style>
+
+    <!-- Startthema der Activity: System-Splash (Android 12+ nativ, davor über die androidx-Bibliothek), danach Theme.ChargeShare. -->
+    <style name="Theme.ChargeShare.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_splash_bolt</item>
+        <item name="postSplashScreenTheme">@style/Theme.ChargeShare</item>
+    </style>
 </resources>

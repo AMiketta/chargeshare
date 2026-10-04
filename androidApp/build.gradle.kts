@@ -32,6 +32,7 @@ android {
 dependencies {
     implementation(project(":composeApp"))
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.core.splashscreen)
     // Zahlungsfenster mit Google Pay (PaymentSheet)
     implementation(libs.stripe.android)
 }
