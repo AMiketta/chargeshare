@@ -18,12 +18,22 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTask"
             android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden|uiMode|density|fontScale|layoutDirection|locale">
             <!-- Kein Neustart der Activity bei Drehen & Co.: ein offenes Zahlungsfenster haengt an dieser Activity-Instanz,
                  Compose passt sich Konfigurationsaenderungen selbst an. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Rückkehr vom Stripe-Onboarding: chargeshare://onboarding-done bzw. chargeshare://onboarding-refresh.
+                 singleTask: die laufende Activity wird nach vorn geholt und bekommt den Link per onNewIntent. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="chargeshare" android:host="onboarding-done" />
+                <data android:scheme="chargeshare" android:host="onboarding-refresh" />
             </intent-filter>
         </activity>
     </application>

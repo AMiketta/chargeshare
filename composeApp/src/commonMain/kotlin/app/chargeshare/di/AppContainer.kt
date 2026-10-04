@@ -12,6 +12,11 @@ import app.chargeshare.data.FavoritesRepository
 import app.chargeshare.data.HostRepository
 import app.chargeshare.data.OsmTileSource
 import app.chargeshare.data.PaymentRepository
+import app.chargeshare.data.PayoutRepository
+import app.chargeshare.data.ApiPayoutRepository
+import app.chargeshare.data.DeepLinkInbox
+import app.chargeshare.platform.UnsupportedUrlOpener
+import app.chargeshare.platform.UrlOpener
 import app.chargeshare.data.PreferenceStorage
 import app.chargeshare.data.WallboxRepository
 import app.chargeshare.presentation.theme.ThemeSettings
@@ -29,12 +34,14 @@ import ovh.plrapps.mapcompose.core.TileStreamProvider
  * @param tokenStore dauerhafter Token-Speicher der Plattform (`createSecureTokenStore`)
  * @param preferenceStorage dauerhafter Speicher für Einstellungen wie den Dunkelmodus (`createPreferenceStorage`)
  * @param showDebugInfo `true` nur in Debug-Builds: die UI zeigt dann Entwicklerangaben (z. B. die API-Adresse im Profil)
+ * @param urlOpener öffnet Web-Adressen im Browser (Stripe-Onboarding); ohne Angabe nicht unterstützt
  */
 class AppContainer(
     val apiBaseUrl: String,
     tokenStore: TokenStore,
     preferenceStorage: PreferenceStorage,
     val showDebugInfo: Boolean = false,
+    val urlOpener: UrlOpener = UnsupportedUrlOpener,
 ) {
     private val api = ChargeShareApi(
         http = createHttpClient(apiBaseUrl, tokenStore) {
@@ -49,6 +56,10 @@ class AppContainer(
     val hostRepository: HostRepository = ApiHostRepository(api)
     val favoritesRepository: FavoritesRepository = ApiFavoritesRepository(api)
     val paymentRepository: PaymentRepository = ApiPaymentRepository(api)
+    val payoutRepository: PayoutRepository = ApiPayoutRepository(api)
+
+    /** Briefkasten für Deep Links (`chargeshare://onboarding-done`), den die Plattform füllt und die UI abholt. */
+    val deepLinks = DeepLinkInbox()
 
     /** Gewählte Darstellung (Hell/Dunkel/System), dauerhaft gespeichert. */
     val themeSettings = ThemeSettings(preferenceStorage)

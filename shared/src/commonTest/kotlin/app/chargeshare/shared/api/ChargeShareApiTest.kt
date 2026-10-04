@@ -142,6 +142,21 @@ class ChargeShareApiTest {
     }
 
     @Test
+    fun payoutStatusReadsAndRefreshPostsToSyncPath() = runTest {
+        val seen = mutableListOf<Pair<HttpMethod, String>>()
+        val api = api { req ->
+            seen += req.method to req.url.encodedPath
+            respond("""{"state":"pending"}""", HttpStatusCode.OK, jsonHeaders)
+        }
+        assertEquals(PayoutState.PENDING, api.payoutStatus().state)
+        assertEquals(PayoutState.PENDING, api.refreshPayoutStatus().state)
+        assertEquals(
+            listOf(HttpMethod.Get to "/api/v1/payments/payout-status", HttpMethod.Post to "/api/v1/payments/payout-status/refresh"),
+            seen,
+        )
+    }
+
+    @Test
     fun paymentConfigIsLoadedFromPaymentsConfigPath() = runTest {
         val api = api { req ->
             assertEquals("/api/v1/payments/config", req.url.encodedPath)

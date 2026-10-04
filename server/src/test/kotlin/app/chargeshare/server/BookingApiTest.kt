@@ -4,6 +4,7 @@ import app.chargeshare.server.payments.PaymentEvent
 import app.chargeshare.server.payments.PaymentIntentInfo
 import app.chargeshare.server.payments.PaymentProvider
 import app.chargeshare.server.payments.OnboardingInfo
+import app.chargeshare.server.payments.OnboardingUrls
 import app.chargeshare.server.payments.StripePaymentProvider
 import app.chargeshare.server.payments.WebhookVerificationException
 import app.chargeshare.shared.api.ApiException
@@ -61,7 +62,10 @@ class ScriptedPaymentProvider : PaymentProvider {
         canceledIntents += paymentIntentId
         cancelIntentFailure?.let { throw it }
     }
-    override fun createOnboardingLink(email: String, existingAccountId: String?): OnboardingInfo {
+    /** Zuletzt an [createOnboardingLink] übergebene Rückkehr-Adressen. */
+    @Volatile var lastOnboardingUrls: OnboardingUrls? = null
+    override fun createOnboardingLink(email: String, existingAccountId: String?, urls: OnboardingUrls): OnboardingInfo {
+        lastOnboardingUrls = urls
         onboardingFailure?.let { throw it }
         return OnboardingInfo(existingAccountId ?: "acct_test", "https://stripe.test/onboard")
     }

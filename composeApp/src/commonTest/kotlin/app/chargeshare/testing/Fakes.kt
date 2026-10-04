@@ -9,6 +9,9 @@ import app.chargeshare.data.FavoritesRepository
 import app.chargeshare.data.GeoPoint
 import app.chargeshare.data.HostRepository
 import app.chargeshare.data.PaymentRepository
+import app.chargeshare.data.PayoutRepository
+import app.chargeshare.shared.model.PayoutState
+import app.chargeshare.shared.model.PayoutStatus
 import app.chargeshare.data.Outcome
 import app.chargeshare.data.SessionState
 import app.chargeshare.data.WallboxFilter
@@ -320,6 +323,32 @@ class FakePaymentRepository(var configResult: Outcome<PaymentConfig> = Outcome.S
     override suspend fun config(): Outcome<PaymentConfig> {
         configCalls++
         return configResult
+    }
+}
+
+/** Auszahlungskonto: [statusResult] für den gespeicherten Stand, [refreshResult] für den Stripe-Abgleich (Standard: wie [statusResult]). */
+class FakePayoutRepository(
+    var statusResult: Outcome<PayoutStatus> = Outcome.Success(PayoutStatus(PayoutState.NOT_STARTED)),
+) : PayoutRepository {
+    var refreshResult: Outcome<PayoutStatus>? = null
+    var onboardingResult: Outcome<String> = Outcome.Success("https://connect.stripe.test/onboard")
+    var statusCalls = 0
+    var refreshCalls = 0
+    var onboardingCalls = 0
+
+    override suspend fun status(): Outcome<PayoutStatus> {
+        statusCalls++
+        return statusResult
+    }
+
+    override suspend fun refresh(): Outcome<PayoutStatus> {
+        refreshCalls++
+        return (refreshResult ?: statusResult).also { result -> if (result is Outcome.Success) statusResult = result }
+    }
+
+    override suspend fun startOnboarding(): Outcome<String> {
+        onboardingCalls++
+        return onboardingResult
     }
 }
 

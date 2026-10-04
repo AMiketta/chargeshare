@@ -4,6 +4,7 @@ import app.chargeshare.server.util.unauthorized
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.auth.jwt.JWTPrincipal
 import io.ktor.server.auth.principal
+import io.ktor.server.plugins.origin
 import kotlin.uuid.Uuid
 
 fun ApplicationCall.userId(): Uuid {
@@ -22,3 +23,11 @@ fun ApplicationCall.page(): Page {
 
 fun ApplicationCall.pathUuid(name: String, what: String): Uuid =
     app.chargeshare.server.util.parseUuid(parameters[name] ?: "", what)
+
+/** Adresse (`http://10.0.2.2:8080`), unter der der Client den Server erreicht; hinter einem Proxy mit `X-Forwarded-*` die öffentliche. */
+fun ApplicationCall.requestBaseUrl(): String {
+    val origin = request.origin
+    val defaultPort = if (origin.scheme == "https") 443 else 80
+    val portSuffix = if (origin.serverPort == defaultPort) "" else ":${origin.serverPort}"
+    return "${origin.scheme}://${origin.serverHost}$portSuffix"
+}

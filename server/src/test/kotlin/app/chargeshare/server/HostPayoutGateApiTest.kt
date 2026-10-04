@@ -3,6 +3,7 @@ package app.chargeshare.server
 import app.chargeshare.server.db.Db
 import app.chargeshare.server.db.DevSeed
 import app.chargeshare.server.payments.OnboardingInfo
+import app.chargeshare.server.payments.OnboardingUrls
 import app.chargeshare.server.payments.PaymentProvider
 import app.chargeshare.server.payments.canReceiveTransfers
 import app.chargeshare.server.services.PayoutService
@@ -37,8 +38,13 @@ class PayoutGatedProvider(val base: ScriptedPaymentProvider = ScriptedPaymentPro
         return accountId in readyAccounts
     }
 
-    override fun createOnboardingLink(email: String, existingAccountId: String?) =
-        OnboardingInfo(existingAccountId ?: "acct_test_${accounts.incrementAndGet()}", "https://stripe.test/onboard")
+    /** Zuletzt an [createOnboardingLink] übergebene Rückkehr-Adressen. */
+    @Volatile var lastUrls: OnboardingUrls? = null
+
+    override fun createOnboardingLink(email: String, existingAccountId: String?, urls: OnboardingUrls): OnboardingInfo {
+        lastUrls = urls
+        return OnboardingInfo(existingAccountId ?: "acct_test_${accounts.incrementAndGet()}", "https://stripe.test/onboard")
+    }
 }
 
 /** Wallboxes von Hosts ohne abgeschlossenes Stripe-Onboarding sind nicht buchbar (409 statt Fehler bei Stripe). */

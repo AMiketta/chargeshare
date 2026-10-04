@@ -3,6 +3,7 @@ package app.chargeshare.ui
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import app.chargeshare.di.AppContainer
+import app.chargeshare.platform.DesktopUrlOpener
 import app.chargeshare.platform.PlatformContext
 import app.chargeshare.platform.createPreferenceStorage
 import app.chargeshare.platform.createSecureTokenStore
@@ -17,6 +18,7 @@ fun main() = application {
         createSecureTokenStore(PlatformContext()),
         createPreferenceStorage(PlatformContext()),
         showDebugInfo = true,
+        urlOpener = DesktopUrlOpener(),
     )
     Window(onCloseRequest = ::exitApplication, title = Strings.AppName) {
         App(container)

@@ -67,7 +67,9 @@ fun Route.bookingRoutes(s: Services) {
         }
         route("/payments") {
             get("/config") { call.respond(s.paymentConfig) }
-            post("/onboard") { call.respond(OnboardingLink(s.paymentsSvc.onboardingUrl(call.userId()))) }
+            post("/onboard") { call.respond(OnboardingLink(s.paymentsSvc.onboardingUrl(call.userId(), call.requestBaseUrl()))) }
+            get("/payout-status") { call.respond(s.paymentsSvc.payoutStatus(call.userId(), refresh = false)) }
+            post("/payout-status/refresh") { call.respond(s.paymentsSvc.payoutStatus(call.userId(), refresh = true)) }
             get("/onboard/return") {
                 s.paymentsSvc.onboardingReturn(call.userId())
                 call.respond(MessageResponse("onboarding complete"))

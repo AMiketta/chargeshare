@@ -185,6 +185,16 @@ meldet `payouts_ready: false` (Liste und Detail), die App zeigt „Bald buchbar�
 ab (`stripe_transfers` aktiv): beim Buchungsversuch, nach `GET /payments/onboard/return` und alle 2 Minuten im Hintergrund (`PayoutSweeper`). Ein
 Stripe-Ausfall führt zu `409`, nie zu `500`. Der Dev-Seed-Host ist freigeschaltet; mit dem Fake-Provider gibt es die Sperre nicht.
 
+**Onboarding in der App (Host-Dashboard):** Die Karte „Auszahlungen“ zeigt den Status *nicht eingerichtet / in Prüfung / bereit*
+(`GET /payments/payout-status`, aus der Datenbank; `not_required` mit dem Fake-Provider blendet die Karte aus). „Auszahlungen einrichten“ ruft
+`POST /payments/onboard` und öffnet den Stripe-Link im Browser. Stripe kennt keine eigenen URL-Schemata und leitet deshalb auf zwei öffentliche
+Seiten des Servers (`GET /onboarding/return`, `GET /onboarding/refresh`), die per Deep Link `chargeshare://onboarding-done` bzw.
+`chargeshare://onboarding-refresh` zurück in die App springen (Android: Intent-Filter, `launchMode=singleTask`). Die App prüft dann sofort
+`POST /payments/payout-status/refresh` (fragt Stripe, speichert, antwortet mit dem neuen Status) – kein Warten auf den 2-Minuten-Job. Bei einem
+abgelaufenen Link (`onboarding-refresh`) holt die App automatisch einen neuen. Adressen: `ONBOARDING_RETURN_URL`/`ONBOARDING_REFRESH_URL` (ausdrücklich),
+sonst `PUBLIC_BASE_URL` + Pfad, sonst die Adresse der Anfrage (Emulator: `http://10.0.2.2:8080`). iOS: Deep Link noch nicht angebunden (URL-Schema + Brücke
+fehlen), Web: Link öffnet in neuem Tab, Rückkehr nur manuell über „Status prüfen“.
+
 **Dev-Modus (ohne `STRIPE_SECRET_KEY`):** `GET /payments/config` meldet `provider: "fake"`; Buchungen sind sofort `confirmed`, die App zeigt
 nur den Hinweis „Testzahlung“ und öffnet kein Zahlungsfenster. Das gilt auch für Desktop und Web.
 
@@ -200,6 +210,7 @@ mit aktivem Stripe zeigt die Buchungsmaske den Hinweis, dass nur in der Android-
 | `APPLE_PAY_MERCHANT_ID` | z. B. `merchant.app.chargeshare`; ohne sie wird Apple Pay in der App nicht angeboten (Karte bleibt) |
 | `GOOGLE_PAY_ENVIRONMENT` | `test` oder `production`; Standard: aus dem Publishable Key abgeleitet (`pk_live_` ⇒ `production`) |
 | `PENDING_BOOKING_TTL_MINUTES`, `PENDING_BOOKING_SWEEP_SECONDS` | Frist (Standard 15 Minuten, `0` = kein automatischer Ablauf) und Prüfintervall (Standard 60 s) für unbezahlte Buchungen |
+| `PUBLIC_BASE_URL`, `ONBOARDING_RETURN_URL`, `ONBOARDING_REFRESH_URL` | Öffentliche Server-Adresse (`https://api.chargeshare.app`) für die Rückkehr-Seiten des Stripe-Onboardings; Standard: Adresse der Anfrage. Die URLs können einzeln überschrieben werden. In Produktion `PUBLIC_BASE_URL` setzen |
 | `MERCHANT_DISPLAY_NAME`, `MERCHANT_COUNTRY_CODE` | Anzeigename (Standard `ChargeShare`) und ISO-Land (Standard `DE`) in den Zahlungsdialogen; Währung ist fest `eur` |
 
 Keine Schlüssel ins Repo: alles per Umgebung/`.env` (steht in `.gitignore`).

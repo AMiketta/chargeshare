@@ -214,6 +214,12 @@ class ChargeShareApi(
 
     suspend fun startPayoutOnboarding(): OnboardingLink = http.post("$V1/payments/onboard").body()
 
+    /** Kontostatus aus der Datenbank (ohne Stripe-Abfrage). */
+    suspend fun payoutStatus(): PayoutStatus = http.get("$V1/payments/payout-status").body()
+
+    /** Fragt Stripe sofort nach dem Kontostatus, speichert ihn und liefert ihn zurück (nach der Rückkehr vom Onboarding). */
+    suspend fun refreshPayoutStatus(): PayoutStatus = http.post("$V1/payments/payout-status/refresh").body()
+
     /** Öffentliche Zahlungskonfiguration (Publishable Key, Händlerdaten) für Google Pay / Apple Pay / PaymentSheet. */
     suspend fun paymentConfig(): PaymentConfig = http.get("$V1/payments/config").body()
 

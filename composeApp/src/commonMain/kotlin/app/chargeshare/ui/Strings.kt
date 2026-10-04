@@ -278,7 +278,24 @@ object Strings {
     const val Released = "Freigegeben"
     const val Blocked = "Gesperrt"
     const val ReleaseSwitchDescription = "Wallbox für Buchungen freigeben"
-    const val PayoutNote = "Die Auszahlung per Stripe Connect ist in der App noch nicht angebunden."
+    const val PayoutNote = "Auszahlungen laufen über Stripe Connect; die Plattformgebühr wird automatisch abgezogen."
+
+    // Auszahlungskonto (Stripe Connect)
+    const val PayoutNotStartedTitle = "Auszahlungen einrichten"
+    const val PayoutNotStartedBody =
+        "Damit Fahrer deine Wallbox buchen können, brauchst du ein Auszahlungskonto bei Stripe. Das dauert wenige Minuten."
+    const val PayoutPendingTitle = "Auszahlungen in Prüfung"
+    const val PayoutPendingBody =
+        "Stripe prüft deine Angaben, oder es fehlen noch Angaben. Deine Wallboxen sind erst danach buchbar."
+    const val PayoutReadyTitle = "Auszahlungen bereit"
+    const val PayoutReadyBody = "Dein Auszahlungskonto ist eingerichtet. Fahrer können deine Wallboxen buchen."
+    const val PayoutStatusNotStarted = "Nicht eingerichtet"
+    const val PayoutStatusPending = "In Prüfung"
+    const val PayoutStatusReady = "Bereit"
+    const val PayoutSetUp = "Auszahlungen einrichten"
+    const val PayoutContinue = "Einrichtung fortsetzen"
+    const val PayoutCheckStatus = "Status prüfen"
+    const val PayoutOpenFailed = "Der Browser konnte nicht geöffnet werden. Bitte öffne die Einrichtung später erneut."
 
     fun sessionTitle(driverName: String?) = driverName ?: "Fahrer"
 
