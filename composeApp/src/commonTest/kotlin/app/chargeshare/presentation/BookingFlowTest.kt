@@ -60,6 +60,17 @@ class BookingFlowTest {
     }
 
     @Test
+    fun lockedStartsAreExposedSeparatelyAndNotSelectable() {
+        val locked = Instant.parse("2026-10-05T09:00:00Z")
+        wallboxes.lockedByDay[today] = listOf(locked, locked + 30.minutes)
+        val viewModel = viewModel()
+        assertEquals(listOf(locked, locked + 30.minutes), viewModel.state.value.lockedStarts)
+        assertFalse(locked in viewModel.state.value.freeStarts)
+        viewModel.onStartSelected(locked)
+        assertNull(viewModel.state.value.selectedStart)
+    }
+
+    @Test
     fun selectingStartOffersOnlyContiguousDurationsAndEstimatesCost() {
         val viewModel = viewModel()
         viewModel.onStartSelected(ten)

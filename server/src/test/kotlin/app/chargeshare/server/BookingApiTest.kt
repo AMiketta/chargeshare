@@ -114,6 +114,13 @@ class BookingApiTest {
         assertFalse(TimeSlot("10:00", "10:30") in after)
         assertFalse(TimeSlot("11:30", "12:00") in after)
         assertTrue(TimeSlot("09:30", "10:00") in after)
+        // ... und erscheinen als gesperrt (fuer die ausgegraute Darstellung im Zeitraster)
+        val locked = driver.api.wallboxSlots(wb.id, day).locked
+        assertEquals(
+            listOf(TimeSlot("10:00", "10:30"), TimeSlot("10:30", "11:00"), TimeSlot("11:00", "11:30"), TimeSlot("11:30", "12:00")),
+            locked,
+        )
+        assertTrue(locked.none { it in after })
 
         // Liste + Detail
         assertEquals(listOf(booking.id), driver.api.bookings().bookings.map { it.id })
