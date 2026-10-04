@@ -11,6 +11,7 @@ import kotlin.uuid.Uuid
 import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.jdbc.insert
 import org.jetbrains.exposed.v1.jdbc.selectAll
+import org.jetbrains.exposed.v1.jdbc.update
 import org.slf4j.LoggerFactory
 
 /**
@@ -42,7 +43,11 @@ object DevSeed {
 
     fun run(db: Db, bcryptCost: Int) {
         db.txBlocking {
-            if (Users.selectAll().where { Users.email eq HOST_EMAIL }.any()) return@txBlocking
+            if (Users.selectAll().where { Users.email eq HOST_EMAIL }.any()) {
+                // Datenbanken aus der Zeit vor Migration V4 haben den Demo-Host mit `payouts_ready = false` migriert.
+                Users.update({ Users.email eq HOST_EMAIL }) { it[payoutsReady] = true }
+                return@txBlocking
+            }
             val now = OffsetDateTime.now(ZoneOffset.UTC)
             val hash = BCrypt.withDefaults().hashToString(bcryptCost, PASSWORD.toCharArray())
             val hostId = Uuid.random()
