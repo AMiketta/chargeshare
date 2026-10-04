@@ -3,6 +3,7 @@ package app.chargeshare.presentation.host
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.chargeshare.data.HostRepository
+import app.chargeshare.platform.PickedPhoto
 import app.chargeshare.data.Outcome
 import app.chargeshare.data.WALLBOX_ZONE
 import app.chargeshare.data.localToUtc
@@ -37,7 +38,9 @@ class EditWallboxViewModel(
     val state: StateFlow<CreateWallboxUiState> = _state.asStateFlow()
 
     fun onChange(change: (CreateWallboxUiState) -> CreateWallboxUiState) =
-        _state.update { change(it).copy(errors = emptySet(), submitError = null) }
+        _state.update { change(it).copy(errors = emptySet(), submitError = null, geocode = it.geocode.afterEdit()) }
+
+    fun onGeocode() = geocodeAddress(viewModelScope, _state, repository)
 
     fun onDayToggled(dayKey: String) = onChange {
         it.copy(days = if (dayKey in it.days) it.days - dayKey else it.days + dayKey)
@@ -80,6 +83,38 @@ class EditWallboxViewModel(
         }
     }
 
+    // ---- Fotos: wirken sofort auf dem Server, unabhängig vom „Speichern“ des Formulars ----------
+
+    /** Lädt das gewählte Foto hoch. */
+    fun onPhotoPicked(photo: PickedPhoto) {
+        if (_state.value.photoBusy) return
+        _state.update { it.copy(photoBusy = true, photoError = null) }
+        viewModelScope.launch {
+            val result = repository.uploadPhoto(wallbox.id, photo.bytes, photo.fileName, photo.mimeType)
+            applyPhotoResult(result)
+        }
+    }
+
+    /** Die Auswahl hat nichts geliefert, weil die Datei nicht lesbar war. */
+    fun onPhotoUnreadable() = _state.update { it.copy(photoError = PhotoIssue.Unreadable) }
+
+    fun onPhotoRemoved(path: String) {
+        if (_state.value.photoBusy) return
+        _state.update { it.copy(photoBusy = true, photoError = null) }
+        viewModelScope.launch { applyPhotoResult(repository.removePhoto(wallbox.id, path)) }
+    }
+
+    fun onPhotoErrorShown() = _state.update { it.copy(photoError = null) }
+
+    private fun applyPhotoResult(result: Outcome<Wallbox>) {
+        _state.update {
+            when (result) {
+                is Outcome.Success -> it.copy(photoBusy = false, photos = result.value.photos)
+                is Outcome.Failure -> it.copy(photoBusy = false, photoError = PhotoIssue.Failed(result.error))
+            }
+        }
+    }
+
     private fun availabilityOf(s: CreateWallboxUiState) = Triple(s.availabilityStart.trim(), s.availabilityEnd.trim(), s.days)
 }
 
@@ -104,6 +139,7 @@ internal fun formStateOf(wallbox: Wallbox, zone: TimeZone, reference: Instant): 
         isMetered = wallbox.isMetered,
         description = wallbox.description.orEmpty(),
         availabilityEditable = representable,
+        photos = wallbox.photos,
     )
     return if (uniform != null && representable) {
         base.copy(availabilityStart = uniform.start, availabilityEnd = uniform.end, days = slots.keys)

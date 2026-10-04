@@ -4,6 +4,10 @@ import app.chargeshare.server.auth.AppleTokenVerifier
 import app.chargeshare.server.auth.DisabledAppleTokenVerifier
 import app.chargeshare.server.config.AppConfig
 import app.chargeshare.server.db.DatabaseFactory
+import app.chargeshare.server.geocoding.GeocodeHit
+import app.chargeshare.server.geocoding.Geocoder
+import app.chargeshare.server.geocoding.GeocoderUnavailableException
+import app.chargeshare.server.storage.InMemoryPhotoStorage
 import app.chargeshare.server.mail.MailMessage
 import app.chargeshare.server.mail.Mailer
 import app.chargeshare.server.payments.FakePaymentProvider
@@ -64,7 +68,26 @@ class CapturingMailer : Mailer {
     }
 }
 
-class ServerScope(private val builder: ApplicationTestBuilder, val payments: PaymentProvider, val mailer: CapturingMailer) {
+/** Ersatz für die Adresssuche: feste Treffer je Straße, optional ein Ausfall. */
+class FakeGeocoder : Geocoder {
+    val hits = mutableMapOf<String, GeocodeHit>()
+    @Volatile var unavailable = false
+    val calls = java.util.Collections.synchronizedList(mutableListOf<Triple<String, String, String>>())
+
+    override suspend fun geocode(address: String, postalCode: String, city: String): GeocodeHit? {
+        calls += Triple(address, postalCode, city)
+        if (unavailable) throw GeocoderUnavailableException("down")
+        return hits[address]
+    }
+}
+
+class ServerScope(
+    private val builder: ApplicationTestBuilder,
+    val payments: PaymentProvider,
+    val mailer: CapturingMailer,
+    val photoStorage: InMemoryPhotoStorage,
+    val geocoder: FakeGeocoder,
+) {
     fun wsClient(): HttpClient = builder.createClient { install(io.ktor.client.plugins.websocket.WebSockets) }
 
     /** Roher HTTP-Client (ohne Auth) fuer Statuscode-/JSON-Pruefungen. */
@@ -84,11 +107,13 @@ fun serverTest(
     payments: PaymentProvider = FakePaymentProvider(),
     apple: AppleTokenVerifier = DisabledAppleTokenVerifier,
     mailer: CapturingMailer = CapturingMailer(),
+    photoStorage: InMemoryPhotoStorage = InMemoryPhotoStorage(),
+    geocoder: FakeGeocoder = FakeGeocoder(),
     block: suspend ServerScope.() -> Unit,
 ) = testApplication {
     TestDb.reset()
-    application { module(config, TestDb.database, payments, apple, mailer) }
-    ServerScope(this, payments, mailer).block()
+    application { module(config, TestDb.database, payments, apple, mailer, photoStorage, geocoder) }
+    ServerScope(this, payments, mailer, photoStorage, geocoder).block()
 }
 
 fun errOf(body: String): ApiError = ChargeShareJson.decodeFromString(body)

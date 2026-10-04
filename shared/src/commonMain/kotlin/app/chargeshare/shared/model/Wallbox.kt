@@ -33,6 +33,15 @@ object WallboxLimits {
 
     /** Obergrenze des Preises in Euro pro kWh (Tippfehler-Schutz, z. B. „34“ statt „0,34“). */
     const val MAX_PRICE_PER_KWH = 5.0
+
+    /** Mehr Fotos pro Wallbox lassen sich nicht hochladen (Speicher und Ladezeit der Liste). */
+    const val MAX_PHOTOS = 8
+}
+
+/** Pfade der Wallbox-Fotos. [Wallbox.photos] enthält die große Fassung; zu jeder gibt es eine kleine für Listen und Karte. */
+object PhotoPaths {
+    /** Kleine Fassung (längste Kante 480 px) zu einem Eintrag aus [Wallbox.photos]. */
+    fun thumbnail(path: String): String = path.removeSuffix(".jpg") + "-s.jpg"
 }
 
 /** Go: `models.Wallbox`. */

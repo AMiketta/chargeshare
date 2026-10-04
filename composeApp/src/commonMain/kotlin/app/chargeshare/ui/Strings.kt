@@ -3,6 +3,7 @@ package app.chargeshare.ui
 import app.chargeshare.data.AppError
 import app.chargeshare.payment.PaymentMethodChoice
 import app.chargeshare.presentation.auth.FieldError
+import app.chargeshare.presentation.host.PhotoIssue
 import app.chargeshare.presentation.host.WallboxField
 import app.chargeshare.presentation.theme.ThemeMode
 import app.chargeshare.shared.model.BookingStatus
@@ -380,7 +381,43 @@ object Strings {
     const val AvailabilityLocalHint =
         "Zeiten in deutscher Zeit (MEZ/MESZ). Der Server speichert sie in UTC: nach der Zeitumstellung verschieben sie sich um eine Stunde, bis du sie neu speicherst."
     const val FieldDays = "Tage"
-    const val CoordinatesHint = "Koordinaten bitte manuell eintragen (z. B. aus einer Karten-App); eine Adresssuche folgt."
+    const val CoordinatesHint = "Die Koordinaten bestimmen den Pin auf der Karte. Du kannst sie aus der Adresse ermitteln oder von Hand eintragen (z. B. aus einer Karten-App)."
+    const val FindCoordinates = "Koordinaten aus Adresse ermitteln"
+    const val FindingCoordinates = "Adresse wird gesucht …"
+    const val GeocodeIncomplete = "Bitte zuerst Straße, Postleitzahl und Ort ausfüllen."
+    const val GeocodeNotFound = "Diese Adresse wurde nicht gefunden. Prüfe die Schreibweise oder trage die Koordinaten von Hand ein."
+    const val GeocodeUnavailable = "Die Adresssuche ist gerade nicht erreichbar. Du kannst die Koordinaten von Hand eintragen."
+
+    fun geocodeFound(displayName: String?): String =
+        if (displayName.isNullOrBlank()) "Adresse gefunden, Koordinaten eingetragen." else "Gefunden: $displayName. Koordinaten eingetragen."
+
+    fun geocodeFailed(error: AppError): String =
+        if (error == AppError.RateLimited) "Zu viele Suchen in kurzer Zeit. Bitte warte eine Minute oder trage die Koordinaten von Hand ein." else errorMessage(error)
+
+    // ---- Fotos
+    const val PhotosTitle = "Fotos"
+    const val PhotosHint = "Zeige den Stellplatz und die Wallbox, damit Fahrer sie vor Ort schnell finden. Bis zu 8 Fotos; das erste erscheint in Liste und Karte."
+    const val PhotosAfterCreateHint = "Fotos kannst du hinzufügen, sobald die Wallbox angelegt ist (Wallbox bearbeiten)."
+    const val PhotosUnsupported = "Fotos kannst du in der Android-App und am Desktop hinzufügen."
+    const val AddPhoto = "Foto hinzufügen"
+    const val UploadingPhoto = "Foto wird hochgeladen …"
+    const val RemovePhoto = "Foto entfernen"
+    const val PhotoUnreadable = "Das Foto konnte nicht gelesen werden oder ist zu groß."
+    const val PhotoRejected = "Das Foto wurde abgelehnt. Erlaubt sind JPEG und PNG bis 10 MB."
+    const val PhotoLimitReached = "Mehr als 8 Fotos pro Wallbox sind nicht möglich. Entferne zuerst eines."
+    const val PhotoDescriptionPrefix = "Foto der Wallbox"
+
+    fun photoDescription(wallboxName: String, index: Int, count: Int): String =
+        if (count > 1) "$PhotoDescriptionPrefix $wallboxName, Bild ${index + 1} von $count" else "$PhotoDescriptionPrefix $wallboxName"
+
+    fun photoIssueMessage(issue: PhotoIssue): String = when (issue) {
+        PhotoIssue.Unreadable -> PhotoUnreadable
+        is PhotoIssue.Failed -> when (issue.error) {
+            is AppError.Validation -> PhotoRejected
+            AppError.Conflict -> PhotoLimitReached
+            else -> errorMessage(issue.error)
+        }
+    }
     const val EditWallboxTitle = "Wallbox bearbeiten"
     const val EditWallbox = "Bearbeiten"
     const val PriceChangeHint = "Preisänderungen gelten nur für neue Buchungen; bestehende Buchungen behalten ihren Preis."

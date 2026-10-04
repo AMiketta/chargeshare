@@ -3,6 +3,8 @@ package app.chargeshare.data
 import app.chargeshare.shared.api.ChargeShareApi
 import app.chargeshare.shared.model.ChargingSession
 import app.chargeshare.shared.model.CreateWallboxRequest
+import app.chargeshare.shared.model.GeocodeRequest
+import app.chargeshare.shared.model.GeocodeResponse
 import app.chargeshare.shared.model.HostEarnings
 import app.chargeshare.shared.model.UpdateWallboxRequest
 import app.chargeshare.shared.model.Wallbox
@@ -27,6 +29,15 @@ interface HostRepository {
     /** Ändert die Wallbox; der Server erlaubt das nur dem Eigentümer (sonst [AppError.Forbidden]). */
     suspend fun updateWallbox(wallboxId: String, request: UpdateWallboxRequest): Outcome<Wallbox>
     suspend fun setOnline(wallboxId: String, isOnline: Boolean): Outcome<Boolean>
+
+    /** Lädt ein Foto hoch; die Antwort ist die aktualisierte Wallbox mit allen Fotos. */
+    suspend fun uploadPhoto(wallboxId: String, bytes: ByteArray, fileName: String, mimeType: String): Outcome<Wallbox>
+
+    /** Entfernt ein Foto ([photoPath] = Eintrag aus [Wallbox.photos]). */
+    suspend fun removePhoto(wallboxId: String, photoPath: String): Outcome<Wallbox>
+
+    /** Koordinaten zur Adresse. [AppError.NotFound] = unbekannte Adresse, [AppError.Server] = Adresssuche nicht verfügbar. */
+    suspend fun geocode(address: String, postalCode: String, city: String): Outcome<GeocodeResponse>
 
     companion object {
         const val MAX_WALLBOXES = 100
@@ -55,6 +66,15 @@ class ApiHostRepository(private val api: ChargeShareApi) : HostRepository {
 
     override suspend fun setOnline(wallboxId: String, isOnline: Boolean): Outcome<Boolean> =
         runCatchingOutcome { api.setWallboxOnline(wallboxId, isOnline).isOnline }
+
+    override suspend fun uploadPhoto(wallboxId: String, bytes: ByteArray, fileName: String, mimeType: String): Outcome<Wallbox> =
+        runCatchingOutcome { api.uploadWallboxPhoto(wallboxId, bytes, fileName, mimeType) }
+
+    override suspend fun removePhoto(wallboxId: String, photoPath: String): Outcome<Wallbox> =
+        runCatchingOutcome { api.deleteWallboxPhoto(wallboxId, photoPath) }
+
+    override suspend fun geocode(address: String, postalCode: String, city: String): Outcome<GeocodeResponse> =
+        runCatchingOutcome { api.geocode(GeocodeRequest(address, postalCode, city)) }
 
     private companion object {
         const val SESSION_LIMIT = 20

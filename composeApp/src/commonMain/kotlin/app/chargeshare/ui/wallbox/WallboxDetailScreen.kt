@@ -1,13 +1,20 @@
 package app.chargeshare.ui.wallbox
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -23,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -44,6 +52,7 @@ import app.chargeshare.ui.components.ErrorBox
 import app.chargeshare.ui.components.HeroHeader
 import app.chargeshare.ui.components.ErrorText
 import app.chargeshare.ui.components.OutlineChip
+import app.chargeshare.ui.components.PhotoImage
 import app.chargeshare.ui.components.LoadingBox
 import app.chargeshare.ui.components.SectionTitle
 import app.chargeshare.ui.components.SurfaceCard
@@ -122,8 +131,32 @@ fun WallboxDetailScreen(
                     onBack = onBack,
                     onToggleFavorite = onToggleFavorite,
                 )
+                PhotoStrip(wallbox)
                 DetailContent(wallbox, state, favoriteError, onFavoriteErrorShown)
             }
+        }
+    }
+}
+
+/** Fotos des Hosts als waagerechte Leiste unter dem Kopf; ohne Fotos entfällt sie. */
+@Composable
+private fun PhotoStrip(wallbox: Wallbox) {
+    if (wallbox.photos.isEmpty()) return
+    LazyRow(
+        modifier = Modifier.fillMaxWidth().padding(top = Spacing.Medium),
+        contentPadding = PaddingValues(horizontal = Spacing.Medium),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.Small),
+    ) {
+        itemsIndexed(wallbox.photos, key = { _, path -> path }) { index, path ->
+            PhotoImage(
+                path = path,
+                contentDescription = Strings.photoDescription(wallbox.name, index, wallbox.photos.size),
+                modifier = Modifier.height(PHOTO_STRIP_HEIGHT).aspectRatio(PHOTO_ASPECT).clip(MaterialTheme.shapes.medium),
+                thumbnail = false,
+                placeholder = {
+                    Box(Modifier.height(PHOTO_STRIP_HEIGHT).aspectRatio(PHOTO_ASPECT).background(ChargeShareColors.Surface2))
+                },
+            )
         }
     }
 }
@@ -245,3 +278,6 @@ private fun ReviewItem(review: Review) {
 }
 
 private const val MAX_STARS = 5
+
+private val PHOTO_STRIP_HEIGHT = 180.dp
+private const val PHOTO_ASPECT = 4f / 3f

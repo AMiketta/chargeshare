@@ -5,7 +5,9 @@ import app.chargeshare.server.services.AuthService
 import app.chargeshare.server.services.BookingService
 import app.chargeshare.server.services.FavoriteService
 import app.chargeshare.server.services.HostService
+import app.chargeshare.server.services.GeocodeService
 import app.chargeshare.server.services.PasswordResetService
+import app.chargeshare.server.services.PhotoService
 import app.chargeshare.server.services.PaymentService
 import app.chargeshare.server.services.ReceiptService
 import app.chargeshare.server.services.ReviewService
@@ -18,6 +20,10 @@ class Services(
     val auth: AuthService,
     val passwordReset: PasswordResetService,
     val wallboxes: WallboxService,
+    val photos: PhotoService,
+    val geocoding: GeocodeService,
+    /** Obergrenze der Upload-Größe in Bytes (aus der Konfiguration). */
+    val photoUploadLimit: Long,
     val reviews: ReviewService,
     val bookings: BookingService,
     val host: HostService,

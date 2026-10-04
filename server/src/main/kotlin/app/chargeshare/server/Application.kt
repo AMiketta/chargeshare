@@ -14,7 +14,13 @@ import app.chargeshare.server.services.BookingService
 import app.chargeshare.server.services.CustomerService
 import app.chargeshare.server.services.FavoriteService
 import app.chargeshare.server.services.HostService
+import app.chargeshare.server.geocoding.Geocoder
+import app.chargeshare.server.services.GeocodeService
 import app.chargeshare.server.services.PasswordResetService
+import app.chargeshare.server.services.PhotoService
+import app.chargeshare.server.storage.FileSystemPhotoStorage
+import app.chargeshare.server.storage.PhotoStorage
+import java.nio.file.Path
 import app.chargeshare.server.services.PaymentService
 import app.chargeshare.server.services.PayoutService
 import app.chargeshare.server.services.PayoutSweeper
@@ -66,11 +72,13 @@ fun Application.module(
     apple: AppleTokenVerifier = config.appleBundleId?.takeIf { it.isNotBlank() }
         ?.let { AppleJwksTokenVerifier(it) } ?: DisabledAppleTokenVerifier,
     mailer: Mailer = Mailer.from(config),
+    photoStorage: PhotoStorage = FileSystemPhotoStorage(Path.of(config.photoStorageDir)),
+    geocoder: Geocoder = Geocoder.from(config),
 ) {
     val db = database ?: DatabaseFactory.connect(config)
     val tokens = TokenService(config)
     if (db != null && config.devSeed && !config.isProduction) DevSeed.run(Db(db), config.bcryptCost)
-    val services = db?.let { buildServices(config, Db(it), tokens, payments, apple, mailer) }
+    val services = db?.let { buildServices(config, Db(it), tokens, payments, apple, mailer, photoStorage, geocoder) }
 
     configureWebSockets()
     configureSerialization()
@@ -103,6 +111,8 @@ private fun Application.buildServices(
     payments: PaymentProvider,
     apple: AppleTokenVerifier,
     mailer: Mailer,
+    photoStorage: PhotoStorage,
+    geocoder: Geocoder,
 ): Services {
     val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     monitor.subscribe(io.ktor.server.application.ApplicationStopping) { background.coroutineContext[kotlinx.coroutines.Job]?.cancel() }
@@ -113,11 +123,15 @@ private fun Application.buildServices(
     if (config.pendingBookingTtlMinutes > 0) {
         PendingBookingSweeper(bookings, config.pendingBookingTtlMinutes.minutes, config.pendingBookingSweepSeconds.seconds).start(background)
     }
+    val wallboxes = WallboxService(db, payouts)
     val auth = AuthService(db, tokens, config, payments, apple, background)
     return Services(
         auth = auth,
         passwordReset = PasswordResetService(db, auth, mailer, config.passwordResetTtlMinutes.minutes, config.publicBaseUrl),
-        wallboxes = WallboxService(db, payouts),
+        wallboxes = wallboxes,
+        photos = PhotoService(wallboxes, photoStorage, config.photoMaxUploadBytes),
+        photoUploadLimit = config.photoMaxUploadBytes,
+        geocoding = GeocodeService(geocoder),
         reviews = ReviewService(db),
         bookings = bookings,
         host = HostService(db, bookings),

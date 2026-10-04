@@ -10,6 +10,7 @@ import app.chargeshare.data.AuthRepository
 import app.chargeshare.data.BookingRepository
 import app.chargeshare.data.FavoritesRepository
 import app.chargeshare.data.HostRepository
+import app.chargeshare.data.ImageLoader
 import app.chargeshare.data.OsmTileSource
 import app.chargeshare.data.PaymentRepository
 import app.chargeshare.data.PayoutRepository
@@ -64,6 +65,9 @@ class AppContainer(
 
     /** Briefkasten für Deep Links (`chargeshare://onboarding-done`), den die Plattform füllt und die UI abholt. */
     val deepLinks = DeepLinkInbox()
+
+    /** Lädt Wallbox-Fotos (Liste, Karte, Detail) und hält die letzten im Speicher. */
+    val imageLoader = ImageLoader(apiBaseUrl)
 
     /** Gewählte Darstellung (Hell/Dunkel/System), dauerhaft gespeichert. */
     val themeSettings = ThemeSettings(preferenceStorage)

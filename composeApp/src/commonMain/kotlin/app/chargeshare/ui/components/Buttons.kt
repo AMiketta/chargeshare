@@ -87,8 +87,9 @@ fun AppIconButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     tint: Color = LocalContentColor.current,
+    enabled: Boolean = true,
 ) {
-    IconButton(onClick = onClick, modifier = modifier.defaultMinSize(Spacing.MinTouchTarget, Spacing.MinTouchTarget)) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = modifier.defaultMinSize(Spacing.MinTouchTarget, Spacing.MinTouchTarget)) {
         Icon(icon, contentDescription = contentDescription, tint = tint)
     }
 }

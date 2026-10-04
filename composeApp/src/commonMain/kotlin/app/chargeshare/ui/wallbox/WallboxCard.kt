@@ -1,6 +1,8 @@
 package app.chargeshare.ui.wallbox
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import app.chargeshare.shared.model.Wallbox
 import app.chargeshare.ui.ChargeShareColors
@@ -19,6 +22,7 @@ import app.chargeshare.ui.Strings
 import app.chargeshare.ui.components.AppCard
 import app.chargeshare.ui.components.FavoriteButton
 import app.chargeshare.ui.components.InfoPill
+import app.chargeshare.ui.components.PhotoImage
 import app.chargeshare.ui.formatDistance
 import app.chargeshare.ui.formatPowerKw
 import app.chargeshare.ui.formatPricePerKwh
@@ -41,6 +45,14 @@ fun WallboxCard(
             horizontalArrangement = Arrangement.spacedBy(Spacing.Medium),
             verticalAlignment = Alignment.Top,
         ) {
+            wallbox.photos.firstOrNull()?.let { path ->
+                PhotoImage(
+                    path = path,
+                    contentDescription = Strings.photoDescription(wallbox.name, 0, 1),
+                    modifier = Modifier.size(CARD_PHOTO_SIZE).clip(MaterialTheme.shapes.medium),
+                    placeholder = { Box(Modifier.size(CARD_PHOTO_SIZE).background(ChargeShareColors.Surface2)) },
+                )
+            }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.XSmall)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(wallbox.name, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
@@ -78,3 +90,4 @@ fun AvailabilityPill(isOnline: Boolean, payoutsReady: Boolean = true, modifier: 
 }
 
 private val FAVORITE_BUTTON_SIZE = 40.dp
+private val CARD_PHOTO_SIZE = 72.dp

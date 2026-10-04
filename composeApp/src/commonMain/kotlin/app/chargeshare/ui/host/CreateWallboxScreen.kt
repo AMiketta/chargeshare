@@ -19,15 +19,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import app.chargeshare.presentation.host.CreateWallboxUiState
 import app.chargeshare.presentation.host.CreateWallboxViewModel
+import app.chargeshare.platform.PhotoPickResult
+import app.chargeshare.platform.PhotoPicker
 import app.chargeshare.presentation.host.EditWallboxViewModel
+import app.chargeshare.presentation.host.GeocodeStatus
 import app.chargeshare.presentation.host.WEEKDAY_KEYS
 import app.chargeshare.presentation.host.WallboxField
 import app.chargeshare.shared.model.ConnectorType
+import app.chargeshare.ui.ChargeShareColors
 import app.chargeshare.ui.Spacing
 import app.chargeshare.ui.Strings
 import app.chargeshare.ui.components.AmberButton
@@ -36,8 +41,10 @@ import app.chargeshare.ui.components.ChoiceChips
 import app.chargeshare.ui.components.ErrorText
 import app.chargeshare.ui.components.FormTextField
 import app.chargeshare.ui.components.HeroHeader
+import app.chargeshare.ui.components.PrimaryButton
 import app.chargeshare.ui.components.SectionTitle
 import app.chargeshare.ui.weekdayShortFromKey
+import kotlinx.coroutines.launch
 
 @Composable
 fun CreateWallboxRoute(
@@ -48,19 +55,41 @@ fun CreateWallboxRoute(
     val state by viewModel.state.collectAsState()
     // Nach dem Anlegen zurück zum Dashboard, das sich beim Einblenden neu lädt.
     LaunchedEffect(state.saved) { if (state.saved) onBack() }
-    CreateWallboxScreen(state, viewModel::onChange, viewModel::onDayToggled, viewModel::onSubmit, onBack, modifier)
+    CreateWallboxScreen(state, viewModel::onChange, viewModel::onDayToggled, viewModel::onSubmit, onBack, modifier, onGeocode = viewModel::onGeocode)
 }
 
 @Composable
 fun EditWallboxRoute(
     viewModel: EditWallboxViewModel,
+    photoPicker: PhotoPicker,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsState()
+    val scope = rememberCoroutineScope()
     // Nach dem Speichern zurück zum Dashboard, das sich beim Einblenden neu lädt.
     LaunchedEffect(state.saved) { if (state.saved) onBack() }
-    CreateWallboxScreen(state, viewModel::onChange, viewModel::onDayToggled, viewModel::onSubmit, onBack, modifier, isEdit = true)
+    CreateWallboxScreen(
+        state = state,
+        onChange = viewModel::onChange,
+        onDayToggled = viewModel::onDayToggled,
+        onSubmit = viewModel::onSubmit,
+        onBack = onBack,
+        modifier = modifier,
+        isEdit = true,
+        onGeocode = viewModel::onGeocode,
+        canPickPhoto = photoPicker.isSupported,
+        onAddPhoto = {
+            scope.launch {
+                when (val picked = photoPicker.pick()) {
+                    is PhotoPickResult.Picked -> viewModel.onPhotoPicked(picked.photo)
+                    PhotoPickResult.Unreadable -> viewModel.onPhotoUnreadable()
+                    PhotoPickResult.Canceled -> Unit
+                }
+            }
+        },
+        onRemovePhoto = viewModel::onPhotoRemoved,
+    )
 }
 
 /** Formular zum Anlegen ([isEdit] = `false`) oder Bearbeiten einer Wallbox. */
@@ -74,6 +103,10 @@ fun CreateWallboxScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     isEdit: Boolean = false,
+    onGeocode: () -> Unit = {},
+    canPickPhoto: Boolean = false,
+    onAddPhoto: () -> Unit = {},
+    onRemovePhoto: (String) -> Unit = {},
 ) {
     fun error(field: WallboxField) = if (field in state.errors) Strings.wallboxFieldError(field) else null
     Scaffold(
@@ -102,6 +135,14 @@ fun CreateWallboxScreen(
                 FormTextField(state.lat, { v -> onChange { it.copy(lat = v) } }, Strings.FieldLat, Modifier.weight(1f), error(WallboxField.Lat), keyboardType = KeyboardType.Decimal)
                 FormTextField(state.lng, { v -> onChange { it.copy(lng = v) } }, Strings.FieldLng, Modifier.weight(1f), error(WallboxField.Lng), keyboardType = KeyboardType.Decimal)
             }
+            PrimaryButton(
+                text = if (state.geocode is GeocodeStatus.Loading) Strings.FindingCoordinates else Strings.FindCoordinates,
+                onClick = onGeocode,
+                enabled = state.geocode !is GeocodeStatus.Loading,
+            )
+            geocodeMessage(state.geocode)?.let { (text, isError) ->
+                if (isError) ErrorText(text) else Text(text, style = MaterialTheme.typography.bodySmall, color = ChargeShareColors.PrimaryText)
+            }
             Text(Strings.CoordinatesHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(horizontalArrangement = Arrangement.spacedBy(Spacing.Small)) {
                 FormTextField(state.powerKw, { v -> onChange { it.copy(powerKw = v) } }, Strings.FieldPowerKw, Modifier.weight(1f), error(WallboxField.PowerKw), keyboardType = KeyboardType.Decimal)
@@ -116,6 +157,16 @@ fun CreateWallboxScreen(
                 Strings.FieldDescription,
                 errorText = error(WallboxField.Description),
                 singleLine = false,
+            )
+            PhotosSection(
+                wallboxName = state.name,
+                photos = state.photos,
+                isEdit = isEdit,
+                canPick = canPickPhoto,
+                isBusy = state.photoBusy,
+                issue = state.photoError,
+                onAdd = onAddPhoto,
+                onRemove = onRemovePhoto,
             )
             SectionTitle(Strings.Connector)
             ChoiceChips(ConnectorType.entries, state.connector, { it.displayName }, { c -> onChange { it.copy(connector = c) } }, contentPadding = PaddingValues())
@@ -143,4 +194,14 @@ fun CreateWallboxScreen(
             }
         }
     }
+}
+
+/** Text zur Adresssuche und ob er ein Fehler ist; `null` = nichts anzeigen. */
+private fun geocodeMessage(status: GeocodeStatus): Pair<String, Boolean>? = when (status) {
+    GeocodeStatus.Idle, GeocodeStatus.Loading -> null
+    is GeocodeStatus.Found -> Strings.geocodeFound(status.displayName) to false
+    GeocodeStatus.AddressIncomplete -> Strings.GeocodeIncomplete to true
+    GeocodeStatus.NotFound -> Strings.GeocodeNotFound to true
+    GeocodeStatus.Unavailable -> Strings.GeocodeUnavailable to true
+    is GeocodeStatus.Failed -> Strings.geocodeFailed(status.error) to true
 }

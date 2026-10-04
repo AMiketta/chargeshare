@@ -33,6 +33,7 @@ class MainActivity : ComponentActivity() {
             // Customer Session lässt das Zahlungsfenster gespeicherte Karten anzeigen; Fehler = Fenster ohne Karten-Speicher.
             (container.paymentRepository.customerSession() as? Outcome.Success)?.value
         }
+        val photoPicker = AndroidPhotoPicker(this)
         // Kaltstart über einen Deep Link (z. B. App wurde im Browser-Onboarding beendet).
         offerDeepLink(intent)
         setContent {
@@ -47,7 +48,7 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = barStyle, navigationBarStyle = barStyle)
                 onDispose {}
             }
-            App(container, paymentLauncher)
+            App(container, paymentLauncher, photoPicker)
         }
     }
 }

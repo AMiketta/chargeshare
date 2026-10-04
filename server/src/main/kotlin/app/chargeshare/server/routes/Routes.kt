@@ -36,6 +36,7 @@ fun Route.apiV1Routes(services: Services?, authRateLimiter: RateLimiter? = null,
         authRoutes(services, authRateLimiter, trustProxyHeaders)
         userRoutes(services)
         wallboxRoutes(services)
+        geocodeRoutes(services)
         bookingRoutes(services)
     }
 }

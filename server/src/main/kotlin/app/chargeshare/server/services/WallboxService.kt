@@ -155,7 +155,8 @@ class WallboxService(private val db: Db, private val payouts: PayoutService) {
                     it[model] = req.model
                     it[manufacturer] = req.manufacturer
                     it[Wallboxes.description] = description
-                    it[photos] = req.photos
+                    // Fotos kommen nur über den Upload (POST /wallboxes/{id}/photos); eigene Adressen im Request werden ignoriert.
+                    it[photos] = emptyList()
                     it[availability] = req.availability
                     it[ratingAvg] = BigDecimal.ZERO
                     it[ratingCount] = 0
@@ -188,6 +189,7 @@ class WallboxService(private val db: Db, private val payouts: PayoutService) {
                 val min = req.minDurationMin ?: wb.minDurationMin
                 val max = req.maxDurationMin ?: wb.maxDurationMin
                 if (min < 1 || max < min) throw validationError("min_duration_min/max_duration_min: invalid range")
+                req.photos?.let { v -> validatePhotoReorder(wb.photos, v) }
                 Wallboxes.update({ Wallboxes.id eq id }) {
                     req.name?.let { v -> it[name] = v.trim() }
                     req.address?.let { v -> it[address] = v.trim() }
@@ -215,6 +217,49 @@ class WallboxService(private val db: Db, private val payouts: PayoutService) {
         } catch (e: Exception) {
             if (e.sqlState() == PgState.UNIQUE_VIOLATION) throw conflict("ocpp_id already in use")
             throw e
+        }
+    }
+
+    /** Prüft nur, ob [userId] die Wallbox bearbeiten darf (Eigentümer oder Admin); sonst `404`/`403`. */
+    suspend fun assertCanEdit(id: Uuid, userId: Uuid) {
+        db.tx { requireOwnerOrAdmin(fetch(id), userId) }
+    }
+
+    /**
+     * Hängt [path] an die Fotoliste. Prüfung und Eintrag laufen in einer Transaktion mit Zeilensperre,
+     * damit zwei gleichzeitige Uploads die Obergrenze [WallboxLimits.MAX_PHOTOS] nicht umgehen.
+     */
+    suspend fun addPhoto(id: Uuid, userId: Uuid, path: String): Wallbox = db.tx {
+        val wb = Wallboxes.selectAll().where { Wallboxes.id eq id }.forUpdate().singleOrNull()?.toWallbox()
+            ?: throw notFound("wallbox not found")
+        requireOwnerOrAdmin(wb, userId)
+        if (wb.photos.size >= WallboxLimits.MAX_PHOTOS) {
+            throw conflict("a wallbox can have at most ${WallboxLimits.MAX_PHOTOS} photos")
+        }
+        Wallboxes.update({ Wallboxes.id eq id }) {
+            it[photos] = wb.photos + path
+            it[updatedAt] = OffsetDateTime.now(ZoneOffset.UTC)
+        }
+        fetch(id)
+    }
+
+    /** Entfernt [path] aus der Fotoliste; `404`, wenn die Wallbox dieses Foto nicht hat. */
+    suspend fun removePhoto(id: Uuid, userId: Uuid, path: String): Wallbox = db.tx {
+        val wb = Wallboxes.selectAll().where { Wallboxes.id eq id }.forUpdate().singleOrNull()?.toWallbox()
+            ?: throw notFound("wallbox not found")
+        requireOwnerOrAdmin(wb, userId)
+        if (path !in wb.photos) throw notFound("photo not found")
+        Wallboxes.update({ Wallboxes.id eq id }) {
+            it[photos] = wb.photos - path
+            it[updatedAt] = OffsetDateTime.now(ZoneOffset.UTC)
+        }
+        fetch(id)
+    }
+
+    /** Über `PUT` lässt sich die Fotoliste nur umsortieren oder kürzen – fremde Adressen kämen sonst ungeprüft in die App. */
+    private fun validatePhotoReorder(current: List<String>, requested: List<String>) {
+        if (requested.toSet().size != requested.size || !current.containsAll(requested)) {
+            throw validationError("photos: only existing photos can be reordered or removed; upload new ones via POST /wallboxes/{id}/photos")
         }
     }
 

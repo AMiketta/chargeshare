@@ -3,6 +3,7 @@ package app.chargeshare.ui
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import app.chargeshare.di.AppContainer
+import app.chargeshare.platform.DesktopPhotoPicker
 import app.chargeshare.platform.DesktopReceiptSharer
 import app.chargeshare.platform.DesktopUrlOpener
 import app.chargeshare.platform.PlatformContext
@@ -23,6 +24,6 @@ fun main() = application {
         receiptSharer = DesktopReceiptSharer(),
     )
     Window(onCloseRequest = ::exitApplication, title = Strings.AppName) {
-        App(container)
+        App(container, photoPicker = DesktopPhotoPicker())
     }
 }
