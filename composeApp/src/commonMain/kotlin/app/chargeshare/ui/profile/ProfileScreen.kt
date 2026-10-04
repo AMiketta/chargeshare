@@ -65,6 +65,7 @@ fun ProfileRoute(
     modifier: Modifier = Modifier,
     debugInfo: String? = null,
     onOpenPaymentMethods: () -> Unit = {},
+    onShowIntro: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsState()
     ProfileScreen(
@@ -77,6 +78,7 @@ fun ProfileRoute(
         onBecomeHost = viewModel::onBecomeHost,
         onOpenHost = onOpenHost,
         onOpenPaymentMethods = onOpenPaymentMethods,
+        onShowIntro = onShowIntro,
         onEditRequested = { viewModel.onEditRequested(user) },
         onEditNameChanged = viewModel::onEditNameChanged,
         onEditPhoneChanged = viewModel::onEditPhoneChanged,
@@ -106,6 +108,7 @@ fun ProfileScreen(
     onBecomeHost: () -> Unit,
     onOpenHost: () -> Unit,
     onOpenPaymentMethods: () -> Unit,
+    onShowIntro: () -> Unit,
     onEditRequested: () -> Unit,
     onEditNameChanged: (String) -> Unit,
     onEditPhoneChanged: (String) -> Unit,
@@ -148,6 +151,9 @@ fun ProfileScreen(
             }
             MenuGroup(label = Strings.ProfileAppearanceGroup) {
                 ThemeModeSelector(themeMode, onThemeModeChange)
+            }
+            MenuGroup {
+                MenuItem(AppIcons.Map, Strings.OnboardingReplay, onShowIntro, subtitle = Strings.OnboardingReplaySubtitle)
             }
             MenuGroup {
                 MenuItem(AppIcons.Logout, Strings.Logout, onLogout, enabled = !state.isBusy)

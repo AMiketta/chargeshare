@@ -10,7 +10,7 @@ Primärfarbe `#0B6E4F`, Akzent `#F0A500`.
 | Modul | Inhalt | Targets |
 |---|---|---|
 | `shared/` | Domain-Modelle, DTOs (JSON-Feldnamen wie im Go-Backend), Ktor-API-Client (`ChargeShareApi`, Bearer-Auth mit Auto-Refresh), Tests in `commonTest` | JVM, Android\*, iOS\*\*, Wasm |
-| `composeApp/` | Gemeinsame Compose-Multiplatform-UI: Login/Registrierung, Suche, Wallbox-Detail, Buchungsflow, Buchungen, Host-Dashboard, Profil; ViewModels, Repositories, `TokenStore` je Plattform | Android\*, iOS\*\*, Desktop-JVM, Wasm |
+| `composeApp/` | Gemeinsame Compose-Multiplatform-UI: Startbild (Splash), Einführung beim ersten Start, Login/Registrierung, Suche, Wallbox-Detail, Buchungsflow, Buchungen, Host-Dashboard, Profil; ViewModels, Repositories, `TokenStore` je Plattform | Android\*, iOS\*\*, Desktop-JVM, Wasm |
 | `androidApp/` | Android-Application-Modul (`MainActivity` -> `App()`) | Android\* |
 | `iosApp/` | SwiftUI-Hülle + XcodeGen-Spec (`project.yml`) | iOS\*\* |
 | `server/` | Ktor-Backend: Netty, JWT, Exposed, Flyway, PostgreSQL, kotlinx.serialization | JVM |
