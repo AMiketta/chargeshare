@@ -13,9 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +38,8 @@ import app.chargeshare.ui.AppIcons
 import app.chargeshare.ui.ChargeShareColors
 import app.chargeshare.ui.Spacing
 import app.chargeshare.ui.Strings
+import app.chargeshare.ui.components.AppCard
+import app.chargeshare.ui.components.AppFilterChip
 import app.chargeshare.ui.components.ChoiceChips
 import app.chargeshare.ui.components.EmptyBox
 import app.chargeshare.ui.components.ErrorBox
@@ -205,23 +204,23 @@ private fun ViewModeSwitch(
         horizontalArrangement = Arrangement.spacedBy(Spacing.Small),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        FilterChip(
+        AppFilterChip(
             selected = viewMode == SearchViewMode.Map,
             onClick = { onViewModeChange(SearchViewMode.Map) },
-            label = { Text(Strings.ViewMap) },
-            leadingIcon = { Icon(AppIcons.Map, contentDescription = null) },
+            label = Strings.ViewMap,
+            leadingIcon = AppIcons.Map,
         )
-        FilterChip(
+        AppFilterChip(
             selected = viewMode == SearchViewMode.List,
             onClick = { onViewModeChange(SearchViewMode.List) },
-            label = { Text(Strings.ViewList) },
-            leadingIcon = { Icon(AppIcons.List, contentDescription = null) },
+            label = Strings.ViewList,
+            leadingIcon = AppIcons.List,
         )
         if (viewMode == SearchViewMode.Map) {
-            FilterChip(
+            AppFilterChip(
                 selected = showFilters,
                 onClick = { onShowFiltersChange(!showFilters) },
-                label = { Text(if (showFilters) Strings.HideFilters else Strings.ShowFilters) },
+                label = if (showFilters) Strings.HideFilters else Strings.ShowFilters,
             )
         }
     }
@@ -268,15 +267,15 @@ private fun Filters(
             onSelected = onConnectorChange,
         )
         Row(modifier = Modifier.padding(horizontal = Spacing.Medium), horizontalArrangement = Arrangement.spacedBy(Spacing.Small)) {
-            FilterChip(
+            AppFilterChip(
                 selected = filter.onlyOnline,
                 onClick = { onOnlyOnlineChange(!filter.onlyOnline) },
-                label = { Text(Strings.FilterOnlyOnline) },
+                label = Strings.FilterOnlyOnline,
             )
-            FilterChip(
+            AppFilterChip(
                 selected = showMore || hasExtraFilter,
                 onClick = { showMore = !showMore },
-                label = { Text(if (showMore) Strings.FewerFilters else Strings.MoreFilters) },
+                label = if (showMore) Strings.FewerFilters else Strings.MoreFilters,
             )
         }
         if (showMore) {
@@ -298,9 +297,9 @@ private fun Filters(
 
 @Composable
 private fun MapUnavailableNote(modifier: Modifier = Modifier) {
-    Card(
+    AppCard(
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = ChargeShareColors.PrimarySurface),
+        containerColor = ChargeShareColors.PrimarySurface,
     ) {
         Row(
             modifier = Modifier.padding(Spacing.Medium),
@@ -319,10 +318,9 @@ private fun MapUnavailableNote(modifier: Modifier = Modifier) {
 /** Listeneintrag einer Wallbox (Name, Adresse, Eckdaten, Preis). */
 @Composable
 fun WallboxCard(wallbox: Wallbox, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Card(
+    AppCard(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Row(
             modifier = Modifier.padding(Spacing.Medium),
