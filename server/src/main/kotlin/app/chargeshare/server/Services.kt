@@ -3,6 +3,7 @@ package app.chargeshare.server
 import app.chargeshare.server.payments.PaymentProvider
 import app.chargeshare.server.services.AuthService
 import app.chargeshare.server.services.BookingService
+import app.chargeshare.server.services.FavoriteService
 import app.chargeshare.server.services.HostService
 import app.chargeshare.server.services.PaymentService
 import app.chargeshare.server.services.ReviewService
@@ -16,6 +17,7 @@ class Services(
     val reviews: ReviewService,
     val bookings: BookingService,
     val host: HostService,
+    val favorites: FavoriteService,
     val paymentsSvc: PaymentService,
     val payments: PaymentProvider,
     /** Öffentliche Zahlungskonfiguration für die Apps (ohne Secrets). */

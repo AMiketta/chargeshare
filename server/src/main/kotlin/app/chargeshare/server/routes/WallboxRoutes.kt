@@ -52,6 +52,7 @@ fun Route.wallboxRoutes(s: Services) {
         get("/{id}/availability") {
             call.respond<WeeklyAvailability>(s.wallboxes.availability(call.pathUuid("id", "wallbox id")))
         }
+        get("/{id}/host") { call.respond(s.host.publicProfile(call.pathUuid("id", "wallbox id"))) }
         get("/{id}/slots") {
             val id = call.pathUuid("id", "wallbox id")
             val dateStr = call.request.queryParameters["date"]?.takeIf { it.isNotEmpty() }

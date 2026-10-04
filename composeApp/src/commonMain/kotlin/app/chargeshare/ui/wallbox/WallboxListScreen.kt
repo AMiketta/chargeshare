@@ -1,5 +1,6 @@
 package app.chargeshare.ui.wallbox
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -30,6 +31,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import app.chargeshare.data.WallboxFilter
 import app.chargeshare.presentation.map.toPin
+import app.chargeshare.presentation.wallbox.FavoritesUiState
+import app.chargeshare.presentation.wallbox.FavoritesViewModel
 import app.chargeshare.presentation.wallbox.SearchViewMode
 import app.chargeshare.presentation.wallbox.WallboxListUiState
 import app.chargeshare.presentation.wallbox.WallboxListViewModel
@@ -44,13 +47,10 @@ import app.chargeshare.ui.components.AppFilterChip
 import app.chargeshare.ui.components.ChoiceChips
 import app.chargeshare.ui.components.EmptyBox
 import app.chargeshare.ui.components.ErrorBox
+import app.chargeshare.ui.components.ErrorText
 import app.chargeshare.ui.components.HeroHeader
-import app.chargeshare.ui.components.InfoPill
 import app.chargeshare.ui.components.LoadingBox
 import app.chargeshare.ui.components.SectionTitle
-import app.chargeshare.ui.formatDistance
-import app.chargeshare.ui.formatPowerKw
-import app.chargeshare.ui.formatPricePerKwh
 import app.chargeshare.ui.map.StationSheet
 import app.chargeshare.ui.map.WallboxMap
 import androidx.compose.ui.unit.dp
@@ -65,13 +65,18 @@ private val PRICE_OPTIONS_EUR = listOf(0.30, 0.40, 0.50)
 @Composable
 fun WallboxListRoute(
     viewModel: WallboxListViewModel,
+    favorites: FavoritesViewModel,
     tileSource: TileStreamProvider,
     onOpenWallbox: (Wallbox) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val state by viewModel.state.collectAsState()
+    val favoritesState by favorites.state.collectAsState()
     WallboxListScreen(
         state = state,
+        favorites = favoritesState,
+        onToggleFavorite = favorites::onToggle,
+        onFavoriteErrorShown = favorites::onErrorShown,
         onQueryChange = viewModel::onQueryChange,
         onRadiusChange = viewModel::onRadiusChange,
         onConnectorChange = viewModel::onConnectorChange,
@@ -95,6 +100,9 @@ fun WallboxListRoute(
 @Composable
 fun WallboxListScreen(
     state: WallboxListUiState,
+    favorites: FavoritesUiState,
+    onToggleFavorite: (String) -> Unit,
+    onFavoriteErrorShown: () -> Unit,
     onQueryChange: (String) -> Unit,
     onRadiusChange: (Double) -> Unit,
     onConnectorChange: (ConnectorType?) -> Unit,
@@ -136,7 +144,7 @@ fun WallboxListScreen(
         if (state.showMap) {
             MapResults(state, onRetry, onOpenWallbox, onWallboxSelected, tileSource)
         } else {
-            ListResults(state, onRetry, onOpenWallbox)
+            ListResults(state, favorites, onToggleFavorite, onFavoriteErrorShown, onRetry, onOpenWallbox)
         }
     }
 }
@@ -146,6 +154,9 @@ private val MORE_FILTERS_MAX_HEIGHT = 220.dp
 @Composable
 private fun ListResults(
     state: WallboxListUiState,
+    favorites: FavoritesUiState,
+    onToggleFavorite: (String) -> Unit,
+    onFavoriteErrorShown: () -> Unit,
     onRetry: () -> Unit,
     onOpenWallbox: (Wallbox) -> Unit,
 ) {
@@ -154,6 +165,11 @@ private fun ListResults(
         contentPadding = PaddingValues(vertical = Spacing.Medium),
         verticalArrangement = Arrangement.spacedBy(Spacing.Small),
     ) {
+        favorites.error?.let { error ->
+            item(key = "favoriteError") {
+                ErrorText(Strings.favoriteError(error), Modifier.clickable(onClick = onFavoriteErrorShown).padding(horizontal = Spacing.Medium))
+            }
+        }
         if (!state.mapSupported) {
             item(key = "map") { MapUnavailableNote(Modifier.padding(horizontal = Spacing.Medium)) }
         }
@@ -166,7 +182,13 @@ private fun ListResults(
                     SectionTitle(Strings.stationsNearby(state.visibleWallboxes.size), Modifier.padding(horizontal = Spacing.Medium))
                 }
                 items(state.visibleWallboxes, key = { it.id }) { wallbox ->
-                    WallboxCard(wallbox, onClick = { onOpenWallbox(wallbox) }, modifier = Modifier.padding(horizontal = Spacing.Medium))
+                    WallboxCard(
+                        wallbox = wallbox,
+                        isFavorite = favorites.isFavorite(wallbox.id),
+                        onClick = { onOpenWallbox(wallbox) },
+                        onToggleFavorite = { onToggleFavorite(wallbox.id) },
+                        modifier = Modifier.padding(horizontal = Spacing.Medium),
+                    )
                 }
             }
         }
@@ -357,48 +379,5 @@ private fun MapUnavailableNote(modifier: Modifier = Modifier) {
                 Text(Strings.MapUnavailableBody, style = MaterialTheme.typography.bodySmall)
             }
         }
-    }
-}
-
-/** Listeneintrag einer Wallbox (Name, Adresse, Eckdaten, Preis). */
-@Composable
-fun WallboxCard(wallbox: Wallbox, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    AppCard(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        Row(
-            modifier = Modifier.padding(Spacing.Medium),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.Medium),
-            verticalAlignment = Alignment.Top,
-        ) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Spacing.XSmall)) {
-                Text(wallbox.name, style = MaterialTheme.typography.titleMedium)
-                Text(wallbox.fullAddress, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                val facts = listOfNotNull(
-                    formatPowerKw(wallbox.powerKw),
-                    wallbox.connectorType.displayName,
-                    wallbox.distanceM?.let(::formatDistance),
-                ).joinToString(" · ")
-                Text(facts, style = MaterialTheme.typography.bodyMedium)
-                if (wallbox.ratingCount > 0) {
-                    Text(Strings.ratingSummary(wallbox.ratingAvg, wallbox.ratingCount), style = MaterialTheme.typography.bodySmall)
-                }
-            }
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
-                Text(formatPricePerKwh(wallbox.pricePerKwh), style = MaterialTheme.typography.titleMedium, color = ChargeShareColors.PrimaryText)
-                AvailabilityPill(wallbox.isOnline)
-            }
-        }
-    }
-}
-
-/** Status immer auch als Text, nicht nur über die Farbe. */
-@Composable
-fun AvailabilityPill(isOnline: Boolean, modifier: Modifier = Modifier) {
-    if (isOnline) {
-        InfoPill(Strings.Online, modifier)
-    } else {
-        InfoPill(Strings.Offline, modifier, containerColor = ChargeShareColors.SurfaceVariant, contentColor = ChargeShareColors.OnSurfaceVariant)
     }
 }

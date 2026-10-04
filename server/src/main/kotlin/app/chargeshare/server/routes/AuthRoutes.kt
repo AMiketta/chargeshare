@@ -60,6 +60,17 @@ fun Route.userRoutes(s: Services) {
                 call.respond(HttpStatusCode.NoContent)
             }
             get("/stats") { call.respond(s.auth.stats(call.userId())) }
+            route("/favorites") {
+                get { call.respond(s.favorites.list(call.userId())) }
+                put("/{wallboxId}") {
+                    s.favorites.add(call.userId(), call.pathUuid("wallboxId", "wallbox id"))
+                    call.respond(HttpStatusCode.NoContent)
+                }
+                delete("/{wallboxId}") {
+                    s.favorites.remove(call.userId(), call.pathUuid("wallboxId", "wallbox id"))
+                    call.respond(HttpStatusCode.NoContent)
+                }
+            }
             put("/role") { call.respond(s.auth.updateRole(call.userId(), call.receive<UpdateRoleRequest>())) }
         }
     }

@@ -67,4 +67,13 @@ class AvailabilityTimeTest {
         assertEquals(plan("monday", "08:00", "12:00"), result)
         assertEquals(emptyMap(), mapOf("noday" to listOf(TimeSlot("08:00", "10:00"))).utcToLocal(TimeZone.UTC, summer))
     }
+
+    @Test
+    fun commonWindowNeedsTheSameSingleWindowOnEveryDay() {
+        val window = listOf(TimeSlot("09:00", "20:00"))
+        assertEquals(TimeSlot("09:00", "20:00"), mapOf("monday" to window, "tuesday" to window).commonWindow())
+        assertEquals(null, emptyMap<String, List<TimeSlot>>().commonWindow())
+        assertEquals(null, mapOf("monday" to window, "tuesday" to listOf(TimeSlot("10:00", "20:00"))).commonWindow())
+        assertEquals(null, mapOf("monday" to listOf(TimeSlot("08:00", "10:00"), TimeSlot("12:00", "14:00"))).commonWindow())
+    }
 }

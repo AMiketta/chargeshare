@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import app.chargeshare.data.AppError
 import app.chargeshare.data.Outcome
 import app.chargeshare.data.WallboxRepository
+import app.chargeshare.shared.model.HostProfile
 import app.chargeshare.shared.model.Review
 import app.chargeshare.shared.model.Wallbox
 import kotlin.time.Clock
@@ -21,14 +22,16 @@ data class WallboxDetailUiState(
     val isLoading: Boolean = true,
     val wallbox: Wallbox? = null,
     val reviews: List<Review> = emptyList(),
+    /** Host-Karte; `null`, solange unbekannt oder nicht ladbar (dann fehlt nur die Karte). */
+    val host: HostProfile? = null,
     /** Anzahl freier 30-Minuten-Slots am heutigen (lokalen) Tag; `null`, solange unbekannt. */
     val freeSlotsToday: Int? = null,
     val error: AppError? = null,
 )
 
-/** Lädt Wallbox, Bewertungen und die Verfügbarkeit von heute. */
+/** Lädt Wallbox, Bewertungen, Host-Profil und die Verfügbarkeit von heute. */
 class WallboxDetailViewModel(
-    private val wallboxId: String,
+    val wallboxId: String,
     private val repository: WallboxRepository,
     private val clock: Clock = Clock.System,
     private val zone: TimeZone = TimeZone.currentSystemDefault(),
@@ -50,18 +53,20 @@ class WallboxDetailViewModel(
         viewModelScope.launch {
             val wallboxRequest = async { repository.wallbox(wallboxId) }
             val reviewsRequest = async { repository.reviews(wallboxId) }
+            val hostRequest = async { repository.hostProfile(wallboxId) }
             val slotsRequest = async { repository.freeSlotStarts(wallboxId, clock.todayIn(zone), zone) }
 
             when (val wallbox = wallboxRequest.await()) {
                 is Outcome.Failure -> _state.update { it.copy(isLoading = false, error = wallbox.error) }
                 is Outcome.Success -> {
-                    // Bewertungen und Slots sind Zusatzinfos: fallen sie aus, bleibt die Detailseite nutzbar.
+                    // Bewertungen, Host und Slots sind Zusatzinfos: fallen sie aus, bleibt die Detailseite nutzbar.
                     val reviews = (reviewsRequest.await() as? Outcome.Success)?.value.orEmpty()
                     val slots = (slotsRequest.await() as? Outcome.Success)?.value?.size
                     _state.value = WallboxDetailUiState(
                         isLoading = false,
                         wallbox = wallbox.value,
                         reviews = reviews,
+                        host = (hostRequest.await() as? Outcome.Success)?.value,
                         freeSlotsToday = slots,
                     )
                 }

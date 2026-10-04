@@ -97,6 +97,24 @@ object Strings {
     const val NoAvailability = "Keine festen Zeiten hinterlegt."
     const val ByAnonymous = "Anonym"
 
+    const val HostSection = "Host"
+    const val Superhost = "Superhost"
+    const val AddFavorite = "Zu Favoriten hinzufügen"
+    const val RemoveFavorite = "Aus Favoriten entfernen"
+
+    fun favoriteError(error: AppError) = "Der Favorit konnte nicht gespeichert werden. ${errorMessage(error)}"
+    const val PerKwh = "/ kWh"
+
+    fun hostSummary(memberSinceYear: Int, sessions: Int) =
+        "Mitglied seit $memberSinceYear · $sessions ${if (sessions == 1) "Session" else "Sessions"}"
+
+    fun hostDescription(name: String, isSuperhost: Boolean) = if (isSuperhost) "Host $name, $Superhost" else "Host $name"
+
+    /** Text im Modell-Badge des Heros, z. B. „KEBA P30 · 11 kW“; ohne Herstellerangabe nur die Leistung. */
+    fun modelBadge(manufacturer: String?, model: String?, powerKw: Double): String =
+        (listOfNotNull(listOfNotNull(manufacturer, model).joinToString(" ").takeIf { it.isNotBlank() }) + formatPowerKw(powerKw))
+            .joinToString(" · ")
+
     fun ratingSummary(avg: Double, count: Int) =
         if (count == 0) "Noch keine Bewertung" else "${formatDecimal(avg, 1)} ($count ${if (count == 1) "Bewertung" else "Bewertungen"})"
 

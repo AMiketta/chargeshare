@@ -1,6 +1,9 @@
 package app.chargeshare.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -10,9 +13,12 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import app.chargeshare.ui.ChargeShareColors
 import app.chargeshare.ui.Elevation
@@ -79,3 +85,33 @@ fun <T> ChoiceChips(
         }
     }
 }
+
+/**
+ * Reines Informations-Label mit Rand und transparentem Grund (nicht klickbar), optional mit [icon] –
+ * z. B. „11 kW AC“, „Typ 2“, „9–20 Uhr“ auf der Detailseite. Im Gegensatz zu [InfoPill] ohne Füllfarbe.
+ */
+@Composable
+fun OutlineChip(
+    text: String,
+    modifier: Modifier = Modifier,
+    icon: ImageVector? = null,
+) {
+    Surface(
+        modifier = modifier,
+        shape = CircleShape,
+        color = Color.Transparent,
+        contentColor = ChargeShareColors.OnSurfaceVariant,
+        border = BorderStroke(CHIP_BORDER_WIDTH, ChargeShareColors.Outline),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = Spacing.Small + Spacing.XSmall, vertical = Spacing.XSmall + Spacing.XSmall / 2),
+            horizontalArrangement = Arrangement.spacedBy(Spacing.XSmall + Spacing.XSmall / 2),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (icon != null) Icon(icon, contentDescription = null, modifier = Modifier.size(OUTLINE_CHIP_ICON_SIZE), tint = ChargeShareColors.PrimaryText)
+            Text(text, style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+private val OUTLINE_CHIP_ICON_SIZE = Spacing.Medium

@@ -10,9 +10,13 @@ import app.chargeshare.server.db.toChargingSession
 import app.chargeshare.server.db.toUser
 import app.chargeshare.server.util.badRequest
 import app.chargeshare.server.util.forbidden
+import app.chargeshare.server.util.notFound
+import app.chargeshare.server.util.toInstant2
 import app.chargeshare.server.util.unauthorized
 import app.chargeshare.shared.model.BookingListResponse
 import app.chargeshare.shared.model.HostEarnings
+import app.chargeshare.shared.model.HostProfile
+import app.chargeshare.shared.model.SuperhostCriteria
 import app.chargeshare.shared.model.SessionListResponse
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -26,6 +30,7 @@ import org.jetbrains.exposed.v1.core.eq
 import org.jetbrains.exposed.v1.core.greaterEq
 import org.jetbrains.exposed.v1.core.inSubQuery
 import org.jetbrains.exposed.v1.core.less
+import org.jetbrains.exposed.v1.core.count
 import org.jetbrains.exposed.v1.jdbc.select
 import org.jetbrains.exposed.v1.jdbc.selectAll
 
@@ -73,6 +78,33 @@ class HostService(private val db: Db, private val bookings: BookingService) {
         }
     }
 
+    /**
+     * Öffentliches Profil des Hosts der Wallbox [wallboxId] (ohne Login abrufbar, daher nur gekürzter Name und Kennzahlen).
+     *
+     * @throws app.chargeshare.server.util.AppException 404, wenn die Wallbox nicht existiert
+     */
+    suspend fun publicProfile(wallboxId: Uuid): HostProfile = db.tx {
+        val ownerId = Wallboxes.select(Wallboxes.ownerId).where { Wallboxes.id eq wallboxId }.singleOrNull()?.get(Wallboxes.ownerId)
+            ?: throw notFound("wallbox not found")
+        val owner = Users.select(Users.name, Users.createdAt).where { Users.id eq ownerId }.single()
+        val ownBoxes = Wallboxes.select(Wallboxes.id).where { Wallboxes.ownerId eq ownerId }
+        val sessions = Bookings.selectAll()
+            .where { (Bookings.wallboxId inSubQuery ownBoxes) and (Bookings.status eq "completed") }
+            .count().toInt()
+        val ratings = Reviews.select(Reviews.rating).where { Reviews.wallboxId inSubQuery ownBoxes }.map { it[Reviews.rating].toInt() }
+        val ratingAvg = ratings.takeIf { it.isNotEmpty() }?.let { Math.round(it.average() * RATING_DECIMAL_FACTOR) / RATING_DECIMAL_FACTOR }
+        HostProfile(
+            name = abbreviateName(owner[Users.name]),
+            memberSince = owner[Users.createdAt].toInstant2(),
+            sessions = sessions,
+            ratingAvg = ratingAvg,
+            ratingCount = ratings.size,
+            isSuperhost = sessions >= SuperhostCriteria.MIN_SESSIONS &&
+                ratings.size >= SuperhostCriteria.MIN_RATING_COUNT &&
+                (ratingAvg ?: 0.0) >= SuperhostCriteria.MIN_RATING_AVG,
+        )
+    }
+
     suspend fun sessions(hostId: Uuid, limit: Int, offset: Int): SessionListResponse = db.tx {
         requireHost(hostId)
         val rows = (ChargingSessions innerJoin Bookings innerJoin Wallboxes)
@@ -94,5 +126,20 @@ class HostService(private val db: Db, private val bookings: BookingService) {
         throw badRequest("invalid date, use YYYY-MM-DD")
     }
 
+    private companion object {
+        const val RATING_DECIMAL_FACTOR = 10.0
+    }
+
     private fun round2(v: Double) = Math.round(v * 100.0) / 100.0
+}
+
+/**
+ * Kürzt einen Namen auf „Vorname N.“ (Datensparsamkeit: die Detailseite ist ohne Login lesbar).
+ * Ein einzelnes Wort bleibt unverändert; Wörter ohne Buchstaben am Anfang (z. B. „(Beispiel)“) zählen nicht als Nachname.
+ */
+internal fun abbreviateName(fullName: String): String {
+    val parts = fullName.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+    val first = parts.firstOrNull() ?: return ""
+    val lastInitial = parts.drop(1).lastOrNull { it.first().isLetter() }?.first()?.uppercaseChar()
+    return if (lastInitial == null) first else "$first $lastInitial."
 }

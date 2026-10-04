@@ -2,11 +2,13 @@ package app.chargeshare.di
 
 import app.chargeshare.data.ApiAuthRepository
 import app.chargeshare.data.ApiBookingRepository
+import app.chargeshare.data.ApiFavoritesRepository
 import app.chargeshare.data.ApiHostRepository
 import app.chargeshare.data.ApiPaymentRepository
 import app.chargeshare.data.ApiWallboxRepository
 import app.chargeshare.data.AuthRepository
 import app.chargeshare.data.BookingRepository
+import app.chargeshare.data.FavoritesRepository
 import app.chargeshare.data.HostRepository
 import app.chargeshare.data.OsmTileSource
 import app.chargeshare.data.PaymentRepository
@@ -45,6 +47,7 @@ class AppContainer(
     val wallboxRepository: WallboxRepository = ApiWallboxRepository(api)
     val bookingRepository: BookingRepository = ApiBookingRepository(api)
     val hostRepository: HostRepository = ApiHostRepository(api)
+    val favoritesRepository: FavoritesRepository = ApiFavoritesRepository(api)
     val paymentRepository: PaymentRepository = ApiPaymentRepository(api)
 
     /** Gewählte Darstellung (Hell/Dunkel/System), dauerhaft gespeichert. */

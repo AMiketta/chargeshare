@@ -4,6 +4,7 @@ import kotlin.math.abs
 import kotlin.math.pow
 import kotlin.math.roundToLong
 import kotlin.time.Instant
+import app.chargeshare.shared.model.TimeSlot
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -72,6 +73,15 @@ fun weekdayShortFromKey(key: String): String {
 /** Position des Wochentags (Montag = 0) für die Sortierung; unbekannte Schlüssel kommen ans Ende. */
 fun weekdayIndexFromKey(key: String): Int =
     WEEKDAY_KEYS_ORDERED.indexOf(key.lowercase()).takeIf { it >= 0 } ?: WEEKDAY_KEYS_ORDERED.size
+
+/** Öffnungszeit als Kurztext: `9–20 Uhr`, mit Minuten `9:30–20:15 Uhr`; Tagesende `24:00` wird zu `24`. */
+fun formatOpeningHours(window: TimeSlot): String = "${shortClock(window.start)}–${shortClock(window.end)} Uhr"
+
+private fun shortClock(clock: String): String {
+    val hours = clock.substringBefore(':').trimStart('0').ifEmpty { "0" }
+    val minutes = clock.substringAfter(':', "00")
+    return if (minutes == "00") hours else "$hours:$minutes"
+}
 
 /** Initialen für Avatare, z. B. `Andreas Miketta` → `AM`. */
 fun initialsOf(name: String): String =

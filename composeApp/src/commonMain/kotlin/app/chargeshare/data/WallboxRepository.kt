@@ -2,6 +2,7 @@ package app.chargeshare.data
 
 import app.chargeshare.shared.api.ChargeShareApi
 import app.chargeshare.shared.model.ConnectorType
+import app.chargeshare.shared.model.HostProfile
 import app.chargeshare.shared.model.Review
 import app.chargeshare.shared.model.SlotsResponse
 import app.chargeshare.shared.model.TimeSlot
@@ -33,6 +34,9 @@ interface WallboxRepository {
     suspend fun search(center: GeoPoint, filter: WallboxFilter): Outcome<List<Wallbox>>
     suspend fun wallbox(id: String): Outcome<Wallbox>
     suspend fun reviews(wallboxId: String): Outcome<List<Review>>
+
+    /** Öffentliches Profil des Hosts der Wallbox (gekürzter Name, Mitglied seit, Sessions, Superhost). */
+    suspend fun hostProfile(wallboxId: String): Outcome<HostProfile>
 
     /** Slot-Startzeiten, deren Beginn in den lokalen Tag [day] fällt: frei buchbare und bereits belegte (je aufsteigend). */
     suspend fun daySlots(wallboxId: String, day: LocalDate, zone: TimeZone): Outcome<DaySlots>
@@ -69,6 +73,8 @@ class ApiWallboxRepository(private val api: ChargeShareApi) : WallboxRepository 
 
     override suspend fun reviews(wallboxId: String): Outcome<List<Review>> =
         runCatchingOutcome { api.wallboxReviews(wallboxId, limit = REVIEW_LIMIT).reviews }
+
+    override suspend fun hostProfile(wallboxId: String): Outcome<HostProfile> = runCatchingOutcome { api.wallboxHost(wallboxId) }
 
     override suspend fun daySlots(wallboxId: String, day: LocalDate, zone: TimeZone): Outcome<DaySlots> =
         runCatchingOutcome {

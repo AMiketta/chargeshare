@@ -11,6 +11,7 @@ import app.chargeshare.testing.FakeWallboxRepository
 import app.chargeshare.testing.FixedClock
 import app.chargeshare.testing.TestMain
 import app.chargeshare.testing.failure
+import app.chargeshare.testing.testHostProfile
 import app.chargeshare.testing.testWallbox
 import kotlin.time.Instant
 import kotlin.test.AfterTest
@@ -184,6 +185,24 @@ class WallboxViewModelsTest {
         val state = WallboxDetailViewModel("wb-1", repository, FixedClock(), TimeZone.UTC).state.value
         assertNotNull(state.wallbox)
         assertNull(state.freeSlotsToday)
+        assertNull(state.error)
+    }
+
+    @Test
+    fun detailLoadsHostProfile() {
+        repository.hostProfileResult = Outcome.Success(testHostProfile(isSuperhost = true))
+        val host = WallboxDetailViewModel("wb-1", repository, FixedClock(), TimeZone.UTC).state.value.host
+        assertNotNull(host)
+        assertEquals("Andreas M.", host.name)
+        assertTrue(host.isSuperhost)
+    }
+
+    @Test
+    fun detailStaysUsableWhenHostProfileFails() {
+        repository.hostProfileResult = failure(AppError.Server)
+        val state = WallboxDetailViewModel("wb-1", repository, FixedClock(), TimeZone.UTC).state.value
+        assertNotNull(state.wallbox)
+        assertNull(state.host)
         assertNull(state.error)
     }
 }
