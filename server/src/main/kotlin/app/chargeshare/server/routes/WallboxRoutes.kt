@@ -11,7 +11,17 @@ import app.chargeshare.shared.model.WallboxSearch
 import app.chargeshare.shared.model.WallboxStatusRequest
 import app.chargeshare.shared.model.WallboxStatusResponse
 import app.chargeshare.shared.model.WeeklyAvailability
+import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.PartData
+import io.ktor.http.content.forEachPart
+import io.ktor.utils.io.readRemaining
+import io.ktor.server.request.contentLength
+import io.ktor.server.request.receiveMultipart
+import io.ktor.server.response.header
+import io.ktor.server.response.respondBytes
+import kotlinx.io.readByteArray
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.auth.authenticate
 import io.ktor.server.request.receive
@@ -44,6 +54,30 @@ private fun ApplicationCall.searchParams(): WallboxSearch {
     )
 }
 
+/**
+ * Liest die Datei `file` aus einer `multipart/form-data`-Anfrage und bricht ab, sobald [limit] Bytes überschritten sind,
+ * damit ein großer Upload nicht den Speicher füllt.
+ */
+private suspend fun ApplicationCall.receivePhotoBytes(limit: Long): ByteArray {
+    val declared = request.contentLength()
+    if (declared != null && declared > limit + MULTIPART_OVERHEAD_BYTES) throw validationError("photo: file is too large")
+    var bytes: ByteArray? = null
+    receiveMultipart().forEachPart { part ->
+        try {
+            if (part is PartData.FileItem && part.name == "file" && bytes == null) {
+                bytes = part.provider().readRemaining(limit + 1).readByteArray()
+            }
+        } finally {
+            part.dispose()
+        }
+    }
+    val received = bytes ?: throw badRequest("multipart field 'file' is required")
+    if (received.size > limit) throw validationError("photo: file is too large")
+    return received
+}
+
+private const val MULTIPART_OVERHEAD_BYTES = 64 * 1024L
+
 fun Route.wallboxRoutes(s: Services) {
     route("/wallboxes") {
         // ---- oeffentlich
@@ -64,6 +98,12 @@ fun Route.wallboxRoutes(s: Services) {
             }
             call.respond(s.wallboxes.slots(id, date))
         }
+        // Fotos sind wie die Wallbox öffentlich lesbar; lange cachebar, weil jeder Upload einen neuen Namen bekommt.
+        get("/{id}/photos/{name}") {
+            val bytes = s.photos.read(call.pathUuid("id", "wallbox id"), call.parameters["name"] ?: "")
+            call.response.header(HttpHeaders.CacheControl, "public, max-age=31536000, immutable")
+            call.respondBytes(bytes, ContentType.Image.JPEG)
+        }
         get("/{id}/reviews") {
             val id = call.pathUuid("id", "wallbox id")
             val p = call.page()
@@ -78,8 +118,20 @@ fun Route.wallboxRoutes(s: Services) {
                 call.respond(s.wallboxes.update(id, call.userId(), call.receive<UpdateWallboxRequest>()))
             }
             delete("/{id}") {
-                s.wallboxes.delete(call.pathUuid("id", "wallbox id"), call.userId())
+                val id = call.pathUuid("id", "wallbox id")
+                s.wallboxes.delete(id, call.userId())
+                s.photos.purge(id)
                 call.respond(HttpStatusCode.NoContent)
+            }
+            post("/{id}/photos") {
+                val id = call.pathUuid("id", "wallbox id")
+                val userId = call.userId()
+                s.wallboxes.assertCanEdit(id, userId)
+                call.respond(HttpStatusCode.Created, s.photos.upload(id, userId, call.receivePhotoBytes(s.photoUploadLimit)))
+            }
+            delete("/{id}/photos/{name}") {
+                val id = call.pathUuid("id", "wallbox id")
+                call.respond(s.photos.remove(id, call.userId(), call.parameters["name"] ?: ""))
             }
             put("/{id}/status") {
                 val id = call.pathUuid("id", "wallbox id")

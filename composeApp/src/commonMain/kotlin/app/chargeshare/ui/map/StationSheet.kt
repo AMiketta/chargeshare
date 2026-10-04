@@ -33,6 +33,7 @@ import app.chargeshare.ui.ChargeShareColors
 import app.chargeshare.ui.Elevation
 import app.chargeshare.ui.Spacing
 import app.chargeshare.ui.Strings
+import app.chargeshare.ui.components.PhotoImage
 import app.chargeshare.ui.formatDistance
 import app.chargeshare.ui.formatEuro
 import app.chargeshare.ui.formatPowerKw
@@ -104,6 +105,10 @@ private fun StationRow(wallbox: Wallbox, isActive: Boolean, onClick: () -> Unit)
             contentAlignment = Alignment.Center,
         ) {
             Icon(AppIcons.Bolt, contentDescription = null, tint = ChargeShareColors.OnPrimary, modifier = Modifier.size(ROW_ICON_SIZE))
+            // Das Foto liegt über dem Blitz-Platzhalter und ersetzt ihn, sobald es geladen ist.
+            wallbox.photos.firstOrNull()?.let { path ->
+                PhotoImage(path, contentDescription = null, modifier = Modifier.size(ROW_ICON_BOX))
+            }
         }
         Column(modifier = Modifier.weight(1f)) {
             Text(wallbox.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)

@@ -17,6 +17,7 @@ import app.chargeshare.data.SessionState
 import app.chargeshare.data.WallboxFilter
 import app.chargeshare.data.WallboxRepository
 import app.chargeshare.shared.model.Booking
+import app.chargeshare.shared.model.GeocodeResponse
 import app.chargeshare.shared.model.BookingStatus
 import app.chargeshare.shared.model.ChargingSession
 import app.chargeshare.shared.model.ConnectorType
@@ -302,6 +303,13 @@ class FakeHostRepository : HostRepository {
     val createdRequests = mutableListOf<CreateWallboxRequest>()
     val updatedRequests = mutableListOf<Pair<String, UpdateWallboxRequest>>()
 
+    var photoResult: Outcome<Wallbox>? = null
+    var geocodeResult: Outcome<GeocodeResponse> = Outcome.Success(GeocodeResponse(lat = 52.5200066, lng = 13.404954, displayName = "Musterstraße 1, Berlin"))
+
+    val uploadedPhotos = mutableListOf<Triple<String, String, String>>()
+    val removedPhotos = mutableListOf<Pair<String, String>>()
+    val geocodeRequests = mutableListOf<Triple<String, String, String>>()
+
     var earningsZone: TimeZone? = null
 
     override suspend fun earnings(zone: TimeZone): Outcome<HostEarnings> {
@@ -325,6 +333,21 @@ class FakeHostRepository : HostRepository {
 
     override suspend fun setOnline(wallboxId: String, isOnline: Boolean): Outcome<Boolean> =
         setOnlineResult ?: Outcome.Success(isOnline)
+
+    override suspend fun uploadPhoto(wallboxId: String, bytes: ByteArray, fileName: String, mimeType: String): Outcome<Wallbox> {
+        uploadedPhotos += Triple(wallboxId, fileName, mimeType)
+        return photoResult ?: Outcome.Success(testWallbox(wallboxId).copy(photos = listOf("/api/v1/wallboxes/$wallboxId/photos/new.jpg")))
+    }
+
+    override suspend fun removePhoto(wallboxId: String, photoPath: String): Outcome<Wallbox> {
+        removedPhotos += wallboxId to photoPath
+        return photoResult ?: Outcome.Success(testWallbox(wallboxId).copy(photos = emptyList()))
+    }
+
+    override suspend fun geocode(address: String, postalCode: String, city: String): Outcome<GeocodeResponse> {
+        geocodeRequests += Triple(address, postalCode, city)
+        return geocodeResult
+    }
 }
 
 /** Entwicklungsmodus: der Server bucht ohne Zahlungsfenster. */

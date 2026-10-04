@@ -61,6 +61,16 @@ data class AppConfig(
     val onboardingRefreshUrl: String? = null,
     /** Gültigkeit eines „Passwort vergessen“-Links in Minuten. */
     val passwordResetTtlMinutes: Long = 60,
+    /** Verzeichnis für hochgeladene Wallbox-Fotos (`PHOTO_STORAGE_DIR`). Muss beschreibbar sein und Neustarts überleben. */
+    val photoStorageDir: String = "data/photos",
+    /** Größte erlaubte Upload-Datei in Bytes (`PHOTO_MAX_UPLOAD_BYTES`); die Apps verkleinern vorher, der Server speichert max. 1600 px. */
+    val photoMaxUploadBytes: Long = 10_000_000,
+    /** Nominatim-Server für die Adresssuche (`GEOCODER_URL`); leer = Adresssuche aus, Hosts tragen Koordinaten von Hand ein. */
+    val geocoderUrl: String? = "https://nominatim.openstreetmap.org",
+    /** `User-Agent` der Adresssuche (`GEOCODER_USER_AGENT`). Die OSM-Richtlinie verlangt einen eigenen mit Kontakt; in Produktion anpassen. */
+    val geocoderUserAgent: String = "ChargeShare-Server/1.0 (+https://github.com/AMiketta/chargeshare)",
+    /** Länder, in denen gesucht wird (`GEOCODER_COUNTRY_CODES`, ISO-3166-1, kommagetrennt). */
+    val geocoderCountryCodes: String = "de",
     /** Legt beim Start Beispieldaten (Demo-Host + Wallboxen in Bremen) an. Nie in Produktion. */
     val devSeed: Boolean = false,
 ) {
@@ -80,6 +90,7 @@ data class AppConfig(
         require(stripePublishableKey.isNullOrBlank() || stripePublishableKey.startsWith(PUBLISHABLE_KEY_PREFIX)) {
             "STRIPE_PUBLISHABLE_KEY muss mit pk_ beginnen (kein Secret Key!)"
         }
+        require(photoMaxUploadBytes >= 1) { "PHOTO_MAX_UPLOAD_BYTES muss mindestens 1 sein" }
         require(passwordResetTtlMinutes >= 1) { "PASSWORD_RESET_TTL_MINUTES muss mindestens 1 sein" }
         require(pendingBookingTtlMinutes >= 0) { "PENDING_BOOKING_TTL_MINUTES darf nicht negativ sein" }
         require(authRateLimitPerWindow >= 0) { "AUTH_RATE_LIMIT_PER_WINDOW darf nicht negativ sein" }
@@ -125,6 +136,12 @@ data class AppConfig(
             publicBaseUrl = env["PUBLIC_BASE_URL"]?.takeIf { it.isNotBlank() },
             onboardingReturnUrl = env["ONBOARDING_RETURN_URL"]?.takeIf { it.isNotBlank() },
             onboardingRefreshUrl = env["ONBOARDING_REFRESH_URL"]?.takeIf { it.isNotBlank() },
+            photoStorageDir = env["PHOTO_STORAGE_DIR"]?.takeIf { it.isNotBlank() } ?: "data/photos",
+            photoMaxUploadBytes = env["PHOTO_MAX_UPLOAD_BYTES"]?.toLongOrNull() ?: 10_000_000,
+            geocoderUrl = if (env.containsKey("GEOCODER_URL")) env["GEOCODER_URL"]?.takeIf { it.isNotBlank() } else "https://nominatim.openstreetmap.org",
+            geocoderUserAgent = env["GEOCODER_USER_AGENT"]?.takeIf { it.isNotBlank() }
+                ?: "ChargeShare-Server/1.0 (+https://github.com/AMiketta/chargeshare)",
+            geocoderCountryCodes = env["GEOCODER_COUNTRY_CODES"]?.takeIf { it.isNotBlank() } ?: "de",
             trustProxyHeaders = env["TRUST_PROXY_HEADERS"].equals("true", ignoreCase = true),
             // Dev-Seed: nur ENV=development und solange DEV_SEED nicht explizit "false" ist
             devSeed = (env["ENV"] ?: "development").equals("development", ignoreCase = true) &&

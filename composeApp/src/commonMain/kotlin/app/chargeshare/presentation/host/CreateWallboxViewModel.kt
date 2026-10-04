@@ -12,12 +12,14 @@ import app.chargeshare.shared.model.ConnectorType
 import app.chargeshare.shared.model.CreateWallboxRequest
 import app.chargeshare.shared.model.TimeSlot
 import app.chargeshare.shared.model.WallboxLimits
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
+import kotlin.math.roundToLong
 import kotlin.time.Clock
 
 /** Formularfelder des Anlegens und Bearbeitens; Beschriftungen und Fehlertexte kommen aus der UI. */
@@ -53,7 +55,42 @@ data class CreateWallboxUiState(
     val submitError: AppError? = null,
     /** Erfolgreich gespeichert (angelegt bzw. geändert). */
     val saved: Boolean = false,
+    /** Stand der Adresssuche („Koordinaten aus Adresse ermitteln“). */
+    val geocode: GeocodeStatus = GeocodeStatus.Idle,
+    /** Fotos der Wallbox (Pfade wie vom Server); nur beim Bearbeiten gefüllt. */
+    val photos: List<String> = emptyList(),
+    /** Ein Foto wird gerade hochgeladen oder entfernt. */
+    val photoBusy: Boolean = false,
+    val photoError: PhotoIssue? = null,
 )
+
+/** Ergebnis von „Koordinaten aus Adresse ermitteln“. */
+sealed interface GeocodeStatus {
+    data object Idle : GeocodeStatus
+    data object Loading : GeocodeStatus
+
+    /** Gefunden; [displayName] ist die Adresse laut Kartendaten, damit der Host den Treffer prüfen kann. */
+    data class Found(val displayName: String?) : GeocodeStatus
+
+    /** Straße, PLZ oder Ort fehlen noch. */
+    data object AddressIncomplete : GeocodeStatus
+
+    /** Die Adresse ist in den Kartendaten nicht bekannt. */
+    data object NotFound : GeocodeStatus
+
+    /** Der Adressdienst antwortet gerade nicht: Koordinaten von Hand eintragen. */
+    data object Unavailable : GeocodeStatus
+
+    data class Failed(val error: AppError) : GeocodeStatus
+}
+
+/** Fehler beim Hochladen oder Entfernen eines Fotos. */
+sealed interface PhotoIssue {
+    /** Die Datei ließ sich nicht lesen (oder ist zu groß für den Upload). */
+    data object Unreadable : PhotoIssue
+
+    data class Failed(val error: AppError) : PhotoIssue
+}
 
 private const val WEEKDAYS_DEFAULT_COUNT = 5
 
@@ -68,7 +105,9 @@ class CreateWallboxViewModel(
     val state: StateFlow<CreateWallboxUiState> = _state.asStateFlow()
 
     fun onChange(change: (CreateWallboxUiState) -> CreateWallboxUiState) =
-        _state.update { change(it).copy(errors = emptySet(), submitError = null) }
+        _state.update { change(it).copy(errors = emptySet(), submitError = null, geocode = it.geocode.afterEdit()) }
+
+    fun onGeocode() = geocodeAddress(viewModelScope, _state, repository)
 
     fun onDayToggled(dayKey: String) = onChange {
         it.copy(days = if (dayKey in it.days) it.days - dayKey else it.days + dayKey)
@@ -192,3 +231,48 @@ internal fun parseTime(text: String): Int? {
     if (parts[1].length != 2 || hours !in 0..23 || minutes !in 0..59) return null
     return hours * 60 + minutes
 }
+
+/** Eine Bearbeitung macht „gefunden/nicht gefunden“ ungültig; eine laufende Suche läuft weiter. */
+internal fun GeocodeStatus.afterEdit(): GeocodeStatus = if (this is GeocodeStatus.Loading) this else GeocodeStatus.Idle
+
+/**
+ * „Koordinaten aus Adresse ermitteln“: fragt den Server und trägt bei einem Treffer Breiten- und Längengrad ein.
+ * Schlägt die Suche fehl, bleiben die Felder unverändert und der Host kann die Koordinaten von Hand eintragen.
+ */
+internal fun geocodeAddress(scope: CoroutineScope, state: MutableStateFlow<CreateWallboxUiState>, repository: HostRepository) {
+    val current = state.value
+    if (current.geocode is GeocodeStatus.Loading) return
+    if (current.address.isBlank() || current.postalCode.isBlank() || current.city.isBlank()) {
+        state.update { it.copy(geocode = GeocodeStatus.AddressIncomplete) }
+        return
+    }
+    state.update { it.copy(geocode = GeocodeStatus.Loading) }
+    scope.launch {
+        val result = repository.geocode(current.address.trim(), current.postalCode.trim(), current.city.trim())
+        state.update {
+            when (result) {
+                is Outcome.Success -> it.copy(
+                    lat = coordinateInput(result.value.lat),
+                    lng = coordinateInput(result.value.lng),
+                    errors = it.errors - WallboxField.Lat - WallboxField.Lng,
+                    geocode = GeocodeStatus.Found(result.value.displayName),
+                )
+                is Outcome.Failure -> it.copy(geocode = result.error.toGeocodeStatus())
+            }
+        }
+    }
+}
+
+private fun AppError.toGeocodeStatus(): GeocodeStatus = when (this) {
+    AppError.NotFound -> GeocodeStatus.NotFound
+    AppError.Server, AppError.Network -> GeocodeStatus.Unavailable
+    else -> GeocodeStatus.Failed(this)
+}
+
+/** Koordinate mit höchstens sechs Nachkommastellen (ca. 10 cm), mit Punkt wie im Formular vorbelegt. */
+internal fun coordinateInput(value: Double): String {
+    val rounded = (value * COORDINATE_FACTOR).roundToLong() / COORDINATE_FACTOR
+    return rounded.toString()
+}
+
+private const val COORDINATE_FACTOR = 1_000_000.0

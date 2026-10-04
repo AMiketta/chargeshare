@@ -25,6 +25,9 @@ import app.chargeshare.data.SessionState
 import app.chargeshare.data.isHost
 import app.chargeshare.di.AppContainer
 import app.chargeshare.payment.PaymentLauncher
+import app.chargeshare.platform.PhotoPicker
+import app.chargeshare.platform.UnsupportedPhotoPicker
+import app.chargeshare.ui.components.LocalImageLoader
 import app.chargeshare.payment.UnsupportedPaymentLauncher
 import app.chargeshare.presentation.booking.BookingFlowViewModel
 import app.chargeshare.presentation.booking.BookingsViewModel
@@ -60,21 +63,28 @@ import app.chargeshare.ui.wallbox.WallboxListRoute
  * @param container verdrahtete Abhängigkeiten (siehe [AppContainer]); wird einmal pro Prozess erzeugt
  * @param paymentLauncher Zahlungsfenster der Plattform (Google Pay / Apple Pay über Stripe); Desktop und Web
  * nutzen [UnsupportedPaymentLauncher]
+ * @param photoPicker Fotoauswahl der Plattform (Android: Photo Picker, Desktop: Dateidialog); sonst entfällt „Foto hinzufügen“
  */
 @Composable
-fun App(container: AppContainer, paymentLauncher: PaymentLauncher = UnsupportedPaymentLauncher) {
+fun App(
+    container: AppContainer,
+    paymentLauncher: PaymentLauncher = UnsupportedPaymentLauncher,
+    photoPicker: PhotoPicker = UnsupportedPhotoPicker,
+) {
     ChargeShareTheme(darkTheme = rememberIsDarkTheme(container.themeSettings)) {
-        Surface(modifier = Modifier.fillMaxSize(), color = ChargeShareColors.Background) {
-            val sessionViewModel = viewModel { SessionViewModel(container.authRepository) }
-            val session by sessionViewModel.session.collectAsState()
-            when (val current = session) {
-                SessionState.Restoring -> RestoringSession()
-                SessionState.SignedOut -> SignedOutContent(container)
-                // Pro Nutzer ein eigener ViewModel-Speicher: nach Abmelden/Konto-Wechsel bleiben keine Daten des Vorgängers übrig.
-                is SessionState.SignedIn -> key(current.user.id) {
-                    val owner = rememberScopedViewModelStoreOwner()
-                    CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
-                        MainContent(container, current.user, paymentLauncher)
+        CompositionLocalProvider(LocalImageLoader provides container.imageLoader) {
+            Surface(modifier = Modifier.fillMaxSize(), color = ChargeShareColors.Background) {
+                val sessionViewModel = viewModel { SessionViewModel(container.authRepository) }
+                val session by sessionViewModel.session.collectAsState()
+                when (val current = session) {
+                    SessionState.Restoring -> RestoringSession()
+                    SessionState.SignedOut -> SignedOutContent(container)
+                    // Pro Nutzer ein eigener ViewModel-Speicher: nach Abmelden/Konto-Wechsel bleiben keine Daten des Vorgängers übrig.
+                    is SessionState.SignedIn -> key(current.user.id) {
+                        val owner = rememberScopedViewModelStoreOwner()
+                        CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
+                            MainContent(container, current.user, paymentLauncher, photoPicker)
+                        }
                     }
                 }
             }
@@ -97,7 +107,7 @@ private fun RestoringSession() {
 @Suppress("DEPRECATION")
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun MainContent(container: AppContainer, user: User, paymentLauncher: PaymentLauncher) {
+private fun MainContent(container: AppContainer, user: User, paymentLauncher: PaymentLauncher, photoPicker: PhotoPicker) {
     val navigation = remember { NavigationState() }
     BackHandler(enabled = navigation.stack.isNotEmpty()) { navigation.pop() }
 
@@ -112,7 +122,7 @@ private fun MainContent(container: AppContainer, user: User, paymentLauncher: Pa
         key(navigation.stack.size, screen) {
             val owner = rememberScopedViewModelStoreOwner()
             CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
-                FullScreen(screen, container, favorites, navigation, paymentLauncher)
+                FullScreen(screen, container, favorites, navigation, paymentLauncher, photoPicker)
             }
         }
         return
@@ -205,6 +215,7 @@ private fun FullScreen(
     favorites: FavoritesViewModel,
     navigation: NavigationState,
     paymentLauncher: PaymentLauncher,
+    photoPicker: PhotoPicker,
 ) {
     when (screen) {
         is Screen.WallboxDetail -> {
@@ -233,7 +244,7 @@ private fun FullScreen(
         }
         is Screen.EditWallbox -> {
             val viewModel = viewModel { EditWallboxViewModel(screen.wallbox, container.hostRepository) }
-            EditWallboxRoute(viewModel, onBack = { navigation.pop() })
+            EditWallboxRoute(viewModel, photoPicker, onBack = { navigation.pop() })
         }
     }
 }

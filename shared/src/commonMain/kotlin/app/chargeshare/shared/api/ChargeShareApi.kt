@@ -12,7 +12,11 @@ import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.forms.formData
+import io.ktor.client.request.forms.submitFormWithBinaryData
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
+import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 
 /**
@@ -133,6 +137,32 @@ class ChargeShareApi(
 
     suspend fun updateWallbox(id: String, request: UpdateWallboxRequest): Wallbox =
         http.put("$V1/wallboxes/$id") { json(request) }.body()
+
+    /**
+     * Lädt ein Foto hoch (`multipart/form-data`, Feld `file`) und liefert die aktualisierte Wallbox.
+     * Der Server speichert daraus ein JPEG mit höchstens 1600 px Kantenlänge; erlaubt sind JPEG und PNG.
+     */
+    suspend fun uploadWallboxPhoto(id: String, bytes: ByteArray, fileName: String = "photo.jpg", mimeType: String = "image/jpeg"): Wallbox =
+        http.submitFormWithBinaryData(
+            url = "$V1/wallboxes/$id/photos",
+            formData = formData {
+                append(
+                    "file",
+                    bytes,
+                    Headers.build {
+                        append(HttpHeaders.ContentType, mimeType)
+                        append(HttpHeaders.ContentDisposition, "filename=\"$fileName\"")
+                    },
+                )
+            },
+        ).body()
+
+    /** Entfernt das Foto [photoPath] (ein Eintrag aus [Wallbox.photos]) und liefert die aktualisierte Wallbox. */
+    suspend fun deleteWallboxPhoto(id: String, photoPath: String): Wallbox =
+        http.delete("$V1/wallboxes/$id/photos/${photoPath.substringAfterLast('/')}").body()
+
+    /** Koordinaten zur Adresse. `404` = Adresse unbekannt, `503` = Adresssuche gerade nicht verfügbar. */
+    suspend fun geocode(request: GeocodeRequest): GeocodeResponse = http.post("$V1/geocode") { json(request) }.body()
 
     suspend fun deleteWallbox(id: String) {
         http.delete("$V1/wallboxes/$id")
