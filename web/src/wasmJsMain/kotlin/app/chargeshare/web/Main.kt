@@ -3,6 +3,7 @@ package app.chargeshare.web
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
 import app.chargeshare.di.AppContainer
+import app.chargeshare.platform.BrowserUrlOpener
 import app.chargeshare.platform.PlatformContext
 import app.chargeshare.platform.createPreferenceStorage
 import app.chargeshare.platform.createSecureTokenStore
@@ -22,7 +23,7 @@ private fun apiBaseUrl(): String =
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    val container = AppContainer(apiBaseUrl(), createSecureTokenStore(PlatformContext()), createPreferenceStorage(PlatformContext()))
+    val container = AppContainer(apiBaseUrl(), createSecureTokenStore(PlatformContext()), createPreferenceStorage(PlatformContext()), urlOpener = BrowserUrlOpener())
     // `document.body` ist in einem Browser immer gesetzt, sobald das Skript läuft.
     ComposeViewport(checkNotNull(document.body)) {
         App(container)

@@ -10,6 +10,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -30,7 +31,10 @@ import app.chargeshare.presentation.booking.BookingFlowViewModel
 import app.chargeshare.presentation.booking.BookingsViewModel
 import app.chargeshare.presentation.host.CreateWallboxViewModel
 import app.chargeshare.presentation.host.EditWallboxViewModel
+import app.chargeshare.data.DeepLink
+import app.chargeshare.data.DeepLinkInbox
 import app.chargeshare.presentation.host.HostDashboardViewModel
+import app.chargeshare.presentation.host.PayoutViewModel
 import app.chargeshare.presentation.profile.ProfileViewModel
 import app.chargeshare.presentation.session.SessionViewModel
 import app.chargeshare.presentation.wallbox.FavoritesViewModel
@@ -102,6 +106,8 @@ private fun MainContent(container: AppContainer, user: User, paymentLauncher: Pa
 
     // Ein Exemplar pro angemeldetem Nutzer, geteilt von Liste und Detailseite, damit das Herz überall gleich steht.
     val favorites = viewModel(key = "favorites") { FavoritesViewModel(container.favoritesRepository) }
+    val payoutViewModel = viewModel(key = "payout") { PayoutViewModel(container.payoutRepository) }
+    DeepLinkEffect(container.deepLinks, payoutViewModel, navigation)
 
     val screen = navigation.current
     if (screen != null) {
@@ -125,7 +131,7 @@ private fun MainContent(container: AppContainer, user: User, paymentLauncher: Pa
             )
         },
     ) { padding ->
-        TabContent(navigation.tab, container, user, favorites, navigation, paymentLauncher, Modifier.padding(padding))
+        TabContent(navigation.tab, container, user, favorites, payoutViewModel, navigation, paymentLauncher, Modifier.padding(padding))
     }
 }
 
@@ -135,6 +141,7 @@ private fun TabContent(
     container: AppContainer,
     user: User,
     favorites: FavoritesViewModel,
+    payoutViewModel: PayoutViewModel,
     navigation: NavigationState,
     paymentLauncher: PaymentLauncher,
     modifier: Modifier,
@@ -159,6 +166,8 @@ private fun TabContent(
                 val viewModel = viewModel(key = "host") { HostDashboardViewModel(user.id, container.hostRepository) }
                 HostDashboardRoute(
                     viewModel,
+                    payoutViewModel = payoutViewModel,
+                    urlOpener = container.urlOpener,
                     userName = user.name,
                     onAddWallbox = { navigation.push(Screen.CreateWallbox) },
                     onEditWallbox = { navigation.push(Screen.EditWallbox(it)) },
@@ -224,5 +233,20 @@ private fun FullScreen(
             val viewModel = viewModel { EditWallboxViewModel(screen.wallbox, container.hostRepository) }
             EditWallboxRoute(viewModel, onBack = { navigation.pop() })
         }
+    }
+}
+
+/** Reagiert auf Deep Links des Stripe-Onboardings: zurück zum Host-Tab und Kontostatus sofort prüfen bzw. neuen Link holen. */
+@Composable
+private fun DeepLinkEffect(inbox: DeepLinkInbox, payoutViewModel: PayoutViewModel, navigation: NavigationState) {
+    val link by inbox.pending.collectAsState()
+    LaunchedEffect(link) {
+        val current = link ?: return@LaunchedEffect
+        navigation.selectTab(MainTab.Host)
+        when (current) {
+            DeepLink.ONBOARDING_DONE -> payoutViewModel.onReturnedFromOnboarding()
+            DeepLink.ONBOARDING_REFRESH -> payoutViewModel.onOnboardingExpired()
+        }
+        inbox.consume(current)
     }
 }

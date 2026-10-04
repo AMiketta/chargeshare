@@ -4,7 +4,9 @@ import app.chargeshare.server.db.Db
 import app.chargeshare.server.db.Users
 import app.chargeshare.server.payments.PaymentProvider
 import app.chargeshare.server.util.AppException
+import app.chargeshare.server.util.notFound
 import app.chargeshare.shared.model.ErrorCodes
+import app.chargeshare.shared.model.PayoutState
 import io.ktor.http.HttpStatusCode
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
@@ -34,6 +36,18 @@ class PayoutService(private val db: Db, private val payments: PaymentProvider) {
         if (!payments.requiresPayoutAccount || ownerIds.isEmpty()) return ownerIds.toSet()
         val ids = ownerIds.map { Uuid.parse(it) }
         return Users.select(Users.id).where { (Users.id inList ids) and (Users.payoutsReady eq true) }.map { it[Users.id].toString() }.toSet()
+    }
+
+    /** Gespeicherter Stand des Auszahlungskontos von [userId] (ohne Stripe-Abfrage, siehe [refresh]). */
+    suspend fun state(userId: Uuid): PayoutState {
+        if (!payments.requiresPayoutAccount) return PayoutState.NOT_REQUIRED
+        val row = db.tx { Users.select(Users.payoutsReady, Users.stripeAccountId).where { Users.id eq userId }.singleOrNull() }
+            ?: throw notFound("user not found")
+        return when {
+            row[Users.payoutsReady] -> PayoutState.READY
+            row[Users.stripeAccountId].isNullOrEmpty() -> PayoutState.NOT_STARTED
+            else -> PayoutState.PENDING
+        }
     }
 
     /** Wirft `409 HOST_PAYOUTS_PENDING`, wenn die Wallboxes des Hosts [ownerId] noch nicht buchbar sind. */

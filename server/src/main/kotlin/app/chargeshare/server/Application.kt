@@ -35,6 +35,7 @@ import app.chargeshare.server.plugins.configureSerialization
 import app.chargeshare.server.plugins.configureStatusPages
 import app.chargeshare.server.routes.apiV1Routes
 import app.chargeshare.server.routes.healthRoutes
+import app.chargeshare.server.routes.onboardingPageRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -84,6 +85,7 @@ fun Application.module(
         } else {
             null
         }
+        onboardingPageRoutes()
         apiV1Routes(services, authLimiter, config.trustProxyHeaders)
     }
 }
@@ -110,7 +112,7 @@ private fun Application.buildServices(
         bookings = bookings,
         host = HostService(db, bookings),
         favorites = FavoriteService(db),
-        paymentsSvc = PaymentService(db, payments, payouts),
+        paymentsSvc = PaymentService(db, payments, payouts, config),
         payments = payments,
         paymentConfig = clientPaymentConfig(config, payments),
     )

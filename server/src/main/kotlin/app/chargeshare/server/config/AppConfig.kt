@@ -50,6 +50,15 @@ data class AppConfig(
      * **ausschließlich** hinter genau einem vertrauenswürdigen Reverse-Proxy erreichbar ist; sonst lässt sich das Limit umgehen.
      */
     val trustProxyHeaders: Boolean = false,
+    /**
+     * Öffentliche Adresse des Servers (`https://api.chargeshare.app`), aus der die Rückkehr-Seiten des Stripe-Onboardings
+     * abgeleitet werden. Ohne Angabe wird die Adresse der Anfrage der App verwendet (Entwicklung: Emulator `http://10.0.2.2:8080`).
+     */
+    val publicBaseUrl: String? = null,
+    /** Stripe-Rückkehr-URL nach dem Onboarding; Standard: `<Basis>/onboarding/return` (leitet per Deep Link in die App). */
+    val onboardingReturnUrl: String? = null,
+    /** Stripe-URL, wenn der Onboarding-Link abgelaufen ist; Standard: `<Basis>/onboarding/refresh`. */
+    val onboardingRefreshUrl: String? = null,
     /** Legt beim Start Beispieldaten (Demo-Host + Wallboxen in Bremen) an. Nie in Produktion. */
     val devSeed: Boolean = false,
 ) {
@@ -109,6 +118,9 @@ data class AppConfig(
             pendingBookingSweepSeconds = env["PENDING_BOOKING_SWEEP_SECONDS"]?.toLongOrNull() ?: 60,
             authRateLimitPerWindow = env["AUTH_RATE_LIMIT_PER_WINDOW"]?.toIntOrNull() ?: 10,
             authRateLimitWindowSeconds = env["AUTH_RATE_LIMIT_WINDOW_SECONDS"]?.toLongOrNull() ?: 60,
+            publicBaseUrl = env["PUBLIC_BASE_URL"]?.takeIf { it.isNotBlank() },
+            onboardingReturnUrl = env["ONBOARDING_RETURN_URL"]?.takeIf { it.isNotBlank() },
+            onboardingRefreshUrl = env["ONBOARDING_REFRESH_URL"]?.takeIf { it.isNotBlank() },
             trustProxyHeaders = env["TRUST_PROXY_HEADERS"].equals("true", ignoreCase = true),
             // Dev-Seed: nur ENV=development und solange DEV_SEED nicht explizit "false" ist
             devSeed = (env["ENV"] ?: "development").equals("development", ignoreCase = true) &&

@@ -1,8 +1,11 @@
 package app.chargeshare.server.services
 
+import app.chargeshare.server.config.AppConfig
 import app.chargeshare.server.db.Db
 import app.chargeshare.server.db.Users
 import app.chargeshare.server.payments.PaymentProvider
+import app.chargeshare.server.payments.resolveOnboardingUrls
+import app.chargeshare.shared.model.PayoutStatus
 import app.chargeshare.server.util.AppException
 import app.chargeshare.server.util.badGateway
 import app.chargeshare.server.util.notFound
@@ -20,16 +23,27 @@ import org.jetbrains.exposed.v1.jdbc.update
 import org.slf4j.LoggerFactory
 
 /** Stripe Connect Onboarding fuer Hosts (Go: `handlers/payments.go`). */
-class PaymentService(private val db: Db, private val payments: PaymentProvider, private val payouts: PayoutService) {
+class PaymentService(
+    private val db: Db,
+    private val payments: PaymentProvider,
+    private val payouts: PayoutService,
+    private val config: AppConfig,
+) {
     private val log = LoggerFactory.getLogger(PaymentService::class.java)
 
-    suspend fun onboardingUrl(userId: Uuid): String {
+    /**
+     * Liefert den Stripe-Onboarding-Link; Stripe leitet danach auf die Rückkehr-Seiten dieses Servers (siehe [resolveOnboardingUrls]).
+     *
+     * @param requestBaseUrl Adresse, unter der der Client den Server erreicht; Rückfall, wenn keine `PUBLIC_BASE_URL` gesetzt ist
+     */
+    suspend fun onboardingUrl(userId: Uuid, requestBaseUrl: String): String {
+        val urls = resolveOnboardingUrls(config, requestBaseUrl)
         val (email, existing) = db.tx {
             val u = Users.selectAll().where { Users.id eq userId }.singleOrNull() ?: throw notFound("user not found")
             u[Users.email] to u[Users.stripeAccountId]
         }
         val info = try {
-            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { payments.createOnboardingLink(email, existing) }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { payments.createOnboardingLink(email, existing, urls) }
         } catch (e: StripeException) {
             throw onboardingFailure(e)
         }
@@ -42,6 +56,15 @@ class PaymentService(private val db: Db, private val payments: PaymentProvider, 
             }
         }
         return info.url
+    }
+
+    /**
+     * Kontostatus des Hosts. Mit [refresh] wird zuerst bei Stripe nachgefragt (sofortige Freischaltung nach der Rückkehr
+     * vom Onboarding statt Warten auf den Hintergrund-Job); ein Stripe-Fehler lässt den gespeicherten Stand unverändert.
+     */
+    suspend fun payoutStatus(userId: Uuid, refresh: Boolean): PayoutStatus {
+        if (refresh) payouts.refresh(userId)
+        return PayoutStatus(payouts.state(userId))
     }
 
     /** Nach dem Onboarding wird aus `driver` die Rolle `both` (wie im Go-Backend); zusaetzlich wird der Kontostatus bei Stripe geprueft ([PayoutService.refresh]). */

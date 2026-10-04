@@ -2,6 +2,7 @@ package app.chargeshare.android
 
 import android.app.Application
 import app.chargeshare.di.AppContainer
+import app.chargeshare.platform.AndroidUrlOpener
 import app.chargeshare.platform.PlatformContext
 import app.chargeshare.platform.createPreferenceStorage
 import app.chargeshare.platform.createSecureTokenStore
@@ -18,6 +19,7 @@ class ChargeShareApplication : Application() {
             tokenStore = createSecureTokenStore(PlatformContext(this)),
             preferenceStorage = createPreferenceStorage(PlatformContext(this)),
             showDebugInfo = BuildConfig.DEBUG,
+            urlOpener = AndroidUrlOpener(this),
         )
     }
 }

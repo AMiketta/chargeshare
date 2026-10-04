@@ -22,7 +22,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import app.chargeshare.presentation.host.HostDashboardUiState
+import app.chargeshare.platform.UrlOpener
 import app.chargeshare.presentation.host.HostDashboardViewModel
+import app.chargeshare.presentation.host.PayoutUiState
+import app.chargeshare.presentation.host.PayoutViewModel
 import app.chargeshare.presentation.host.shortName
 import app.chargeshare.shared.model.ChargingSession
 import app.chargeshare.shared.model.Wallbox
@@ -47,6 +50,8 @@ import kotlinx.datetime.TimeZone
 @Composable
 fun HostDashboardRoute(
     viewModel: HostDashboardViewModel,
+    payoutViewModel: PayoutViewModel,
+    urlOpener: UrlOpener,
     userName: String,
     onAddWallbox: () -> Unit,
     onEditWallbox: (Wallbox) -> Unit,
@@ -55,9 +60,18 @@ fun HostDashboardRoute(
 ) {
     // Beim Einblenden neu laden – auch nach dem Anlegen einer Wallbox.
     LaunchedEffect(viewModel) { viewModel.refresh() }
+    LaunchedEffect(payoutViewModel) { payoutViewModel.refresh() }
     val state by viewModel.state.collectAsState()
+    val payoutState by payoutViewModel.state.collectAsState()
+    // Der Onboarding-Link wird im Browser geöffnet; zurück kommt der Host über den Deep Link (siehe MainContent).
+    LaunchedEffect(payoutState.onboardingUrl) {
+        payoutState.onboardingUrl?.let { payoutViewModel.onOnboardingUrlHandled(urlOpener.open(it)) }
+    }
     HostDashboardScreen(
         state = state,
+        payoutState = payoutState,
+        onSetUpPayouts = payoutViewModel::onSetUpClicked,
+        onCheckPayouts = payoutViewModel::onCheckStatus,
         userName = userName,
         zone = zone,
         onAddWallbox = onAddWallbox,
@@ -72,6 +86,9 @@ fun HostDashboardRoute(
 @Composable
 fun HostDashboardScreen(
     state: HostDashboardUiState,
+    payoutState: PayoutUiState,
+    onSetUpPayouts: () -> Unit,
+    onCheckPayouts: () -> Unit,
     userName: String,
     zone: TimeZone,
     onAddWallbox: () -> Unit,
@@ -94,6 +111,7 @@ fun HostDashboardScreen(
                 modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(Spacing.Medium),
                 verticalArrangement = Arrangement.spacedBy(Spacing.Medium),
             ) {
+                PayoutStatusCard(payoutState, onSetUp = onSetUpPayouts, onCheckStatus = onCheckPayouts)
                 state.toggleError?.let { ErrorText(Strings.errorMessage(it)) }
                 state.earnings?.takeIf { it.week.isNotEmpty() }?.let { WeeklyEarningsCard(it.week, state.now?.date) }
                 AmberButton(Strings.AddWallbox, onAddWallbox)

@@ -26,6 +26,9 @@ data class PaymentIntentInfo(
 
 data class OnboardingInfo(val accountId: String, val url: String)
 
+/** Adressen, auf die Stripe nach dem Onboarding zurückleitet (Fertig bzw. Link abgelaufen). */
+data class OnboardingUrls(val returnUrl: String, val refreshUrl: String)
+
 sealed interface PaymentEvent {
     data class Succeeded(val paymentIntentId: String) : PaymentEvent
     data class Failed(val paymentIntentId: String) : PaymentEvent
@@ -84,7 +87,7 @@ interface PaymentProvider {
     fun isPayoutReady(accountId: String): Boolean = true
 
     /** Legt (falls noetig) ein Connect-Express-Konto an und liefert den Onboarding-Link. */
-    fun createOnboardingLink(email: String, existingAccountId: String?): OnboardingInfo
+    fun createOnboardingLink(email: String, existingAccountId: String?, urls: OnboardingUrls): OnboardingInfo
 
     /** Prueft die Signatur und uebersetzt das Event. */
     fun parseWebhook(payload: String, signatureHeader: String?): PaymentEvent
@@ -132,7 +135,7 @@ class FakePaymentProvider : PaymentProvider {
     override fun resumeIntent(paymentIntentId: String): PaymentIntentInfo? =
         PaymentIntentInfo(paymentIntentId, clientSecret = "${paymentIntentId}_secret_fake", paid = true)
 
-    override fun createOnboardingLink(email: String, existingAccountId: String?): OnboardingInfo {
+    override fun createOnboardingLink(email: String, existingAccountId: String?, urls: OnboardingUrls): OnboardingInfo {
         val acct = existingAccountId ?: ("acct_fake_" + UUID.randomUUID().toString().take(12))
         return OnboardingInfo(acct, "https://example.invalid/fake-stripe-onboarding?account=$acct")
     }
@@ -144,8 +147,6 @@ class FakePaymentProvider : PaymentProvider {
 class StripePaymentProvider(
     secretKey: String,
     private val webhookSecret: String?,
-    private val refreshUrl: String = "https://chargeshare.app/host/onboard/refresh",
-    private val returnUrl: String = "https://chargeshare.app/host/onboard/return",
 ) : PaymentProvider {
     private val client = StripeClient(secretKey)
     private companion object {
@@ -199,10 +200,10 @@ class StripePaymentProvider(
      * und liefert den Onboarding-Link. Das Konto hat das Express-Dashboard und die Empfaenger-Konfiguration
      * (`stripe_transfers`), damit Destination Charges mit `transfer_data` funktionieren; Gebuehren und Verluste traegt die Plattform.
      */
-    override fun createOnboardingLink(email: String, existingAccountId: String?): OnboardingInfo {
+    override fun createOnboardingLink(email: String, existingAccountId: String?, urls: OnboardingUrls): OnboardingInfo {
         val accountId = existingAccountId?.takeIf { it.isNotEmpty() }
             ?: client.v2().core().accounts().create(buildRecipientAccountParams(email)).id
-        val link = client.v2().core().accountLinks().create(buildOnboardingLinkParams(accountId, refreshUrl, returnUrl))
+        val link = client.v2().core().accountLinks().create(buildOnboardingLinkParams(accountId, urls.refreshUrl, urls.returnUrl))
         return OnboardingInfo(accountId, link.url)
     }
 
