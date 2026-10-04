@@ -51,6 +51,7 @@ class DashboardFormatTest {
     fun namesAreShortened() {
         assertEquals("Andreas M.", shortName("Andreas Miketta"))
         assertEquals("Anna K.", shortName("  Anna Maria  Kowalski "))
+        assertEquals("Demo H.", shortName("Demo Host (Beispieldaten)"))
         assertEquals("Andreas", shortName("Andreas"))
         assertEquals("", shortName(""))
     }
