@@ -225,9 +225,23 @@ Stripe Android SDK 23.21.0 · Stripe iOS SDK 26.12.1 (SPM) · Stripe Java 34.0.0
 Ktor 3.6.0 · kotlinx.serialization 1.11.0 · Coroutines 1.11.0 · Exposed 1.5.0 · Flyway 13.9.0 · PostgreSQL-Treiber 42.7.13.
 Alle Versionen stehen in `gradle/libs.versions.toml`.
 
+## CI und Self-hosted-Runner
+
+CI läuft in GitHub Actions (`.github/workflows/ci.yml`) und baut Tests, Server, Desktop-Tests, Web und Android-Debug-APK. Der Job läuft standardmäßig auf einem **Self-hosted-Runner** (Laptop, Name `bazzite-laptop`, Label `chargeshare`), damit keine GitHub-Build-Minuten verbraucht werden. **Ist der Laptop aus oder offline, bleibt die CI in der Warteschlange.**
+
+- **Betrieb:** Runner liegt in `~/actions-runner` und läuft als systemd-User-Dienst `github-runner.service`.
+  Status: `systemctl --user status github-runner` · Log: `journalctl --user -u github-runner -f` ·
+  Neustart: `systemctl --user restart github-runner` · Stopp/Start: `systemctl --user stop|start github-runner`.
+  Damit der Dienst auch ohne Anmeldung startet, einmal im normalen Terminal `loginctl enable-linger $USER` ausführen.
+- **Umgebung:** `~/actions-runner/.env` setzt `ANDROID_HOME`/`ANDROID_SDK_ROOT` (`~/Android/Sdk`); das JDK 17 holt `actions/setup-java` selbst. Gradle-Cache (`~/.gradle`) bleibt zwischen Läufen erhalten.
+- **Zurück auf GitHub-gehostet (ohne Code-Änderung):** `gh variable set CI_RUNS_ON --body '"ubuntu-latest"'` – wieder auf den Laptop: `gh variable delete CI_RUNS_ON`.
+- **Runner entfernen:** `systemctl --user disable --now github-runner`, dann in `~/actions-runner`:
+  `./config.sh remove --token <Token>` (Token: `gh api -X POST repos/AMiketta/chargeshare/actions/runners/remove-token -q .token`), danach `rm -rf ~/actions-runner ~/.config/systemd/user/github-runner.service`.
+- **Sicherheit:** Self-hosted-Runner führen den Code der PRs auf dem Laptop aus. Nur für dieses **private** Repo ohne fremde Mitwirkende verwenden, nie für öffentliche Forks.
+
 ## Nächste Schritte
 
 1. Server: Stripe gegen Testkonto pruefen (Google Pay/Apple Pay mit echten Testschlüsseln durchspielen), Zahlung nach OCPP-Abschluss auf tatsaechliche kWh abrechnen, RemoteStart/Stop
 2. composeApp: Karte auf iOS/Web freischalten (nach Test), Gerätestandort mit Einwilligung
 3. iOS auf einem Mac bauen und testen (Keychain-`TokenStore` ist ungetestet)
-4. CI (GitHub Actions: Linux für shared/server/web/android, macOS für iOS)
+4. CI für iOS (macOS-Runner); Linux-CI läuft bereits (siehe „CI und Self-hosted-Runner“)

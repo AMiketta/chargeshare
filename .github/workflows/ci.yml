@@ -6,17 +6,32 @@ on:
   push:
     branches: [develop, main]
 
+# Auf dem (einzigen) Self-hosted-Runner nicht mehrere PR-Läufe gleichzeitig stapeln.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   build-test:
-    runs-on: ubuntu-latest
+    # Standard: Self-hosted-Runner "bazzite-laptop" (Label "chargeshare").
+    # Zurück auf GitHub-Hosted, ohne Code-Änderung: Repository-Variable CI_RUNS_ON auf "ubuntu-latest" setzen
+    #   gh variable set CI_RUNS_ON --body '"ubuntu-latest"'      (wieder entfernen: gh variable delete CI_RUNS_ON)
+    runs-on: ${{ fromJSON(vars.CI_RUNS_ON || '["self-hosted","chargeshare"]') }}
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
-      - name: Android-SDK-Lizenzen akzeptieren (vorinstalliertes SDK auf dem Runner)
+      - name: Android-SDK-Lizenzen akzeptieren (SDK vorinstalliert auf ubuntu-latest, auf dem Laptop per ANDROID_HOME im Runner-.env)
         run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          # Self-hosted: ~/.gradle bleibt auf dem Laptop erhalten, der GitHub-Cache wäre nur Zusatzaufwand.
+          cache-disabled: ${{ runner.environment == 'self-hosted' }}
       - name: Tests und Build
         run: ./gradlew :shared:jvmTest :server:build :composeApp:desktopTest :web:wasmJsBrowserDistribution :androidApp:assembleDebug --no-daemon
+      - name: Gradle- und Kotlin-Daemons beenden (Laptop soll nach dem Lauf Speicher freigeben)
+        if: always()
+        run: ./gradlew --stop || true
