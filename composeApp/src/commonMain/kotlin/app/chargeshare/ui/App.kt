@@ -5,9 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -43,6 +40,7 @@ import app.chargeshare.shared.model.User
 import app.chargeshare.ui.auth.AuthRoute
 import app.chargeshare.ui.booking.BookingFlowRoute
 import app.chargeshare.ui.booking.BookingsRoute
+import app.chargeshare.ui.components.AppNavigationBar
 import app.chargeshare.ui.host.BecomeHostScreen
 import app.chargeshare.ui.host.CreateWallboxRoute
 import app.chargeshare.ui.host.EditWallboxRoute
@@ -116,16 +114,13 @@ private fun MainContent(container: AppContainer, user: User, paymentLauncher: Pa
     }
     Scaffold(
         bottomBar = {
-            NavigationBar(containerColor = ChargeShareColors.Surface) {
-                MainTab.entries.forEach { tab ->
-                    NavigationBarItem(
-                        selected = tab == navigation.tab,
-                        onClick = { navigation.selectTab(tab) },
-                        icon = { Icon(tab.icon, contentDescription = null) },
-                        label = { Text(tab.title) },
-                    )
-                }
-            }
+            AppNavigationBar(
+                items = MainTab.entries,
+                selected = navigation.tab,
+                title = MainTab::title,
+                icon = MainTab::icon,
+                onSelect = navigation::selectTab,
+            )
         },
     ) { padding ->
         TabContent(navigation.tab, container, user, navigation, paymentLauncher, Modifier.padding(padding))

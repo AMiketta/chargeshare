@@ -33,7 +33,7 @@ jobs:
       - name: Tests und Build
         run: >-
           ./gradlew :shared:jvmTest :server:build :composeApp:desktopTest :web:wasmJsBrowserDistribution :androidApp:assembleDebug
-          --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8" -Pkotlin.daemon.jvmargs=-Xmx1g
+          --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8" -Pkotlin.daemon.jvmargs=-Xmx2g
       - name: Gradle- und Kotlin-Daemons beenden (Laptop soll nach dem Lauf Speicher freigeben)
         if: always()
         run: ./gradlew --stop || true

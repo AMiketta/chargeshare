@@ -233,7 +233,7 @@ CI läuft in GitHub Actions (`.github/workflows/ci.yml`) und baut Tests, Server,
   Status: `systemctl --user status github-runner` · Log: `journalctl --user -u github-runner -f` ·
   Neustart: `systemctl --user restart github-runner` · Stopp/Start: `systemctl --user stop|start github-runner`.
   Damit der Dienst auch ohne Anmeldung startet, einmal im normalen Terminal `loginctl enable-linger $USER` ausführen.
-- **Ressourcen:** Der Dienst läuft mit `Nice=15`, `MemoryHigh=5G`, `MemoryMax=6G` (Laptop hat 16 GB und nebenher Emulator/IDE); der CI-Job begrenzt Gradle auf `-Xmx3g`, den Kotlin-Daemon auf `-Xmx1g` und `--max-workers=2`.
+- **Ressourcen:** Der Dienst läuft mit `Nice=15`, `MemoryHigh=5G`, `MemoryMax=6G` (Laptop hat 16 GB und nebenher Emulator/IDE); der CI-Job begrenzt Gradle auf `-Xmx3g`, den Kotlin-Daemon auf `-Xmx2g` (mit 1g ging dem Wasm-Compile der Speicher aus) und `--max-workers=2`.
 - **Umgebung:** `~/actions-runner/.env` setzt `ANDROID_HOME`/`ANDROID_SDK_ROOT` (`~/Android/Sdk`); das JDK 17 holt `actions/setup-java` selbst. Gradle-Cache (`~/.gradle`) bleibt zwischen Läufen erhalten.
 - **Zurück auf GitHub-gehostet (ohne Code-Änderung):** `gh variable set CI_RUNS_ON --body '"ubuntu-latest"'` – wieder auf den Laptop: `gh variable delete CI_RUNS_ON`.
 - **Runner entfernen:** `systemctl --user disable --now github-runner`, dann in `~/actions-runner`:

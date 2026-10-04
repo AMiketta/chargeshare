@@ -299,9 +299,21 @@ Quelle: `docs/ChargeShare-App-Design.html` (CSS-Variablen), umgesetzt in `ui/The
 | Primär (Tiefgrün) | `#0B6E4F` (hell `#D4EDE5`, Fläche `#E8F5EE`) |
 | Akzent (Amber, CTA) | `#F0A500` (hell `#FFF4CC`, dunkel `#C87800`) |
 | Fehler | `#D0392B` (hell `#FDECEA`) |
-| Eckenradien | 10 / 14 / 20 / 26 dp (sm/md/lg/xl) |
+| Eckenradien | 10 / 14 / 20 / 26 dp (sm/md/lg/xl); Chips/Pills und Navigations-Pill vollrund |
+| Text gedämpft / inaktiv | `#555250` / `#9E9B98` (`OnSurfaceVariant` / `OnSurfaceMuted`) |
+| Schatten | `Elevation.Card` (2 dp, Karten und Chips), `Elevation.Raised` (6 dp, schwebende Elemente) |
+| Schrift | Plus Jakarta Sans 400/500/600/700/800 (`ui/Typography.kt`, `chargeShareTypography`) |
 
 Der **Amber-Button** ist die eine Haupthandlung pro Screen (z. B. „Jetzt buchen“). Hero-Bereiche sind tiefgrün mit weißer Schrift.
+
+**Schrift:** Plus Jakarta Sans (SIL Open Font License 1.1) liegt als Compose-Multiplatform-Ressource in `composeApp/src/commonMain/composeResources/font/`
+(Dateinamen nur `a-z0-9_`), der Lizenztext in `composeResources/files/plus_jakarta_sans_ofl.txt`. Die Ressourcen-Klasse heißt `app.chargeshare.resources.Res`
+(`compose.resources.packageOfResClass` in `composeApp/build.gradle.kts`; auf Android braucht der KMP-Library-Plugin dafür `androidResources { enable = true }`).
+Texte nutzen immer `MaterialTheme.typography` (Stile in `Typography.kt`), nie eine eigene `fontSize`.
+
+**Wiederverwendbare Design-Komponenten** (`ui/components`): `AppCard`/`SurfaceCard` (Karte mit Radius 20 dp, Schatten, Rand), `AppFilterChip`/`ChoiceChips` (vollrunde Filter-Pill,
+gewählt tiefgrün), `InfoPill` (kleines Label), `AppNavigationBar` (untere Navigation: aktiver Tab grün auf hellgrüner Pill, inaktiv grau). Den Material-`FilterChip`/`NavigationBar`/`Card`
+nicht direkt verwenden, damit das Design an einer Stelle gepflegt wird.
 
 ## 13. Recht und Datenschutz (Kurzform – Details im Konzept, Kap. 9)
 

@@ -19,6 +19,8 @@ if (androidEnabled) {
         namespace = "app.chargeshare.composeapp"
         compileSdk = 37
         minSdk = 24
+        // Compose-Multiplatform-Ressourcen (Schriften) landen als Android-Assets
+        androidResources { enable = true }
     }
 }
 
@@ -42,6 +44,7 @@ kotlin {
         commonMain.dependencies {
             api(project(":shared"))
             implementation(libs.compose.runtime)
+            implementation(libs.compose.components.resources)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
             implementation(libs.compose.ui)
@@ -61,6 +64,10 @@ kotlin {
             implementation(libs.kotlinx.coroutines.swing)
         }
     }
+}
+
+compose.resources {
+    packageOfResClass = "app.chargeshare.resources"
 }
 
 compose.desktop {

@@ -27,8 +27,20 @@ object ChargeShareColors {
     val OnSurface = Color(0xFF1A1A1A)
     val OnSurfaceVariant = Color(0xFF555250)
 
+    /** Dritte Textstufe (inaktive Navigation, Platzhalter, gesperrte Elemente). */
+    val OnSurfaceMuted = Color(0xFF9E9B98)
+
     /** Statusfarbe „verfügbar“. */
     val Available = Color(0xFF1A8A55)
+}
+
+/** Schattenstufen des Designs (`--shadow-sm/md`), als Elevation in dp. */
+object Elevation {
+    /** Karten und Chips. */
+    val Card = 2.dp
+
+    /** Schwebende Elemente (Karten-Pins, Bottom-Sheet). */
+    val Raised = 6.dp
 }
 
 /** Abstände (Vielfache von 4 dp). */
@@ -79,5 +91,6 @@ private val ChargeShareShapes = Shapes(
 /** Das Dunkel-Design aus dem Mockup ist noch nicht umgesetzt; es gilt immer das helle Schema. */
 @Composable
 fun ChargeShareTheme(content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = LightColors, shapes = ChargeShareShapes, content = content)
+    val typography = chargeShareTypography(rememberChargeShareFontFamily())
+    MaterialTheme(colorScheme = LightColors, shapes = ChargeShareShapes, typography = typography, content = content)
 }

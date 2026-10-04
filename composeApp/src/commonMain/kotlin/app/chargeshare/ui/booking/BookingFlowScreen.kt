@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +37,7 @@ import app.chargeshare.ui.ChargeShareColors
 import app.chargeshare.ui.Spacing
 import app.chargeshare.ui.Strings
 import app.chargeshare.ui.components.AmberButton
+import app.chargeshare.ui.components.AppFilterChip
 import app.chargeshare.ui.components.ChoiceChips
 import app.chargeshare.ui.components.EmptyBox
 import app.chargeshare.ui.components.ErrorBox
@@ -181,10 +181,10 @@ private fun SlotSection(
             horizontalArrangement = Arrangement.spacedBy(Spacing.Small),
         ) {
             state.freeStarts.forEach { start ->
-                FilterChip(
+                AppFilterChip(
                     selected = start == state.selectedStart,
                     onClick = { onStartSelected(start) },
-                    label = { Text(formatTime(start, zone)) },
+                    label = formatTime(start, zone),
                 )
             }
         }

@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -32,6 +31,7 @@ import app.chargeshare.shared.model.ConnectorType
 import app.chargeshare.ui.Spacing
 import app.chargeshare.ui.Strings
 import app.chargeshare.ui.components.AmberButton
+import app.chargeshare.ui.components.AppFilterChip
 import app.chargeshare.ui.components.ChoiceChips
 import app.chargeshare.ui.components.ErrorText
 import app.chargeshare.ui.components.FormTextField
@@ -136,7 +136,7 @@ fun CreateWallboxScreen(
                 Text(Strings.FieldDays, style = MaterialTheme.typography.labelLarge)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Spacing.Small)) {
                     WEEKDAY_KEYS.forEach { key ->
-                        FilterChip(selected = key in state.days, onClick = { onDayToggled(key) }, label = { Text(weekdayShortFromKey(key)) })
+                        AppFilterChip(selected = key in state.days, onClick = { onDayToggled(key) }, label = weekdayShortFromKey(key))
                     }
                 }
                 error(WallboxField.Days)?.let { ErrorText(it) }
