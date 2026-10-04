@@ -31,7 +31,9 @@ jobs:
           # Self-hosted: ~/.gradle bleibt auf dem Laptop erhalten, der GitHub-Cache wäre nur Zusatzaufwand.
           cache-disabled: ${{ runner.environment == 'self-hosted' }}
       - name: Tests und Build
-        run: ./gradlew :shared:jvmTest :server:build :composeApp:desktopTest :web:wasmJsBrowserDistribution :androidApp:assembleDebug --no-daemon
+        run: >-
+          ./gradlew :shared:jvmTest :server:build :composeApp:desktopTest :web:wasmJsBrowserDistribution :androidApp:assembleDebug
+          --no-daemon --max-workers=2 -Dorg.gradle.jvmargs="-Xmx3g -Dfile.encoding=UTF-8" -Pkotlin.daemon.jvmargs=-Xmx1g
       - name: Gradle- und Kotlin-Daemons beenden (Laptop soll nach dem Lauf Speicher freigeben)
         if: always()
         run: ./gradlew --stop || true
