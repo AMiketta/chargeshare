@@ -7,6 +7,7 @@ import app.chargeshare.data.AuthRepository
 import app.chargeshare.data.Outcome
 import app.chargeshare.shared.model.ProfileLimits
 import app.chargeshare.shared.model.User
+import app.chargeshare.shared.model.UserStats
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,6 +37,8 @@ data class ProfileUiState(
     val error: AppError? = null,
     /** Geöffnetes Bearbeitungsformular, sonst `null`. */
     val edit: ProfileEditState? = null,
+    /** Kennzahlen des Profils; `null`, solange sie laden oder nicht geladen werden konnten (die UI blendet sie dann aus). */
+    val stats: UserStats? = null,
 )
 
 /** Profil: Name/Telefon bearbeiten, Abmelden, Host werden, Konto löschen (DSGVO). Der Nutzer selbst kommt aus dem `SessionState`. */
@@ -43,6 +46,18 @@ class ProfileViewModel(private val authRepository: AuthRepository) : ViewModel()
 
     private val _state = MutableStateFlow(ProfileUiState())
     val state: StateFlow<ProfileUiState> = _state.asStateFlow()
+
+    init {
+        loadStats()
+    }
+
+    /** Lädt die Kennzahlen; bei einem Fehler bleiben sie ausgeblendet (kein Fehlerbanner für Zusatzinfos). */
+    fun loadStats() {
+        viewModelScope.launch {
+            val result = authRepository.stats()
+            if (result is Outcome.Success) _state.update { it.copy(stats = result.value) }
+        }
+    }
 
     fun onLogout() = runBusy { authRepository.logout(); Outcome.Success(Unit) }
 

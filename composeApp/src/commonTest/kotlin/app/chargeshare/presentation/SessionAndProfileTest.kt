@@ -1,12 +1,14 @@
 package app.chargeshare.presentation
 
 import app.chargeshare.data.AppError
+import app.chargeshare.data.Outcome
 import app.chargeshare.data.SessionState
 import app.chargeshare.presentation.profile.ProfileField
 import app.chargeshare.presentation.profile.ProfileViewModel
 import app.chargeshare.presentation.session.SessionViewModel
 import app.chargeshare.shared.model.ProfileLimits
 import app.chargeshare.shared.model.UserRole
+import app.chargeshare.shared.model.UserStats
 import app.chargeshare.testing.FakeAuthRepository
 import app.chargeshare.testing.TestMain
 import app.chargeshare.testing.failure
@@ -68,6 +70,31 @@ class SessionAndProfileTest {
     }
 
     @Test
+    fun statsAreLoadedWhenTheProfileOpens() {
+        val stats = UserStats(sessions = 48, kwhCharged = 423.0, ratingAvg = 4.9, ratingCount = 12)
+        repository.statsResult = Outcome.Success(stats)
+        val profile = ProfileViewModel(repository)
+        assertEquals(stats, profile.state.value.stats)
+        assertEquals(1, repository.statsCalls)
+    }
+
+    @Test
+    fun failedStatsStayHiddenWithoutAnErrorBanner() {
+        repository.statsResult = failure(AppError.Network)
+        val profile = ProfileViewModel(repository)
+        assertNull(profile.state.value.stats)
+        assertNull(profile.state.value.error)
+    }
+
+    @Test
+    fun statsCanBeReloaded() {
+        val profile = ProfileViewModel(repository)
+        repository.statsResult = Outcome.Success(UserStats(sessions = 3))
+        profile.loadStats()
+        assertEquals(3, profile.state.value.stats?.sessions)
+    }
+
+    @Test
     fun deleteAccountNeedsConfirmation() {
         val profile = ProfileViewModel(repository)
         profile.onDeleteRequested()
@@ -84,9 +111,13 @@ class SessionAndProfileTest {
 /** Profil bearbeiten: Name und Telefon mit Validierung. */
 class ProfileEditTest {
     private val repository = FakeAuthRepository(initial = SessionState.SignedIn(testUser()))
-    private val viewModel = ProfileViewModel(repository)
+    private lateinit var viewModel: ProfileViewModel
 
-    @BeforeTest fun setUp() = TestMain.install()
+    @BeforeTest
+    fun setUp() {
+        TestMain.install()
+        viewModel = ProfileViewModel(repository)
+    }
 
     @AfterTest fun tearDown() = TestMain.uninstall()
 

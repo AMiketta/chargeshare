@@ -173,7 +173,13 @@ private fun TabContent(
         }
         MainTab.Profile -> {
             val viewModel = viewModel(key = "profile") { ProfileViewModel(container.authRepository) }
-            ProfileRoute(user, viewModel, container.apiBaseUrl, modifier)
+            ProfileRoute(
+                user = user,
+                viewModel = viewModel,
+                onOpenHost = { navigation.selectTab(MainTab.Host) },
+                modifier = modifier,
+                debugInfo = container.apiBaseUrl.takeIf { container.showDebugInfo },
+            )
         }
     }
 }

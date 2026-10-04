@@ -23,10 +23,12 @@ import ovh.plrapps.mapcompose.core.TileStreamProvider
  *
  * @param apiBaseUrl Server-Wurzel, z. B. `http://10.0.2.2:8080` (Android-Emulator) oder `http://localhost:8080`
  * @param tokenStore dauerhafter Token-Speicher der Plattform (`createSecureTokenStore`)
+ * @param showDebugInfo `true` nur in Debug-Builds: die UI zeigt dann Entwicklerangaben (z. B. die API-Adresse im Profil)
  */
 class AppContainer(
     val apiBaseUrl: String,
     tokenStore: TokenStore,
+    val showDebugInfo: Boolean = false,
 ) {
     private val api = ChargeShareApi(
         http = createHttpClient(apiBaseUrl, tokenStore) {

@@ -291,6 +291,18 @@ object Strings {
     const val DeleteAccountBody =
         "Dein Konto sowie deine Buchungen und Bewertungen werden unwiderruflich gelöscht (DSGVO)."
     const val DeleteAccountConfirm = "Endgültig löschen"
+    const val ProfileHostGroup = "Mein Host-Bereich"
+    const val ProfileHostOpen = "Meine Wallboxen"
+    const val ProfileHostOpenSubtitle = "Preise, Verfügbarkeit und Einnahmen"
+    const val ProfileBecomeHostSubtitle = "Wallbox teilen und verdienen"
+    const val ProfileAccountGroup = "Konto & Sicherheit"
+    const val ProfilePrivacy = "Datenschutz & DSGVO"
+    const val ProfilePrivacyMore = "Die ausführliche Datenschutzerklärung folgt vor dem Store-Release."
+    const val ProfileDeleteSubtitle = "Alle Daten werden gelöscht"
+    const val StatSessions = "Sessions"
+    const val StatRating = "Bewertung"
+    const val StatKwh = "geladen"
+    const val StatNoValue = "–"
     const val PrivacyNote = "Datenschutz: Wir erheben nur Daten, die für Buchung und Abrechnung nötig sind. Der Standort wird nur mit deiner Einwilligung genutzt."
 
     // ---- Fehler

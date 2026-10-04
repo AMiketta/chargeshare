@@ -151,3 +151,10 @@ fun backdateBooking(bookingId: String, minutesAgo: Long) {
         exec("UPDATE bookings SET created_at = now() - interval '$minutesAgo minutes' WHERE id = '$bookingId'")
     }
 }
+
+/** Setzt die tatsaechlich geladenen kWh einer Buchung per SQL (sonst nur durch einen echten OCPP-Ladevorgang). */
+fun forceBookingActualKwh(bookingId: String, kwh: Double) {
+    org.jetbrains.exposed.v1.jdbc.transactions.transaction(TestDb.database) {
+        exec("UPDATE bookings SET actual_kwh = $kwh WHERE id = '$bookingId'")
+    }
+}
