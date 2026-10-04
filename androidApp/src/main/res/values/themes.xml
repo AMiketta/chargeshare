@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fensterhintergrund vor dem ersten Compose-Frame (Hell); passt zu ChargeShareColors.Background. -->
+    <style name="Theme.ChargeShare" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#F5F4F1</item>
+    </style>
+</resources>

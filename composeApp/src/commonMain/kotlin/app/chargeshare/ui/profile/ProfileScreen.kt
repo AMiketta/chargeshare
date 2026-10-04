@@ -35,6 +35,7 @@ import app.chargeshare.presentation.profile.ProfileEditState
 import app.chargeshare.presentation.profile.ProfileField
 import app.chargeshare.presentation.profile.ProfileUiState
 import app.chargeshare.presentation.profile.ProfileViewModel
+import app.chargeshare.presentation.theme.ThemeMode
 import app.chargeshare.shared.model.User
 import app.chargeshare.shared.model.UserRole
 import app.chargeshare.shared.model.UserStats
@@ -42,6 +43,7 @@ import app.chargeshare.ui.AppIcons
 import app.chargeshare.ui.ChargeShareColors
 import app.chargeshare.ui.Spacing
 import app.chargeshare.ui.Strings
+import app.chargeshare.ui.components.ChoiceChips
 import app.chargeshare.ui.components.ErrorText
 import app.chargeshare.ui.components.FormTextField
 import app.chargeshare.ui.components.InfoPill
@@ -58,6 +60,8 @@ fun ProfileRoute(
     user: User,
     viewModel: ProfileViewModel,
     onOpenHost: () -> Unit,
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
     modifier: Modifier = Modifier,
     debugInfo: String? = null,
 ) {
@@ -66,6 +70,8 @@ fun ProfileRoute(
         user = user,
         state = state,
         debugInfo = debugInfo,
+        themeMode = themeMode,
+        onThemeModeChange = onThemeModeChange,
         onLogout = viewModel::onLogout,
         onBecomeHost = viewModel::onBecomeHost,
         onOpenHost = onOpenHost,
@@ -85,12 +91,15 @@ fun ProfileRoute(
  * Profil im Design-Stil: grüner Kopf mit Avatar, Verifizierung und drei Kennzahlen, darunter gruppierte Menülisten.
  *
  * @param debugInfo Entwicklerzeile (z. B. API-Adresse); wird nur in Debug-Builds übergeben, sonst `null`
+ * @param themeMode gewählte Darstellung (Hell/Dunkel/System); [onThemeModeChange] speichert eine neue Wahl
  */
 @Composable
 fun ProfileScreen(
     user: User,
     state: ProfileUiState,
     debugInfo: String?,
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
     onLogout: () -> Unit,
     onBecomeHost: () -> Unit,
     onOpenHost: () -> Unit,
@@ -132,6 +141,9 @@ fun ProfileScreen(
                 MenuDivider()
                 MenuItem(AppIcons.Shield, Strings.ProfilePrivacy, { showPrivacy = true })
             }
+            MenuGroup(label = Strings.ProfileAppearanceGroup) {
+                ThemeModeSelector(themeMode, onThemeModeChange)
+            }
             MenuGroup {
                 MenuItem(AppIcons.Logout, Strings.Logout, onLogout, enabled = !state.isBusy)
                 MenuDivider()
@@ -168,6 +180,23 @@ fun ProfileScreen(
     }
 }
 
+/** Auswahl Hell / Dunkel / System als Chip-Reihe innerhalb einer Menügruppe. */
+@Composable
+private fun ThemeModeSelector(selected: ThemeMode, onSelected: (ThemeMode) -> Unit) {
+    Column(
+        modifier = Modifier.padding(vertical = Spacing.Medium),
+        verticalArrangement = Arrangement.spacedBy(Spacing.Small),
+    ) {
+        Text(Strings.ThemeLabel, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(horizontal = Spacing.Medium))
+        ChoiceChips(
+            options = ThemeMode.entries,
+            selected = selected,
+            label = Strings::themeMode,
+            onSelected = onSelected,
+        )
+    }
+}
+
 /** Tiefgrüner Kopf: Avatar, Name, E-Mail, Rolle/Verifizierung und (sobald geladen) die drei Kennzahlen. */
 @Composable
 private fun ProfileHeader(user: User, stats: UserStats?) {
@@ -188,11 +217,11 @@ private fun ProfileHeader(user: User, stats: UserStats?) {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = ChargeShareColors.OnPrimary.copy(alpha = HEADER_SECONDARY_ALPHA))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(Spacing.Small)) {
-                    InfoPill(roleLabel(user.role), containerColor = ChargeShareColors.PrimaryLight, contentColor = ChargeShareColors.Primary)
+                    InfoPill(roleLabel(user.role), containerColor = ChargeShareColors.PrimaryLight, contentColor = ChargeShareColors.PrimaryText)
                     InfoPill(
                         text = if (user.isVerified) Strings.Verified else Strings.NotVerified,
                         containerColor = if (user.isVerified) ChargeShareColors.PrimarySurface else ChargeShareColors.SurfaceVariant,
-                        contentColor = if (user.isVerified) ChargeShareColors.Primary else ChargeShareColors.OnSurfaceVariant,
+                        contentColor = if (user.isVerified) ChargeShareColors.PrimaryText else ChargeShareColors.OnSurfaceVariant,
                     )
                 }
             }
@@ -218,7 +247,7 @@ private fun StatChip(value: String, label: String, modifier: Modifier = Modifier
             modifier = Modifier.padding(vertical = Spacing.Small + Spacing.XSmall, horizontal = Spacing.Small),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(value, style = MaterialTheme.typography.titleMedium, color = ChargeShareColors.Primary, maxLines = 1)
+            Text(value, style = MaterialTheme.typography.titleMedium, color = ChargeShareColors.PrimaryText, maxLines = 1)
             Text(label, style = MaterialTheme.typography.labelSmall, color = ChargeShareColors.OnSurfaceMuted, maxLines = 1)
         }
     }

@@ -19,7 +19,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
@@ -105,7 +104,7 @@ fun WallboxMap(
             color = ChargeShareColors.OnSurface,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .background(Color.White.copy(alpha = ATTRIBUTION_ALPHA))
+                .background(ChargeShareColors.Surface.copy(alpha = ATTRIBUTION_ALPHA))
                 .padding(horizontal = Spacing.Small, vertical = Spacing.XSmall),
         )
     }

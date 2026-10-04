@@ -61,10 +61,14 @@ fun PrimaryButton(
         onClick = onClick,
         enabled = enabled && !isLoading,
         modifier = modifier.fillMaxWidth().defaultMinSize(minHeight = Spacing.MinTouchTarget),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = ChargeShareColors.Primary,
+            contentColor = ChargeShareColors.OnPrimary,
+        ),
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.Small), verticalAlignment = Alignment.CenterVertically) {
             if (isLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = ChargeShareColors.OnPrimary)
             } else if (leadingIcon != null) {
                 Icon(leadingIcon, contentDescription = null, modifier = Modifier.size(18.dp))
             }

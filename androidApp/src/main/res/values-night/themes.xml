@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dunkel: kein weißes Aufblitzen beim Start (DarkColors.background). -->
+    <style name="Theme.ChargeShare" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#141310</item>
+    </style>
+</resources>

@@ -240,6 +240,13 @@ CI läuft in GitHub Actions (`.github/workflows/ci.yml`) und baut Tests, Server,
   `./config.sh remove --token <Token>` (Token: `gh api -X POST repos/AMiketta/chargeshare/actions/runners/remove-token -q .token`), danach `rm -rf ~/actions-runner ~/.config/systemd/user/github-runner.service`.
 - **Sicherheit:** Self-hosted-Runner führen den Code der PRs auf dem Laptop aus. Nur für dieses **private** Repo ohne fremde Mitwirkende verwenden, nie für öffentliche Forks.
 
+## Dunkelmodus
+
+Die App hat ein helles und ein dunkles Farbschema (Tokens aus `[data-theme="dark"]` in `docs/ChargeShare-App-Design.html`, umgesetzt als `LightColors`/`DarkColors` in `ui/Theme.kt`).
+Standard ist **System** (`isSystemInDarkTheme`); im Profil unter „Darstellung“ lässt sich **Hell / Dunkel / System** wählen. Die Wahl bleibt gespeichert
+(`ThemeSettings` über `PreferenceStorage`: Android `SharedPreferences`, iOS `NSUserDefaults`, Desktop `java.util.prefs`, Web `localStorage`).
+Kartenkacheln bleiben in beiden Modi hell (OpenStreetMap). Unter Android passen sich Statusleiste, Navigationsleiste und Fensterhintergrund an (`MainActivity`, `values-night/themes.xml`).
+
 ## Nächste Schritte
 
 1. Server: Stripe gegen Testkonto pruefen (Google Pay/Apple Pay mit echten Testschlüsseln durchspielen), Zahlung nach OCPP-Abschluss auf tatsaechliche kWh abrechnen, RemoteStart/Stop

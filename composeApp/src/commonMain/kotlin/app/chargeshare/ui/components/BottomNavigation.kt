@@ -67,7 +67,7 @@ private fun NavigationBarEntry(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val contentColor = if (isSelected) ChargeShareColors.Primary else ChargeShareColors.OnSurfaceMuted
+    val contentColor = if (isSelected) ChargeShareColors.PrimaryText else ChargeShareColors.OnSurfaceMuted
     Column(
         modifier = modifier
             .height(NAV_ENTRY_HEIGHT)

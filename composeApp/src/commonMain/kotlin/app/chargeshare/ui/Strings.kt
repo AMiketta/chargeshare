@@ -4,6 +4,7 @@ import app.chargeshare.data.AppError
 import app.chargeshare.payment.PaymentMethodChoice
 import app.chargeshare.presentation.auth.FieldError
 import app.chargeshare.presentation.host.WallboxField
+import app.chargeshare.presentation.theme.ThemeMode
 import app.chargeshare.shared.model.BookingStatus
 
 /**
@@ -154,7 +155,14 @@ object Strings {
 
     fun bookNowWithPrice(total: Double?) = if (total == null) "Jetzt buchen" else "Jetzt buchen · ${formatEuro(total)}"
 
-    fun estimateLine(kwh: Double, price: Double) = "ca. ${formatDecimal(kwh, 0)} kWh × ${formatDecimal(price, 2)} €"
+    /** Beschriftung der Auswahl im Profil. */
+    fun themeMode(mode: ThemeMode) = when (mode) {
+        ThemeMode.System -> ThemeSystem
+        ThemeMode.Light -> ThemeLight
+        ThemeMode.Dark -> ThemeDark
+    }
+
+    fun estimateLine(kwh: Double, price: Double) = "ca. ${formatDecimal(kwh, 1)} kWh × ${formatDecimal(price, 2)} €"
 
     fun durationLabel(minutes: Int): String {
         val hours = minutes / MINUTES_PER_HOUR
@@ -300,6 +308,11 @@ object Strings {
     const val ProfileAccountGroup = "Konto & Sicherheit"
     const val ProfilePrivacy = "Datenschutz & DSGVO"
     const val ProfilePrivacyMore = "Die ausführliche Datenschutzerklärung folgt vor dem Store-Release."
+    const val ProfileAppearanceGroup = "Darstellung"
+    const val ThemeLabel = "Design"
+    const val ThemeSystem = "System"
+    const val ThemeLight = "Hell"
+    const val ThemeDark = "Dunkel"
     const val ProfileDeleteSubtitle = "Alle Daten werden gelöscht"
     const val StatSessions = "Sessions"
     const val StatRating = "Bewertung"

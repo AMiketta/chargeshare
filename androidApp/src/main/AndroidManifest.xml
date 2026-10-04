@@ -10,7 +10,7 @@
         android:label="ChargeShare"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
-        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        android:theme="@style/Theme.ChargeShare">
         <!-- Noetig fuer Google Pay im Stripe-PaymentSheet (Google-Pay-API aktivieren). -->
         <meta-data
             android:name="com.google.android.gms.wallet.api.enabled"

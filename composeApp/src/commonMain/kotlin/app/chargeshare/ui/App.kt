@@ -58,8 +58,8 @@ import app.chargeshare.ui.wallbox.WallboxListRoute
  */
 @Composable
 fun App(container: AppContainer, paymentLauncher: PaymentLauncher = UnsupportedPaymentLauncher) {
-    ChargeShareTheme {
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialThemeBackground) {
+    ChargeShareTheme(darkTheme = rememberIsDarkTheme(container.themeSettings)) {
+        Surface(modifier = Modifier.fillMaxSize(), color = ChargeShareColors.Background) {
             val sessionViewModel = viewModel { SessionViewModel(container.authRepository) }
             val session by sessionViewModel.session.collectAsState()
             when (val current = session) {
@@ -79,8 +79,6 @@ fun App(container: AppContainer, paymentLauncher: PaymentLauncher = UnsupportedP
         }
     }
 }
-
-private val MaterialThemeBackground = ChargeShareColors.Background
 
 @Composable
 private fun RestoringSession() {
@@ -173,9 +171,12 @@ private fun TabContent(
         }
         MainTab.Profile -> {
             val viewModel = viewModel(key = "profile") { ProfileViewModel(container.authRepository) }
+            val themeMode by container.themeSettings.mode.collectAsState()
             ProfileRoute(
                 user = user,
                 viewModel = viewModel,
+                themeMode = themeMode,
+                onThemeModeChange = container.themeSettings::select,
                 onOpenHost = { navigation.selectTab(MainTab.Host) },
                 modifier = modifier,
                 debugInfo = container.apiBaseUrl.takeIf { container.showDebugInfo },

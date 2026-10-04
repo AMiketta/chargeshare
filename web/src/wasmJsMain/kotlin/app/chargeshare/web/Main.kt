@@ -4,6 +4,7 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
 import app.chargeshare.di.AppContainer
 import app.chargeshare.platform.PlatformContext
+import app.chargeshare.platform.createPreferenceStorage
 import app.chargeshare.platform.createSecureTokenStore
 import app.chargeshare.ui.App
 import kotlinx.browser.document
@@ -21,7 +22,7 @@ private fun apiBaseUrl(): String =
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    val container = AppContainer(apiBaseUrl(), createSecureTokenStore(PlatformContext()))
+    val container = AppContainer(apiBaseUrl(), createSecureTokenStore(PlatformContext()), createPreferenceStorage(PlatformContext()))
     // `document.body` ist in einem Browser immer gesetzt, sobald das Skript läuft.
     ComposeViewport(checkNotNull(document.body)) {
         App(container)

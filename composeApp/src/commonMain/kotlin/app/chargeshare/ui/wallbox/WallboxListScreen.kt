@@ -351,9 +351,9 @@ private fun MapUnavailableNote(modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Spacing.Medium),
         ) {
-            Icon(AppIcons.Map, contentDescription = null, tint = ChargeShareColors.Primary)
+            Icon(AppIcons.Map, contentDescription = null, tint = ChargeShareColors.PrimaryText)
             Column(verticalArrangement = Arrangement.spacedBy(Spacing.XSmall)) {
-                Text(Strings.MapUnavailableTitle, style = MaterialTheme.typography.titleSmall, color = ChargeShareColors.Primary)
+                Text(Strings.MapUnavailableTitle, style = MaterialTheme.typography.titleSmall, color = ChargeShareColors.PrimaryText)
                 Text(Strings.MapUnavailableBody, style = MaterialTheme.typography.bodySmall)
             }
         }
@@ -386,7 +386,7 @@ fun WallboxCard(wallbox: Wallbox, onClick: () -> Unit, modifier: Modifier = Modi
                 }
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
-                Text(formatPricePerKwh(wallbox.pricePerKwh), style = MaterialTheme.typography.titleMedium, color = ChargeShareColors.Primary)
+                Text(formatPricePerKwh(wallbox.pricePerKwh), style = MaterialTheme.typography.titleMedium, color = ChargeShareColors.PrimaryText)
                 AvailabilityPill(wallbox.isOnline)
             }
         }

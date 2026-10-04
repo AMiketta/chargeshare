@@ -254,7 +254,7 @@ private fun BookingConfirmation(
                     "${formatDateTime(booking.startTime, zone)} – ${formatTime(booking.endTime, zone)}",
                     style = MaterialTheme.typography.bodyLarge,
                 )
-                booking.totalAmount?.let { Text(formatEuro(it), style = MaterialTheme.typography.titleMedium, color = ChargeShareColors.Primary) }
+                booking.totalAmount?.let { Text(formatEuro(it), style = MaterialTheme.typography.titleMedium, color = ChargeShareColors.PrimaryText) }
                 Text(Strings.bookingStatus(booking.status), style = MaterialTheme.typography.labelLarge)
             }
             if (isPending) {

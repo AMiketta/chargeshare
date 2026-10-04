@@ -104,7 +104,7 @@ private fun DetailContent(wallbox: Wallbox, state: WallboxDetailUiState, modifie
             InfoPill(if (wallbox.isMetered) Strings.Metered else Strings.NotMetered)
         }
         SurfaceCard {
-            Text(formatPricePerKwh(wallbox.pricePerKwh), style = MaterialTheme.typography.headlineSmall, color = ChargeShareColors.Primary)
+            Text(formatPricePerKwh(wallbox.pricePerKwh), style = MaterialTheme.typography.headlineSmall, color = ChargeShareColors.PrimaryText)
             Text(Strings.ratingSummary(wallbox.ratingAvg, wallbox.ratingCount), style = MaterialTheme.typography.bodyMedium)
             Text(Strings.duration(wallbox.minDurationMin, wallbox.maxDurationMin), style = MaterialTheme.typography.bodyMedium)
             listOfNotNull(wallbox.manufacturer, wallbox.model).takeIf { it.isNotEmpty() }?.let {
@@ -129,7 +129,7 @@ private fun DetailContent(wallbox: Wallbox, state: WallboxDetailUiState, modifie
 private fun AvailabilityCard(wallbox: Wallbox, freeSlotsToday: Int?) {
     SurfaceCard {
         SectionTitle(Strings.Availability)
-        freeSlotsToday?.let { Text(Strings.freeSlotsToday(it), style = MaterialTheme.typography.bodyMedium, color = ChargeShareColors.Primary) }
+        freeSlotsToday?.let { Text(Strings.freeSlotsToday(it), style = MaterialTheme.typography.bodyMedium, color = ChargeShareColors.PrimaryText) }
         if (wallbox.availability.isEmpty()) {
             Text(Strings.NoAvailability, style = MaterialTheme.typography.bodyMedium)
         } else {
