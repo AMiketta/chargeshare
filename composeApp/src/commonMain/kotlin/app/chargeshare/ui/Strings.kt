@@ -51,7 +51,8 @@ object Strings {
     const val SearchPlaceholder = "Wallbox in der Nähe suchen …"
     const val MoreFilters = "Mehr Filter"
     const val FewerFilters = "Weniger Filter"
-    const val FilterOnlyOnline = "Jetzt verfügbar"
+    const val FilterOnlyOnline = "Jetzt frei"
+    const val FilterAll = "Alle"
     const val FilterAllConnectors = "Alle Stecker"
     const val FilterAnyPower = "Beliebige Leistung"
     const val FilterAnyPrice = "Beliebiger Preis"
@@ -72,7 +73,7 @@ object Strings {
     const val NotMetered = "Ohne Eichzähler"
     const val DetailTitle = "Wallbox"
 
-    fun stationsNearby(count: Int) = if (count == 1) "1 Wallbox in der Nähe" else "$count Wallboxen in der Nähe"
+    fun stationsNearby(count: Int) = if (count == 1) "1 Station in der Nähe" else "$count Stationen in der Nähe"
 
     fun powerFilter(kw: Double) = "${formatPowerKw(kw)}+"
 

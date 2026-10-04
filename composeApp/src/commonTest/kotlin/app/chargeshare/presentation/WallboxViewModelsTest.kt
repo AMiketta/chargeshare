@@ -81,6 +81,51 @@ class WallboxViewModelsTest {
     }
 
     @Test
+    fun nearestVisibleWallboxIsActiveUntilAPinIsSelected() {
+        repository.searchResult = Outcome.Success(listOf(testWallbox("a"), testWallbox("b"), testWallbox("c")))
+        val viewModel = WallboxListViewModel(repository)
+        assertEquals("a", viewModel.state.value.activeWallbox?.id)
+        viewModel.onWallboxSelected("c")
+        assertEquals("c", viewModel.state.value.activeWallbox?.id)
+        assertEquals(1, repository.searches.size, "Auswahl darf keine neue Suche auslösen")
+    }
+
+    @Test
+    fun selectionOfAHiddenWallboxFallsBackToTheFirstVisible() {
+        repository.searchResult = Outcome.Success(listOf(testWallbox("on"), testWallbox("off", isOnline = false)))
+        val viewModel = WallboxListViewModel(repository)
+        viewModel.onWallboxSelected("off")
+        viewModel.onOnlyOnlineChange(true)
+        assertEquals("on", viewModel.state.value.activeWallbox?.id)
+    }
+
+    @Test
+    fun noWallboxesMeansNoActiveWallbox() {
+        assertNull(WallboxListViewModel(repository).state.value.activeWallbox)
+    }
+
+    @Test
+    fun clearQuickFiltersResetsConnectorPowerAndOnlineButKeepsRadiusAndPrice() {
+        val viewModel = WallboxListViewModel(repository)
+        viewModel.onConnectorChange(ConnectorType.TYPE2)
+        viewModel.onMinPowerChange(11.0)
+        viewModel.onOnlyOnlineChange(true)
+        viewModel.onRadiusChange(3_000.0)
+        viewModel.onMaxPriceChange(0.4)
+        repository.searches.clear()
+
+        viewModel.onClearQuickFilters()
+
+        val filter = viewModel.state.value.filter
+        assertNull(filter.connector)
+        assertNull(filter.minPowerKw)
+        assertFalse(filter.onlyOnline)
+        assertEquals(3_000.0, filter.radiusM)
+        assertEquals(0.4, filter.maxPricePerKwh)
+        assertEquals(1, repository.searches.size, "genau eine neue Suche")
+    }
+
+    @Test
     fun listIsOnlyViewWhenPlatformHasNoMap() {
         val state = WallboxListViewModel(repository, mapSupported = false).state.value
         assertFalse(state.mapSupported)

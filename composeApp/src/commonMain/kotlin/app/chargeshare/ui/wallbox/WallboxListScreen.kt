@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
@@ -50,6 +51,7 @@ import app.chargeshare.ui.components.SectionTitle
 import app.chargeshare.ui.formatDistance
 import app.chargeshare.ui.formatPowerKw
 import app.chargeshare.ui.formatPricePerKwh
+import app.chargeshare.ui.map.StationSheet
 import app.chargeshare.ui.map.WallboxMap
 import androidx.compose.ui.unit.dp
 import ovh.plrapps.mapcompose.core.TileStreamProvider
@@ -76,6 +78,8 @@ fun WallboxListRoute(
         onMinPowerChange = viewModel::onMinPowerChange,
         onMaxPriceChange = viewModel::onMaxPriceChange,
         onOnlyOnlineChange = viewModel::onOnlyOnlineChange,
+        onClearQuickFilters = viewModel::onClearQuickFilters,
+        onWallboxSelected = viewModel::onWallboxSelected,
         onViewModeChange = viewModel::onViewModeChange,
         onRetry = viewModel::onRefresh,
         onOpenWallbox = onOpenWallbox,
@@ -97,42 +101,51 @@ fun WallboxListScreen(
     onMinPowerChange: (Double?) -> Unit,
     onMaxPriceChange: (Double?) -> Unit,
     onOnlyOnlineChange: (Boolean) -> Unit,
+    onClearQuickFilters: () -> Unit,
+    onWallboxSelected: (String) -> Unit,
     onViewModeChange: (SearchViewMode) -> Unit,
     onRetry: () -> Unit,
     onOpenWallbox: (Wallbox) -> Unit,
     tileSource: TileStreamProvider,
     modifier: Modifier = Modifier,
 ) {
-    // Rein visueller Zustand: ob die Filter über der Karte eingeblendet sind.
-    var showMapFilters by remember { mutableStateOf(false) }
-    val filters: @Composable () -> Unit = {
-        Filters(state.filter, onRadiusChange, onConnectorChange, onMinPowerChange, onMaxPriceChange, onOnlyOnlineChange)
-    }
+    // Rein visueller Zustand: ob die erweiterten Filter (Umkreis, alle Stecker, Leistung, Preis) aufgeklappt sind.
+    var showMoreFilters by remember { mutableStateOf(false) }
     Column(modifier = modifier.fillMaxSize()) {
         HeroHeader(title = Strings.AppName, subtitle = Strings.SearchCenterNote) {
             SearchField(state.query, onQueryChange)
         }
         if (state.mapSupported) {
-            ViewModeSwitch(
-                viewMode = state.viewMode,
-                onViewModeChange = onViewModeChange,
-                showFilters = showMapFilters,
-                onShowFiltersChange = { showMapFilters = it },
-                modifier = Modifier.padding(vertical = Spacing.Small),
-            )
+            ViewModeSwitch(state.viewMode, onViewModeChange, Modifier.padding(top = Spacing.Small))
+        }
+        QuickFilters(
+            filter = state.filter,
+            showMore = showMoreFilters,
+            onShowMoreChange = { showMoreFilters = it },
+            onConnectorChange = onConnectorChange,
+            onMinPowerChange = onMinPowerChange,
+            onOnlyOnlineChange = onOnlyOnlineChange,
+            onClearQuickFilters = onClearQuickFilters,
+            modifier = Modifier.padding(vertical = Spacing.Small),
+        )
+        if (showMoreFilters) {
+            Column(Modifier.heightIn(max = MORE_FILTERS_MAX_HEIGHT).verticalScroll(rememberScrollState())) {
+                MoreFilters(state.filter, onRadiusChange, onConnectorChange, onMinPowerChange, onMaxPriceChange)
+            }
         }
         if (state.showMap) {
-            MapResults(state, showMapFilters, filters, onRetry, onOpenWallbox, tileSource)
+            MapResults(state, onRetry, onOpenWallbox, onWallboxSelected, tileSource)
         } else {
-            ListResults(state, filters, onRetry, onOpenWallbox)
+            ListResults(state, onRetry, onOpenWallbox)
         }
     }
 }
 
+private val MORE_FILTERS_MAX_HEIGHT = 220.dp
+
 @Composable
 private fun ListResults(
     state: WallboxListUiState,
-    filters: @Composable () -> Unit,
     onRetry: () -> Unit,
     onOpenWallbox: (Wallbox) -> Unit,
 ) {
@@ -141,7 +154,6 @@ private fun ListResults(
         contentPadding = PaddingValues(vertical = Spacing.Medium),
         verticalArrangement = Arrangement.spacedBy(Spacing.Small),
     ) {
-        item(key = "filters") { filters() }
         if (!state.mapSupported) {
             item(key = "map") { MapUnavailableNote(Modifier.padding(horizontal = Spacing.Medium)) }
         }
@@ -164,39 +176,35 @@ private fun ListResults(
 @Composable
 private fun MapResults(
     state: WallboxListUiState,
-    showFilters: Boolean,
-    filters: @Composable () -> Unit,
     onRetry: () -> Unit,
     onOpenWallbox: (Wallbox) -> Unit,
+    onWallboxSelected: (String) -> Unit,
     tileSource: TileStreamProvider,
 ) {
     val wallboxes = state.visibleWallboxes
     val pins = remember(wallboxes) { wallboxes.map(Wallbox::toPin) }
+    val activeId = state.activeWallbox?.id
     Column(modifier = Modifier.fillMaxSize()) {
-        if (showFilters) {
-            Column(Modifier.heightIn(max = MAP_FILTER_MAX_HEIGHT).verticalScroll(rememberScrollState())) { filters() }
-        }
         if (state.isLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
         state.error?.let { ErrorBox(it, onRetry) }
         if (!state.isLoading && state.error == null && wallboxes.isEmpty()) EmptyBox(Strings.NoWallboxes)
         WallboxMap(
             pins = pins,
             tileSource = tileSource,
-            onPinClick = { id -> wallboxes.firstOrNull { it.id == id }?.let(onOpenWallbox) },
+            onPinClick = onWallboxSelected,
             modifier = Modifier.fillMaxWidth().weight(1f),
-        )
+            activePinId = activeId,
+        ) {
+            StationSheet(wallboxes, activeId, onOpenWallbox, Modifier.align(Alignment.BottomCenter))
+        }
     }
 }
 
-private val MAP_FILTER_MAX_HEIGHT = 220.dp
-
-/** Umschalter Karte/Liste; über der Karte zusätzlich ein Knopf, der die Filter ein- und ausblendet. */
+/** Umschalter Karte/Liste. */
 @Composable
 private fun ViewModeSwitch(
     viewMode: SearchViewMode,
     onViewModeChange: (SearchViewMode) -> Unit,
-    showFilters: Boolean,
-    onShowFiltersChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -216,13 +224,6 @@ private fun ViewModeSwitch(
             label = Strings.ViewList,
             leadingIcon = AppIcons.List,
         )
-        if (viewMode == SearchViewMode.Map) {
-            AppFilterChip(
-                selected = showFilters,
-                onClick = { onShowFiltersChange(!showFilters) },
-                label = if (showFilters) Strings.HideFilters else Strings.ShowFilters,
-            )
-        }
     }
 }
 
@@ -246,19 +247,77 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
 
 private val SEARCH_FIELD_CORNER_DP = Spacing.Large
 
+/**
+ * Schnellfilter-Pills wie im Design: „Alle“, „Typ 2“, „11 kW+“, „Jetzt frei“ und „Mehr Filter“.
+ * „Alle“ ist gewählt, solange kein Schnellfilter aktiv ist, und setzt sie sonst zurück.
+ */
 @Composable
-private fun Filters(
+private fun QuickFilters(
+    filter: WallboxFilter,
+    showMore: Boolean,
+    onShowMoreChange: (Boolean) -> Unit,
+    onConnectorChange: (ConnectorType?) -> Unit,
+    onMinPowerChange: (Double?) -> Unit,
+    onOnlyOnlineChange: (Boolean) -> Unit,
+    onClearQuickFilters: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val noQuickFilter = filter.connector == null && filter.minPowerKw == null && !filter.onlyOnline
+    LazyRow(
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = Spacing.Medium),
+        horizontalArrangement = Arrangement.spacedBy(Spacing.Small),
+    ) {
+        item { AppFilterChip(selected = noQuickFilter, onClick = onClearQuickFilters, label = Strings.FilterAll) }
+        item {
+            AppFilterChip(
+                selected = filter.connector == QUICK_CONNECTOR,
+                onClick = { onConnectorChange(if (filter.connector == QUICK_CONNECTOR) null else QUICK_CONNECTOR) },
+                label = QUICK_CONNECTOR.displayName,
+            )
+        }
+        item {
+            AppFilterChip(
+                selected = filter.minPowerKw == QUICK_POWER_KW,
+                onClick = { onMinPowerChange(if (filter.minPowerKw == QUICK_POWER_KW) null else QUICK_POWER_KW) },
+                label = Strings.powerFilter(QUICK_POWER_KW),
+            )
+        }
+        item {
+            AppFilterChip(
+                selected = filter.onlyOnline,
+                onClick = { onOnlyOnlineChange(!filter.onlyOnline) },
+                label = Strings.FilterOnlyOnline,
+            )
+        }
+        item {
+            AppFilterChip(
+                selected = showMore || filter.hasExtraFilter,
+                onClick = { onShowMoreChange(!showMore) },
+                label = if (showMore) Strings.FewerFilters else Strings.MoreFilters,
+            )
+        }
+    }
+}
+
+private val QUICK_CONNECTOR = ConnectorType.TYPE2
+private const val QUICK_POWER_KW = 11.0
+
+/** Gilt ein Umkreis- oder Preisfilter abweichend vom Standard bzw. eine Mindestleistung außerhalb der Schnellfilter? */
+private val WallboxFilter.hasExtraFilter: Boolean
+    get() = radiusM != WallboxFilter.DEFAULT_RADIUS_M || maxPricePerKwh != null ||
+        (minPowerKw != null && minPowerKw != QUICK_POWER_KW) || (connector != null && connector != QUICK_CONNECTOR)
+
+/** Erweiterte Filter: Umkreis, alle Steckertypen, Mindestleistung, Höchstpreis. */
+@Composable
+private fun MoreFilters(
     filter: WallboxFilter,
     onRadiusChange: (Double) -> Unit,
     onConnectorChange: (ConnectorType?) -> Unit,
     onMinPowerChange: (Double?) -> Unit,
     onMaxPriceChange: (Double?) -> Unit,
-    onOnlyOnlineChange: (Boolean) -> Unit,
 ) {
-    // Rein visueller Zustand: ob die erweiterten Filter aufgeklappt sind.
-    var showMore by remember { mutableStateOf(false) }
-    val hasExtraFilter = filter.minPowerKw != null || filter.maxPricePerKwh != null || filter.onlyOnline
-    Column(verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.Small), modifier = Modifier.padding(bottom = Spacing.Small)) {
         ChoiceChips(RADIUS_OPTIONS_M, filter.radiusM, Strings::radiusLabel, onRadiusChange)
         ChoiceChips(
             options = listOf<ConnectorType?>(null) + ConnectorType.entries,
@@ -266,32 +325,18 @@ private fun Filters(
             label = { it?.displayName ?: Strings.FilterAllConnectors },
             onSelected = onConnectorChange,
         )
-        Row(modifier = Modifier.padding(horizontal = Spacing.Medium), horizontalArrangement = Arrangement.spacedBy(Spacing.Small)) {
-            AppFilterChip(
-                selected = filter.onlyOnline,
-                onClick = { onOnlyOnlineChange(!filter.onlyOnline) },
-                label = Strings.FilterOnlyOnline,
-            )
-            AppFilterChip(
-                selected = showMore || hasExtraFilter,
-                onClick = { showMore = !showMore },
-                label = if (showMore) Strings.FewerFilters else Strings.MoreFilters,
-            )
-        }
-        if (showMore) {
-            ChoiceChips(
-                options = listOf<Double?>(null) + POWER_OPTIONS_KW,
-                selected = filter.minPowerKw,
-                label = { it?.let(Strings::powerFilter) ?: Strings.FilterAnyPower },
-                onSelected = onMinPowerChange,
-            )
-            ChoiceChips(
-                options = listOf<Double?>(null) + PRICE_OPTIONS_EUR,
-                selected = filter.maxPricePerKwh,
-                label = { it?.let(Strings::priceFilter) ?: Strings.FilterAnyPrice },
-                onSelected = onMaxPriceChange,
-            )
-        }
+        ChoiceChips(
+            options = listOf<Double?>(null) + POWER_OPTIONS_KW,
+            selected = filter.minPowerKw,
+            label = { it?.let(Strings::powerFilter) ?: Strings.FilterAnyPower },
+            onSelected = onMinPowerChange,
+        )
+        ChoiceChips(
+            options = listOf<Double?>(null) + PRICE_OPTIONS_EUR,
+            selected = filter.maxPricePerKwh,
+            label = { it?.let(Strings::priceFilter) ?: Strings.FilterAnyPrice },
+            onSelected = onMaxPriceChange,
+        )
     }
 }
 
