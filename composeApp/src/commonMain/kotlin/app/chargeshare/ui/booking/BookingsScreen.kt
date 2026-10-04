@@ -206,7 +206,7 @@ private fun BookingCard(
             "${formatDateTime(booking.startTime, zone)} – ${formatTime(booking.endTime, zone)}",
             style = MaterialTheme.typography.bodyLarge,
         )
-        booking.totalAmount?.let { Text(formatEuro(it), style = MaterialTheme.typography.titleMedium, color = ChargeShareColors.Primary) }
+        booking.totalAmount?.let { Text(formatEuro(it), style = MaterialTheme.typography.titleMedium, color = ChargeShareColors.PrimaryText) }
         if (booking.status == BookingStatus.PENDING) {
             Text(Strings.PendingPaymentHint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -217,7 +217,7 @@ private fun BookingCard(
         if (booking.isReviewable()) {
             TextButton(onClick = onReview) { Text(Strings.ReviewAction) }
         } else if (booking.status == BookingStatus.COMPLETED && booking.reviewed) {
-            Text(Strings.Reviewed, style = MaterialTheme.typography.bodySmall, color = ChargeShareColors.Primary)
+            Text(Strings.Reviewed, style = MaterialTheme.typography.bodySmall, color = ChargeShareColors.PrimaryText)
         }
         if (booking.isCancellable()) {
             TextButton(onClick = onCancel, enabled = !isCancelling && !payment.isAnyPaymentBusy) {
@@ -269,7 +269,7 @@ private fun StarRatingInput(rating: Int, onRatingChanged: (Int) -> Unit, enabled
                 Icon(
                     AppIcons.Star,
                     contentDescription = Strings.reviewStarOption(stars),
-                    tint = if (stars <= rating) ChargeShareColors.Accent else ChargeShareColors.Outline,
+                    tint = if (stars <= rating) ChargeShareColors.Accent else ChargeShareColors.OnSurfaceMuted,
                 )
             }
         }
@@ -334,8 +334,8 @@ private fun StatusPill(status: BookingStatus) {
         },
         contentColor = when {
             isProblem -> ChargeShareColors.Error
-            isPending -> ChargeShareColors.OnAccent
-            else -> ChargeShareColors.Primary
+            isPending -> ChargeShareColors.OnAccentLight
+            else -> ChargeShareColors.PrimaryText
         },
     )
 }

@@ -167,7 +167,7 @@ private fun SessionRow(session: ChargingSession, zone: TimeZone) {
             val kwh = session.booking?.actualKwh
             Column(horizontalAlignment = Alignment.End) {
                 Text(Strings.sessionKwh(kwh), style = MaterialTheme.typography.bodyMedium)
-                session.booking?.totalAmount?.let { Text("+${formatEuro(it)}", style = MaterialTheme.typography.titleSmall, color = ChargeShareColors.Primary) }
+                session.booking?.totalAmount?.let { Text("+${formatEuro(it)}", style = MaterialTheme.typography.titleSmall, color = ChargeShareColors.PrimaryText) }
             }
         }
     }
@@ -188,7 +188,7 @@ fun BecomeHostScreen(
             verticalArrangement = Arrangement.spacedBy(Spacing.Medium),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(Strings.BecomeHostTitle, style = MaterialTheme.typography.headlineSmall, color = ChargeShareColors.Primary, textAlign = TextAlign.Center)
+            Text(Strings.BecomeHostTitle, style = MaterialTheme.typography.headlineSmall, color = ChargeShareColors.PrimaryText, textAlign = TextAlign.Center)
             Text(Strings.BecomeHostBody, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
             errorMessage?.let { ErrorText(it) }
             AmberButton(Strings.BecomeHost, onBecomeHost, isLoading = isBusy)

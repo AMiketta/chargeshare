@@ -111,7 +111,7 @@ fun InfoPill(
     text: String,
     modifier: Modifier = Modifier,
     containerColor: Color = ChargeShareColors.PrimarySurface,
-    contentColor: Color = ChargeShareColors.Primary,
+    contentColor: Color = ChargeShareColors.PrimaryText,
 ) {
     Surface(modifier = modifier, shape = CircleShape, color = containerColor, contentColor = contentColor) {
         Text(text, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = Spacing.Small + Spacing.XSmall, vertical = Spacing.XSmall))

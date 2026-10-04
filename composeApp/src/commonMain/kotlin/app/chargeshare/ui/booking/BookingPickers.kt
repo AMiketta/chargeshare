@@ -138,7 +138,7 @@ private fun TimeCell(text: String, selected: Boolean, locked: Boolean, onClick: 
     }
     val content = when {
         locked -> ChargeShareColors.OnSurfaceMuted
-        selected -> ChargeShareColors.Primary
+        selected -> ChargeShareColors.PrimaryText
         else -> ChargeShareColors.OnSurfaceVariant
     }
     Surface(
@@ -149,7 +149,7 @@ private fun TimeCell(text: String, selected: Boolean, locked: Boolean, onClick: 
         shape = MaterialTheme.shapes.small,
         color = container,
         contentColor = content,
-        border = BorderStroke(PickerBorderWidth, if (selected) ChargeShareColors.Primary else ChargeShareColors.Outline),
+        border = BorderStroke(PickerBorderWidth, if (selected) ChargeShareColors.PrimaryText else ChargeShareColors.Outline),
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(

@@ -109,7 +109,7 @@ private fun StationRow(wallbox: Wallbox, isActive: Boolean, onClick: () -> Unit)
             Text(wallbox.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(facts, style = MaterialTheme.typography.bodySmall, color = ChargeShareColors.OnSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Text(formatEuro(wallbox.pricePerKwh), style = MaterialTheme.typography.titleSmall, color = ChargeShareColors.Primary)
+        Text(formatEuro(wallbox.pricePerKwh), style = MaterialTheme.typography.titleSmall, color = ChargeShareColors.PrimaryText)
     }
 }
 

@@ -61,4 +61,10 @@ class FormattersTest {
         assertEquals("2 Std.", Strings.durationLabel(120))
         assertEquals("1 Std. 30 Min.", Strings.durationLabel(90))
     }
+
+    @Test
+    fun `Kostenzeile zeigt kWh mit einer Nachkommastelle`() {
+        assertEquals("ca. 6,4 kWh × 0,39 €", Strings.estimateLine(6.4, 0.39))
+        assertEquals("ca. 5,5 kWh × 0,39 €", Strings.estimateLine(5.5, 0.39))
+    }
 }

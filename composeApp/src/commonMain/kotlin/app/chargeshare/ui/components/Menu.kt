@@ -29,11 +29,30 @@ import app.chargeshare.ui.ChargeShareColors
 import app.chargeshare.ui.Spacing
 
 /** Farbpaare (Icon-Hintergrund, Icon) der Menü-Einträge aus dem Design. */
-enum class MenuIconStyle(val background: Color, val tint: Color) {
-    Green(ChargeShareColors.PrimarySurface, ChargeShareColors.Primary),
-    Amber(ChargeShareColors.AccentLight, ChargeShareColors.AccentDark),
-    Neutral(ChargeShareColors.Background, ChargeShareColors.OnSurfaceVariant),
-    Danger(ChargeShareColors.ErrorLight, ChargeShareColors.Error),
+enum class MenuIconStyle {
+    Green,
+    Amber,
+    Neutral,
+    Danger,
+    ;
+
+    /** Hintergrund des Icon-Kastens; hängt vom aktuellen Theme ab. */
+    val background: Color
+        @Composable get() = when (this) {
+            Green -> ChargeShareColors.PrimarySurface
+            Amber -> ChargeShareColors.AccentLight
+            Neutral -> ChargeShareColors.Surface2
+            Danger -> ChargeShareColors.ErrorLight
+        }
+
+    /** Farbe des Icons; hängt vom aktuellen Theme ab. */
+    val tint: Color
+        @Composable get() = when (this) {
+            Green -> ChargeShareColors.PrimaryText
+            Amber -> ChargeShareColors.AccentDark
+            Neutral -> ChargeShareColors.OnSurfaceVariant
+            Danger -> ChargeShareColors.Error
+        }
 }
 
 /**

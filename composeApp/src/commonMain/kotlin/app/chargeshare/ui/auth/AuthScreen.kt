@@ -61,7 +61,7 @@ fun AuthScreen(
             Text(
                 text = if (isRegister) Strings.CreateAccount else Strings.Login,
                 style = MaterialTheme.typography.headlineSmall,
-                color = ChargeShareColors.Primary,
+                color = ChargeShareColors.PrimaryText,
             )
             if (isRegister) {
                 FormTextField(

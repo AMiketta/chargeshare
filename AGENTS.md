@@ -62,7 +62,7 @@ server ────────────────────────�
 | `presentation/` | ViewModels (`androidx.lifecycle.ViewModel`) und `UiState`-Klassen, ein Unterpaket pro Feature (`auth`, `session`, `wallbox`, `map`, `booking`, `host`, `profile`). **Keine Compose-UI-Imports** |
 | `data/` | Repositories (Schnittstelle + `Api…`-Implementierung über `ChargeShareApi`), `Outcome`/`AppError`/`runCatchingOutcome`, `PersistedTokenStore`, Slot-Zeitlogik |
 | `payment/` | `PaymentLauncher` (Schnittstelle zum Zahlungsfenster), `PaymentRequest`/`PaymentResult`/`PaymentMethodChoice`, `UnsupportedPaymentLauncher` (Desktop/Web). Plattform-Implementierungen: Android `androidApp/.../StripePaymentLauncher`, iOS `iosMain/.../IosPaymentBridge.kt` + Swift `iosApp/.../StripePaymentBridge.swift` |
-| `platform/` | `expect fun createSecureTokenStore(PlatformContext)` mit `actual` je Plattform (Android-Keystore, iOS-Keychain, Desktop-Datei, Web-localStorage); `PlatformContext` ist eine normale Klasse (Android: `Context` im `handle`). `expect val isMapSupported`: ob die Plattform die Karte zeigt (Android/Desktop `true`, iOS/Web `false` → nur Liste) |
+| `platform/` | `expect fun createSecureTokenStore(PlatformContext)` mit `actual` je Plattform (Android-Keystore, iOS-Keychain, Desktop-Datei, Web-localStorage); `expect fun createPreferenceStorage(PlatformContext)` für nicht geheime Einstellungen (Dunkelmodus: SharedPreferences, NSUserDefaults, java.util.prefs, localStorage); `PlatformContext` ist eine normale Klasse (Android: `Context` im `handle`). `expect val isMapSupported`: ob die Plattform die Karte zeigt (Android/Desktop `true`, iOS/Web `false` → nur Liste) |
 | `di/` | `AppContainer` – manuelle Dependency Injection |
 
 ## 3. Tech-Stack (tatsächliche Versionen, Quelle: `gradle/libs.versions.toml`)
@@ -246,7 +246,7 @@ Fehlerbehandlung:
   Pro Screen gibt es ein dünnes `XyzRoute(viewModel)` (holt State, verbindet Events) und ein zustandsloses `XyzScreen(state, onEvent…)`.
 - **`modifier: Modifier = Modifier` ist der erste optionale Parameter** jedes öffentlichen Composables und wird an das Wurzel-Element weitergereicht.
 - **Material 3** (`androidx.compose.material3` bzw. die CMP-Variante) und **Theme-Tokens** statt Hex-Werten im Screen-Code:
-  Farben nur über `MaterialTheme.colorScheme`/`ChargeShareColors`, Typografie über `MaterialTheme.typography`, Abstände über benannte Konstanten (`Spacing`).
+  Farben nur über `MaterialTheme.colorScheme`/`ChargeShareColors` (Hell/Dunkel, siehe Abschnitt 12; nie `Color.White` o. ä. oder zwischengespeicherte Farbwerte), Typografie über `MaterialTheme.typography`, Abstände über benannte Konstanten (`Spacing`).
 - **Previews:** `@Preview` nur dort, wo die Compose-Preview-Tooling-Abhängigkeit vorhanden ist (Android Studio) – Screens so schreiben, dass sie mit festem
   `UiState` ohne ViewModel renderbar sind (das ist durch das Stateless-Muster gegeben).
 - **Barrierefreiheit:** jedes nicht rein dekorative Icon/Bild hat eine `contentDescription` (deutsch, aus `Strings`); dekorative: `null`.
@@ -300,11 +300,18 @@ Quelle: `docs/ChargeShare-App-Design.html` (CSS-Variablen), umgesetzt in `ui/The
 | Akzent (Amber, CTA) | `#F0A500` (hell `#FFF4CC`, dunkel `#C87800`) |
 | Fehler | `#D0392B` (hell `#FDECEA`) |
 | Eckenradien | 10 / 14 / 20 / 26 dp (sm/md/lg/xl); Chips/Pills und Navigations-Pill vollrund |
+| Dunkel | Hintergrund `#141310`, Fläche `#1E1D1A` (2: `#272522`, 3: `#302E2A`), Rand `#363330`, Text `#E8E6E2` / `#A8A5A0`, Primär-Fläche `#0D2B1F` / `#0D3824`, Amber-Fläche `#2D2000` |
 | Text gedämpft / inaktiv | `#555250` / `#9E9B98` (`OnSurfaceVariant` / `OnSurfaceMuted`) |
 | Schatten | `Elevation.Card` (2 dp, Karten und Chips), `Elevation.Raised` (6 dp, schwebende Elemente) |
 | Schrift | Plus Jakarta Sans 400/500/600/700/800 (`ui/Typography.kt`, `chargeShareTypography`) |
 
 Der **Amber-Button** ist die Haupthandlung auf Detail- und Bestätigungsseiten (z. B. „Zeitslot buchen“); der abschließende „Jetzt buchen · Preis“-Button im Buchungsflow ist wie im Mockup ein grüner `PrimaryButton` mit Haken. Der Buchungsflow nutzt `ui/booking/BookingPickers.kt` (Datumsscroller, 3-Spalten-Startzeitraster mit grauen/durchgestrichenen belegten Slots, Dauer-Pills in Amber) und eine Amber-Kostenkarte. Hero-Bereiche sind tiefgrün mit weißer Schrift.
+
+**Hell/Dunkel:** `ChargeShareColors.X` (z. B. `Primary`, `Surface`, `OnSurfaceMuted`) liefert die Farbe des **aktuellen** Themes über `LocalChargeShareColors` und ist nur in Composables nutzbar –
+keine Farben in `val`/`const`/`enum`-Konstruktoren zwischenspeichern. `ChargeShareTheme(darkTheme)` setzt zusätzlich das Material-`colorScheme` (inkl. `surfaceContainer*` für Dialoge).
+Wichtig: `Primary` ist die **Füllfarbe** (Hero, Button, aktiver Pin, gewählter Chip; immer mit `OnPrimary`), `PrimaryText` die **Text-/Icon-/Rahmenfarbe** auf Flächen – im Dunkeln ist sie hell (`#5ECC8A`), weil `#0B6E4F` auf `#1E1D1A` nur 2,7:1 hat.
+Gleiches gilt für `Error`, `OnSurfaceMuted` und `OnAccentLight`; diese Dunkel-Werte weichen bewusst vom Mockup ab. `ThemeTest` prüft die WCAG-Kontraste (4,5:1 für Text). Neue Farbpaare dort ergänzen.
+Die gewählte Darstellung (`ThemeMode` Hell/Dunkel/System) hält `ThemeSettings` (im `AppContainer`), gespeichert über `PreferenceStorage`; Auswahl im Profil.
 
 **Schrift:** Plus Jakarta Sans (SIL Open Font License 1.1) liegt als Compose-Multiplatform-Ressource in `composeApp/src/commonMain/composeResources/font/`
 (Dateinamen nur `a-z0-9_`), der Lizenztext in `composeResources/files/plus_jakarta_sans_ofl.txt`. Die Ressourcen-Klasse heißt `app.chargeshare.resources.Res`
@@ -361,7 +368,7 @@ Ein Auftrag ist erst fertig, wenn **alle** Punkte gelten:
 - **Karte:** MapCompose-MP mit OSM-Kacheln, aktiv auf **Android und Desktop**; jeder Pin ist ein Preisschild („0,34 €“, aktiv = tiefgrün, `WallboxMap`), unten liegt das Fenster „N Stationen in der Nähe“ (`StationSheet`: Leistung, Stecker, Entfernung, Preis; Tipp auf eine Zeile öffnet das Detail, Tipp auf einen Pin markiert die Wallbox und scrollt sie ins Fenster); Schnellfilter-Pills „Alle / Typ 2 / 11 kW+ / Jetzt frei / Mehr Filter“ gelten für Karte und Liste; auf **iOS/Web** zeigt die Suche nur die Liste (`isMapSupported = false`, Freischaltung erst nach Test auf Mac/im Browser). Die OSM-Server sind nur für moderate Nutzung gedacht – vor Release eigenen Kachelserver/Anbieter nutzen. Keine Cluster bei vielen Pins, kein Offline-Kartenmaterial, keine UI-Tests der Karte. Geräte-Standort ist noch nicht angebunden (Standardstandort Bremen); die Freitext-Suche filtert nur die geladenen Ergebnisse (Backend hat keine Textsuche).
 - **Zahlung:** Apple Pay (Swift-Brücke, SPM-Paket, Entitlements) ist nicht auf einem Mac gebaut oder getestet und braucht Merchant-ID + bezahltes Apple-Developer-Konto; Google Pay braucht für Produktion die Freischaltung in der Google Pay & Wallet Console. Unbezahlte `pending`-Buchungen laufen nach `PENDING_BOOKING_TTL_MINUTES` (Standard 15) automatisch ab (`PendingBookingSweeper`, schließt den PaymentIntent, bestätigt statt storniert bei zwischenzeitlicher Zahlung); der manuelle Storno schließt den offenen PaymentIntent ebenfalls, wird aber ein Intent zwischen Abfrage und Storno noch bezahlt, erfolgt dort keine automatische Erstattung. „Jetzt bezahlen“ in der Buchungsliste (Android/iOS) ist nur gegen Fake-/Skript-Provider getestet, nicht gegen ein echtes Stripe-Konto. Rückzahlungen/Teilabrechnung nach kWh fehlen.
 - **Bewertungen:** die App bietet „Bewerten“ (Sterne + Kommentar) in der Buchungsliste für `completed`-Buchungen. Eine Buchung wird aber nur durch einen echten OCPP-Ladevorgang `completed` (kein Zeit-basierter Abschluss, keine Dev-Abkürzung) – der Dialog ist daher nur per ViewModel-Tests und serverseitig getestet, nicht in der laufenden App durchgespielt.
-- **Noch nicht in der UI:** Apple Sign In, Auszahlungs-Onboarding (Connect), Wallbox löschen, Fotos, Dunkelmodus.
+- **Noch nicht in der UI:** Apple Sign In, Auszahlungs-Onboarding (Connect), Wallbox löschen, Fotos.
 - **Tests:** es gibt ViewModel-/Daten-Tests (89 in `composeApp`), aber **keine automatisierten UI-/Composable-Tests** und keine Tests auf echtem Gerät. Der Desktop-Build wurde manuell gegen das lokale Backend geprüft (Login, Liste, Detail, Buchung, Host-Wechsel).
 - **Zurück-Taste:** `BackHandler` ist in Compose Multiplatform 1.12 als veraltet markiert (Nachfolger `NavigationEventHandler`); Migration offen.
 - **Host-Wallbox-Liste:** das Backend hat keinen Endpunkt „meine Wallboxen“; die App filtert die Suchergebnisse nach `owner_id` (max. 100).
