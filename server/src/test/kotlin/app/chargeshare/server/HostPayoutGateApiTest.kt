@@ -201,6 +201,14 @@ class HostPayoutGateApiTest {
     }
 
     @Test
+    fun devSeedRepairsHostMigratedWithoutPayoutsReady() = serverTest(payments = PayoutGatedProvider()) {
+        DevSeed.run(Db(TestDb.database), 4)
+        setPayoutsReady(DevSeed.HOST_EMAIL, false) // Zustand einer Datenbank, die vor Migration V4 angelegt wurde
+        DevSeed.run(Db(TestDb.database), 4)
+        assertTrue(payoutsReadyInDb(DevSeed.HOST_EMAIL))
+    }
+
+    @Test
     fun accountIsReadyOnlyWithActiveTransfers() {
         assertFalse(Account().canReceiveTransfers())
         fun account(status: String?): Account {
