@@ -7,10 +7,12 @@ import app.chargeshare.shared.model.HostEarnings
 import app.chargeshare.shared.model.UpdateWallboxRequest
 import app.chargeshare.shared.model.Wallbox
 import app.chargeshare.shared.model.WallboxSearch
+import kotlinx.datetime.TimeZone
 
 /** Host-Funktionen: Einnahmen, Sessions, eigene Wallboxen. */
 interface HostRepository {
-    suspend fun earnings(): Outcome<HostEarnings>
+    /** Einnahmen; Tage, Monate und Woche richten sich nach [zone] (Zeitzone des Geräts). */
+    suspend fun earnings(zone: TimeZone): Outcome<HostEarnings>
     suspend fun sessions(): Outcome<List<ChargingSession>>
 
     /**
@@ -33,7 +35,8 @@ interface HostRepository {
 
 class ApiHostRepository(private val api: ChargeShareApi) : HostRepository {
 
-    override suspend fun earnings(): Outcome<HostEarnings> = runCatchingOutcome { api.hostEarnings() }
+    override suspend fun earnings(zone: TimeZone): Outcome<HostEarnings> =
+        runCatchingOutcome { api.hostEarnings(timeZone = zone.id) }
 
     override suspend fun sessions(): Outcome<List<ChargingSession>> =
         runCatchingOutcome { api.hostSessions(limit = SESSION_LIMIT).sessions }

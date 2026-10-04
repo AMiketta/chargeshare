@@ -18,8 +18,10 @@ import app.chargeshare.shared.model.HostEarnings
 import app.chargeshare.shared.model.HostProfile
 import app.chargeshare.shared.model.SuperhostCriteria
 import app.chargeshare.shared.model.SessionListResponse
+import java.time.DateTimeException
+import java.time.Instant
 import java.time.LocalDate
-import java.time.OffsetDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeParseException
 import kotlin.uuid.Uuid
@@ -52,29 +54,45 @@ class HostService(private val db: Db, private val bookings: BookingService) {
         with(bookings) { BookingListResponse(withRelations(rows, withDriver = true), limit, offset) }
     }
 
-    /** @param from/to `YYYY-MM-DD` (inklusive, nach `created_at` der abgeschlossenen Buchungen) */
-    suspend fun earnings(hostId: Uuid, from: String?, to: String?): HostEarnings {
-        val fromAt = from?.takeIf { it.isNotEmpty() }?.let { parse(it).atStartOfDay().atOffset(ZoneOffset.UTC) }
-        val toAt = to?.takeIf { it.isNotEmpty() }?.let { parse(it).plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC) }
+    /**
+     * Einnahmen und Dashboard-Kennzahlen (siehe [HostEarnings]).
+     *
+     * @param from/to `YYYY-MM-DD` (inklusive, nach Beginn der abgeschlossenen Buchungen in [timeZone])
+     * @param timeZone IANA-Zeitzone für Tage, Monate und Wochen; leer = UTC
+     */
+    suspend fun earnings(hostId: Uuid, from: String?, to: String?, timeZone: String? = null): HostEarnings {
+        val zone = parseZone(timeZone)
+        val fromAt = from?.takeIf { it.isNotEmpty() }?.let { parse(it).atStartOfDay(zone).toInstant().atOffset(ZoneOffset.UTC) }
+        val toAt = to?.takeIf { it.isNotEmpty() }?.let { parse(it).plusDays(1).atStartOfDay(zone).toInstant().atOffset(ZoneOffset.UTC) }
         return db.tx {
             requireHost(hostId)
-            val rows = (Bookings innerJoin Wallboxes).select(Bookings.totalAmount, Bookings.createdAt)
+            val rows = (Bookings innerJoin Wallboxes).select(Bookings.totalAmount, Bookings.actualKwh, Bookings.startTime)
                 .where {
                     var c: org.jetbrains.exposed.v1.core.Op<Boolean> = (Wallboxes.ownerId eq hostId) and (Bookings.status eq "completed")
-                    if (fromAt != null) c = c and (Bookings.createdAt greaterEq fromAt)
-                    if (toAt != null) c = c and (Bookings.createdAt less toAt)
+                    if (fromAt != null) c = c and (Bookings.startTime greaterEq fromAt)
+                    if (toAt != null) c = c and (Bookings.startTime less toAt)
                     c
-                }.toList()
-            val monthStart = OffsetDateTime.now(ZoneOffset.UTC).withDayOfMonth(1).toLocalDate().atStartOfDay().atOffset(ZoneOffset.UTC)
-            val total = rows.sumOf { it[Bookings.totalAmount]?.toDouble() ?: 0.0 }
-            val month = rows.filter { !it[Bookings.createdAt].isBefore(monthStart) }.sumOf { it[Bookings.totalAmount]?.toDouble() ?: 0.0 }
+                }.map {
+                    CompletedBooking(
+                        startTime = it[Bookings.startTime].toInstant(),
+                        amount = it[Bookings.totalAmount]?.toDouble() ?: 0.0,
+                        kwh = it[Bookings.actualKwh]?.toDouble() ?: 0.0,
+                    )
+                }
             val ratings = Reviews.select(Reviews.rating)
                 .where { Reviews.wallboxId inSubQuery Wallboxes.select(Wallboxes.id).where { Wallboxes.ownerId eq hostId } }
                 .map { it[Reviews.rating].toInt() }
-            HostEarnings(
-                total = round2(total), month = round2(month), sessions = rows.size,
-                avgRating = if (ratings.isEmpty()) 0.0 else round2(ratings.average()),
-            )
+            val avgRating = if (ratings.isEmpty()) 0.0 else round2(ratings.average())
+            EarningsCalculator.calculate(rows, avgRating, Instant.now(), zone)
+        }
+    }
+
+    private fun parseZone(id: String?): ZoneId {
+        if (id.isNullOrEmpty()) return ZoneOffset.UTC
+        return try {
+            ZoneId.of(id)
+        } catch (e: DateTimeException) {
+            throw badRequest("invalid tz, use an IANA zone like Europe/Berlin")
         }
     }
 

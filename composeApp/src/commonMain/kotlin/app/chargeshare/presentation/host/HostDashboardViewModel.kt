@@ -14,6 +14,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
 
 data class HostDashboardUiState(
     val isLoading: Boolean = true,
@@ -24,12 +28,16 @@ data class HostDashboardUiState(
     /** Wallbox, deren Online-Status gerade umgeschaltet wird. */
     val togglingId: String? = null,
     val toggleError: AppError? = null,
+    /** Lokale Zeit beim letzten Laden (Begrüßung, „heute“ im Diagramm); `null` vor dem ersten Laden. */
+    val now: LocalDateTime? = null,
 )
 
-/** Host-Dashboard: Einnahmen, letzte Sessions, eigene Wallboxen mit Freigabe-Schalter. */
+/** Host-Dashboard: Einnahmen (Monat, Vormonat, Woche in der Zeitzone des Geräts), letzte Sessions, eigene Wallboxen mit Freigabe-Schalter. */
 class HostDashboardViewModel(
     private val ownerId: String,
     private val repository: HostRepository,
+    private val clock: Clock = Clock.System,
+    private val zone: TimeZone = TimeZone.currentSystemDefault(),
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(HostDashboardUiState())
@@ -37,9 +45,10 @@ class HostDashboardViewModel(
 
     /** Lädt alles neu; die Oberfläche ruft das beim Einblenden des Screens auf. */
     fun refresh() {
-        _state.update { it.copy(isLoading = true, error = null) }
+        val now = clock.now().toLocalDateTime(zone)
+        _state.update { it.copy(isLoading = true, error = null, now = now) }
         viewModelScope.launch {
-            val earnings = async { repository.earnings() }
+            val earnings = async { repository.earnings(zone) }
             val sessions = async { repository.sessions() }
             val wallboxes = async { repository.myWallboxes(ownerId) }
             val results = listOf(earnings.await(), sessions.await(), wallboxes.await())

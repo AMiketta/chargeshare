@@ -158,3 +158,17 @@ fun forceBookingActualKwh(bookingId: String, kwh: Double) {
         exec("UPDATE bookings SET actual_kwh = $kwh WHERE id = '$bookingId'")
     }
 }
+
+/** Verschiebt eine Buchung per SQL auf [start]..[end] (z. B. in den Vormonat, damit Monatswerte prüfbar sind). */
+fun moveBooking(bookingId: String, start: java.time.Instant, end: java.time.Instant) {
+    org.jetbrains.exposed.v1.jdbc.transactions.transaction(TestDb.database) {
+        exec("UPDATE bookings SET start_time = '$start', end_time = '$end' WHERE id = '$bookingId'")
+    }
+}
+
+/** Setzt Betrag und gemessene kWh einer Buchung per SQL (sonst nur durch einen echten OCPP-Ladevorgang). */
+fun forceBookingTotals(bookingId: String, amount: Double, kwh: Double) {
+    org.jetbrains.exposed.v1.jdbc.transactions.transaction(TestDb.database) {
+        exec("UPDATE bookings SET total_amount = $amount, actual_kwh = $kwh WHERE id = '$bookingId'")
+    }
+}

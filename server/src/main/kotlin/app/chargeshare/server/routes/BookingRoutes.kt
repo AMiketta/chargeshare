@@ -58,7 +58,7 @@ fun Route.bookingRoutes(s: Services) {
             }
             get("/earnings") {
                 val q = call.request.queryParameters
-                call.respond(s.host.earnings(call.userId(), q["from"], q["to"]))
+                call.respond(s.host.earnings(call.userId(), q["from"], q["to"], q["tz"]))
             }
             get("/sessions") {
                 val p = call.page()

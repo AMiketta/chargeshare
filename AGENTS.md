@@ -162,7 +162,7 @@ Im Entwicklungsmodus (`ENV=development`, Standard) gilt:
     Preis ≤ 5 €/kWh – bewusste Plausibilitätsgrenzen gegen Tippfehler). Preisänderungen gelten nur für neue Buchungen; eine Änderung der Verfügbarkeit
     oder „Deaktivieren“ storniert **keine** bestehenden Buchungen.
   - Buchungen: `GET|POST /bookings` (`Booking.reviewed`: schon bewertet), `GET|DELETE /bookings/{id}` (Storno antwortet `204`), `POST /bookings/{id}/pay` („Jetzt bezahlen“: `client_secret` einer `pending`-Buchung, nur Fahrer), `POST /bookings/{id}/confirm-payment`, `POST /reviews`
-  - Host: `GET /host/bookings|earnings|sessions` (nur Rollen `host`/`both`/`admin`, sonst `403`), `POST /payments/onboard`, `GET /payments/config` (öffentliche Zahlungskonfiguration ohne Secrets, mit Login)
+  - Host: `GET /host/bookings|earnings|sessions` (nur Rollen `host`/`both`/`admin`, sonst `403`; `earnings` nimmt `tz` (IANA, Default UTC) und rechnet Monat/Vormonat/Woche/kWh nach Buchungsbeginn, Logik rein in `EarningsCalculator`), `POST /payments/onboard`, `GET /payments/config` (öffentliche Zahlungskonfiguration ohne Secrets, mit Login)
 - **JSON:** Feldnamen `snake_case` (`power_kw`, `price_per_kwh`, `start_time`, …), Zeiten als RFC-3339-Strings (UTC), Aufzählungen kleingeschrieben
   (`type2`, `ccs`, `chademo`, `type1`; `pending`, `confirmed`, `active`, `completed`, `cancelled`, `failed`). Gemeinsame Konfiguration: `ChargeShareJson`
   (`ignoreUnknownKeys`, `explicitNulls=false`, `coerceInputValues`).

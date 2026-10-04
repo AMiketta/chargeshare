@@ -159,6 +159,7 @@ private fun TabContent(
                 val viewModel = viewModel(key = "host") { HostDashboardViewModel(user.id, container.hostRepository) }
                 HostDashboardRoute(
                     viewModel,
+                    userName = user.name,
                     onAddWallbox = { navigation.push(Screen.CreateWallbox) },
                     onEditWallbox = { navigation.push(Screen.EditWallbox(it)) },
                     modifier = modifier,

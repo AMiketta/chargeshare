@@ -158,6 +158,10 @@ class ModelSerializationTest {
         val h = ChargeShareJson.decodeFromString<HostEarnings>("""{"total":120.5,"month":30,"sessions":7,"avg_rating":4.8}""")
         assertEquals(7, h.sessions)
         assertEquals(4.8, h.avgRating)
+        // Ältere Server liefern die neuen Dashboard-Felder nicht: Defaults statt Fehler.
+        assertEquals(emptyList(), h.week)
+        assertNull(h.monthChangePct)
+        assertEquals(0.0, h.kwh)
     }
 
     @Test

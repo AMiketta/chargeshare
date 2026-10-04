@@ -241,8 +241,33 @@ object Strings {
         "Gib deine Wallbox zu selbst gewählten Zeiten frei, lege den Preis fest und erhalte automatisch deine Einnahmen."
     const val BecomeHost = "Host werden"
     const val Earnings = "Einnahmen"
-    const val EarningsTotal = "Gesamt"
     const val EarningsMonth = "Dieser Monat"
+    const val GreetingMorning = "Guten Morgen,"
+    const val GreetingDay = "Guten Tag,"
+    const val GreetingEvening = "Guten Abend,"
+    const val GreetingFallback = "Hallo,"
+    const val StatKwhDelivered = "geliefert"
+    const val WeekOverview = "Wochenübersicht"
+    const val WeekOverviewNote = "Einnahmen pro Tag, Montag bis Sonntag"
+    const val NoHostWallboxSubtitle = "Lege deine erste Wallbox an"
+    const val AllWallboxesBlockedSubtitle = "Aktuell ist keine Wallbox freigegeben"
+
+    fun hostSubtitle(activeCount: Int, city: String?) = when {
+        activeCount == 1 -> "Deine Wallbox ist aktiv" + (city?.let { " · $it" } ?: "")
+        else -> "$activeCount Wallboxen aktiv" + (city?.let { " · $it" } ?: "")
+    }
+
+    fun earningsLabel(month: String, year: Int) = "$month $year – Einnahmen"
+
+    /** `+12 % vs. März`; das Vorzeichen ist ein echtes Minus bei Rückgang. */
+    fun earningsDelta(changePct: Double, previousMonth: String): String {
+        val rounded = formatDecimal(kotlin.math.abs(changePct), 0)
+        val sign = if (changePct < 0) "−" else "+"
+        return "$sign$rounded % vs. $previousMonth"
+    }
+
+    fun weekChartDescription(days: List<Pair<String, Double>>) =
+        "$WeekOverview: " + days.joinToString(", ") { (day, amount) -> "$day ${formatEuro(amount)}" }
     const val Sessions = "Sessions"
     const val AverageRating = "Bewertung"
     const val MyWallboxes = "Meine Wallboxen"
