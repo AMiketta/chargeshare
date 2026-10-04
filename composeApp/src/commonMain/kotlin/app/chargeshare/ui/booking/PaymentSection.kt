@@ -25,9 +25,10 @@ import app.chargeshare.presentation.booking.PaymentIssue
 import app.chargeshare.presentation.booking.PaymentSetup
 import app.chargeshare.presentation.booking.PaymentStep
 import app.chargeshare.presentation.booking.PaymentUnavailableReason
+import app.chargeshare.ui.AppIcons
 import app.chargeshare.ui.Spacing
 import app.chargeshare.ui.Strings
-import app.chargeshare.ui.components.AmberButton
+import app.chargeshare.ui.components.PrimaryButton
 import app.chargeshare.ui.components.ErrorText
 import app.chargeshare.ui.components.SectionTitle
 import app.chargeshare.ui.components.SurfaceCard
@@ -114,11 +115,12 @@ internal fun BookingActionBar(
             else -> {
                 if (submit is BookingSubmitState.Failed) ErrorText(Strings.errorMessage(submit.error))
                 val total = state.estimate?.totalEur
-                AmberButton(
+                PrimaryButton(
                     text = if (state.paymentSetup is PaymentSetup.Ready) Strings.payAndBookWithPrice(total) else Strings.bookNowWithPrice(total),
                     onClick = onSubmit,
                     enabled = state.canSubmit,
                     isLoading = submit is BookingSubmitState.Submitting,
+                    leadingIcon = AppIcons.Check,
                 )
             }
         }
@@ -127,7 +129,7 @@ internal fun BookingActionBar(
 
 @Composable
 private fun BusyButton(text: String) {
-    AmberButton(text = text, onClick = {}, enabled = false, isLoading = true)
+    PrimaryButton(text = text, onClick = {}, enabled = false, isLoading = true)
 }
 
 private fun stepText(step: PaymentStep): String = when (step) {
@@ -145,7 +147,7 @@ private fun IncompletePayment(
     ErrorText(issueMessage(submit.issue))
     submit.discardError?.let { ErrorText(Strings.errorMessage(it)) }
     val isConfirmationIssue = submit.issue is PaymentIssue.ConfirmationFailed
-    AmberButton(text = if (isConfirmationIssue) Strings.CheckPayment else Strings.PayAgain, onClick = onRetryPayment)
+    PrimaryButton(text = if (isConfirmationIssue) Strings.CheckPayment else Strings.PayAgain, onClick = onRetryPayment)
     TextButton(onClick = onDiscardBooking, modifier = Modifier.fillMaxWidth()) { Text(Strings.DiscardBooking) }
 }
 

@@ -113,6 +113,7 @@ object Strings {
     const val BookingTitle = "Zeitslot buchen"
     const val Date = "Datum"
     const val StartTime = "Startzeit"
+    const val SlotTaken = "Belegt"
     const val DurationLabel = "Dauer"
     const val NoFreeSlots = "An diesem Tag sind keine Slots frei."
     const val CostEstimate = "Kosten (Schätzung)"

@@ -67,6 +67,8 @@ data class BookingFlowUiState(
     val days: List<LocalDate>,
     val selectedDay: LocalDate,
     val freeStarts: List<Instant> = emptyList(),
+    /** Startzeiten im Verfügbarkeitsfenster, die schon belegt sind (im Raster grau, nicht wählbar). */
+    val lockedStarts: List<Instant> = emptyList(),
     val isLoadingSlots: Boolean = true,
     val slotsError: AppError? = null,
     val selectedStart: Instant? = null,
@@ -152,6 +154,7 @@ class BookingFlowViewModel(
 
     fun onStartSelected(start: Instant) {
         val current = _state.value
+        if (start !in current.freeStarts) return // belegte oder unbekannte Startzeiten sind nicht wählbar
         val options = SlotPlanner.durationOptions(start, current.freeStarts.toSet(), current.wallbox)
         // Bisherige Dauer behalten, wenn sie noch möglich ist; sonst die kürzeste.
         val duration = current.selectedDurationMinutes?.takeIf { it in options } ?: options.firstOrNull()
@@ -294,11 +297,11 @@ class BookingFlowViewModel(
             )
         }
         slotsJob = viewModelScope.launch {
-            val result = wallboxRepository.freeSlotStarts(snapshot.wallbox.id, snapshot.selectedDay, zone)
+            val result = wallboxRepository.daySlots(snapshot.wallbox.id, snapshot.selectedDay, zone)
             _state.update {
                 when (result) {
-                    is Outcome.Success -> it.copy(isLoadingSlots = false, freeStarts = result.value)
-                    is Outcome.Failure -> it.copy(isLoadingSlots = false, slotsError = result.error, freeStarts = emptyList())
+                    is Outcome.Success -> it.copy(isLoadingSlots = false, freeStarts = result.value.free, lockedStarts = result.value.locked)
+                    is Outcome.Failure -> it.copy(isLoadingSlots = false, slotsError = result.error, freeStarts = emptyList(), lockedStarts = emptyList())
                 }
             }
         }

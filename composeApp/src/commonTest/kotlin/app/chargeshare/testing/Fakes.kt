@@ -4,6 +4,7 @@ import app.chargeshare.data.AppError
 import app.chargeshare.data.AuthRepository
 import app.chargeshare.data.BookingCreation
 import app.chargeshare.data.BookingRepository
+import app.chargeshare.data.DaySlots
 import app.chargeshare.data.GeoPoint
 import app.chargeshare.data.HostRepository
 import app.chargeshare.data.PaymentRepository
@@ -170,8 +171,13 @@ class FakeWallboxRepository : WallboxRepository {
 
     override suspend fun reviews(wallboxId: String): Outcome<List<Review>> = reviewsResult
 
-    override suspend fun freeSlotStarts(wallboxId: String, day: LocalDate, zone: TimeZone): Outcome<List<Instant>> =
-        slotsByDay[day] ?: Outcome.Success(emptyList())
+    val lockedByDay = mutableMapOf<LocalDate, List<Instant>>()
+
+    override suspend fun daySlots(wallboxId: String, day: LocalDate, zone: TimeZone): Outcome<DaySlots> =
+        when (val free = slotsByDay[day] ?: Outcome.Success(emptyList())) {
+            is Outcome.Success -> Outcome.Success(DaySlots(free.value, lockedByDay[day].orEmpty()))
+            is Outcome.Failure -> free
+        }
 }
 
 class FakeBookingRepository : BookingRepository {

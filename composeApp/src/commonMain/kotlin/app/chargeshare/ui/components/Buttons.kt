@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import app.chargeshare.ui.ChargeShareColors
 import app.chargeshare.ui.Spacing
 
-/** Amber-Button: die eine Haupthandlung pro Screen (z. B. „Jetzt buchen“). */
+/** Amber-Button: Haupthandlung auf Detail- und Bestätigungsseiten (z. B. „Zeitslot buchen“). */
 @Composable
 fun AmberButton(
     text: String,
@@ -47,7 +47,7 @@ fun AmberButton(
     }
 }
 
-/** Grüner Hauptbutton für weniger wichtige Handlungen (Anmelden, Speichern). */
+/** Grüner Hauptbutton (Anmelden, Speichern, „Jetzt buchen“), optional mit [leadingIcon]. */
 @Composable
 fun PrimaryButton(
     text: String,
@@ -55,6 +55,7 @@ fun PrimaryButton(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     isLoading: Boolean = false,
+    leadingIcon: ImageVector? = null,
 ) {
     Button(
         onClick = onClick,
@@ -64,6 +65,8 @@ fun PrimaryButton(
         Row(horizontalArrangement = Arrangement.spacedBy(Spacing.Small), verticalAlignment = Alignment.CenterVertically) {
             if (isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+            } else if (leadingIcon != null) {
+                Icon(leadingIcon, contentDescription = null, modifier = Modifier.size(18.dp))
             }
             Text(text, style = MaterialTheme.typography.titleMedium)
         }

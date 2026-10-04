@@ -251,7 +251,8 @@ class WallboxService(private val db: Db) {
 
     /**
      * Freie 30-Minuten-Slots (`HH:MM`, UTC) eines Tages aus Wochenplan minus bestehende Buchungen
-     * (Go: `WallboxService.GetAvailableSlots`). Abweichung: Slots in der Vergangenheit werden nicht angeboten.
+     * (Go: `WallboxService.GetAvailableSlots`). Abweichung: Slots in der Vergangenheit werden nicht angeboten;
+     * durch Buchungen belegte Slots der Zukunft stehen separat in `locked` (fuer die ausgegraute Darstellung).
      */
     suspend fun slots(id: Uuid, date: LocalDate, now: OffsetDateTime = OffsetDateTime.now(ZoneOffset.UTC)): SlotsResponse {
         val (avail, booked) = db.tx {
@@ -267,6 +268,7 @@ class WallboxService(private val db: Db) {
         val weekday = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH).lowercase()
         val configured = avail.entries.firstOrNull { (k, _) -> k.isNotEmpty() && weekday.startsWith(k.lowercase()) }?.value.orEmpty()
         val out = mutableListOf<TimeSlot>()
+        val locked = mutableListOf<TimeSlot>()
         for (cfg in configured) {
             val s = runCatching { LocalTime.parse(cfg.start) }.getOrNull() ?: continue
             val e = slotEndMinutes(cfg.end) ?: continue
@@ -275,16 +277,17 @@ class WallboxService(private val db: Db) {
             while (!cursor.plus(Duration.ofMinutes(30)).isAfter(endOfSlot)) {
                 val next = cursor.plus(Duration.ofMinutes(30))
                 val overlap = booked.any { (bs, be) -> cursor.isBefore(be) && next.isAfter(bs) }
-                if (!overlap && !cursor.isBefore(now.toInstant())) {
-                    out += TimeSlot(
+                if (!cursor.isBefore(now.toInstant())) {
+                    val slot = TimeSlot(
                         LocalTime.ofInstant(cursor, ZoneOffset.UTC).toString(),
                         LocalTime.ofInstant(next, ZoneOffset.UTC).toString(),
                     )
+                    if (overlap) locked += slot else out += slot
                 }
                 cursor = next
             }
         }
-        return SlotsResponse(date.toString(), out)
+        return SlotsResponse(date.toString(), out, locked)
     }
 
     // ---- Validierung ------------------------------------------------------------------------

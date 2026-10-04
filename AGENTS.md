@@ -155,7 +155,7 @@ Im Entwicklungsmodus (`ENV=development`, Standard) gilt:
   - Auth: `POST /auth/register|login|apple|refresh|logout`; Nutzer: `GET|PUT|DELETE /users/me`, `GET /users/me/stats` (Profil-Kennzahlen `sessions`, `kwh_charged`, `rating_avg` (nullable), `rating_count`), `PUT /users/me/role`
   - Wallboxen: `GET /wallboxes` (Query `lat,lng,radius,connector,min_power,max_price,limit,offset`; `limit` 1..100, Standard 20; Standard-Radius 10 km, nur mit `lat`+`lng`),
     `GET|PUT|DELETE /wallboxes/{id}`, `POST /wallboxes`, `PUT /wallboxes/{id}/status`, `GET|PUT /wallboxes/{id}/availability`,
-    `GET /wallboxes/{id}/slots?date=YYYY-MM-DD` (freie 30-Minuten-Slots, `HH:MM`, **UTC**; Verfügbarkeitsfenster dürfen um `24:00` enden), `GET /wallboxes/{id}/reviews`.
+    `GET /wallboxes/{id}/slots?date=YYYY-MM-DD` (`slots`: freie 30-Minuten-Slots, `locked`: im Fenster liegende, aber belegte Slots für die graue Darstellung; `HH:MM`, **UTC**; Verfügbarkeitsfenster dürfen um `24:00` enden), `GET /wallboxes/{id}/reviews`.
     Ändern/Deaktivieren (`PUT /wallboxes/{id}`, `/status`, `/availability`) darf nur der Eigentümer (oder `admin`), sonst `403`.
     `description` (optional, ≤ 1000 Zeichen, getrimmt; bei `PUT` löscht `""` den Text). Grenzen in `WallboxLimits` (Name ≤ 200, Leistung ≤ 350 kW,
     Preis ≤ 5 €/kWh – bewusste Plausibilitätsgrenzen gegen Tippfehler). Preisänderungen gelten nur für neue Buchungen; eine Änderung der Verfügbarkeit
@@ -304,7 +304,7 @@ Quelle: `docs/ChargeShare-App-Design.html` (CSS-Variablen), umgesetzt in `ui/The
 | Schatten | `Elevation.Card` (2 dp, Karten und Chips), `Elevation.Raised` (6 dp, schwebende Elemente) |
 | Schrift | Plus Jakarta Sans 400/500/600/700/800 (`ui/Typography.kt`, `chargeShareTypography`) |
 
-Der **Amber-Button** ist die eine Haupthandlung pro Screen (z. B. „Jetzt buchen“). Hero-Bereiche sind tiefgrün mit weißer Schrift.
+Der **Amber-Button** ist die Haupthandlung auf Detail- und Bestätigungsseiten (z. B. „Zeitslot buchen“); der abschließende „Jetzt buchen · Preis“-Button im Buchungsflow ist wie im Mockup ein grüner `PrimaryButton` mit Haken. Der Buchungsflow nutzt `ui/booking/BookingPickers.kt` (Datumsscroller, 3-Spalten-Startzeitraster mit grauen/durchgestrichenen belegten Slots, Dauer-Pills in Amber) und eine Amber-Kostenkarte. Hero-Bereiche sind tiefgrün mit weißer Schrift.
 
 **Schrift:** Plus Jakarta Sans (SIL Open Font License 1.1) liegt als Compose-Multiplatform-Ressource in `composeApp/src/commonMain/composeResources/font/`
 (Dateinamen nur `a-z0-9_`), der Lizenztext in `composeResources/files/plus_jakarta_sans_ofl.txt`. Die Ressourcen-Klasse heißt `app.chargeshare.resources.Res`

@@ -2,8 +2,7 @@ package app.chargeshare.ui.booking
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,7 +22,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import app.chargeshare.payment.PaymentLauncher
 import app.chargeshare.payment.PaymentMethodChoice
 import app.chargeshare.payment.payCatching
@@ -37,8 +38,7 @@ import app.chargeshare.ui.ChargeShareColors
 import app.chargeshare.ui.Spacing
 import app.chargeshare.ui.Strings
 import app.chargeshare.ui.components.AmberButton
-import app.chargeshare.ui.components.AppFilterChip
-import app.chargeshare.ui.components.ChoiceChips
+import app.chargeshare.ui.components.AppCard
 import app.chargeshare.ui.components.EmptyBox
 import app.chargeshare.ui.components.ErrorBox
 import app.chargeshare.ui.components.ErrorText
@@ -144,13 +144,16 @@ fun BookingFlowScreen(
             modifier = Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(Spacing.Medium),
         ) {
-            SectionTitle(Strings.Date, Modifier.padding(start = Spacing.Medium, top = Spacing.Medium))
-            ChoiceChips(state.days, state.selectedDay, { formatDate(it) }, onDaySelected)
-            SectionTitle(Strings.StartTime, Modifier.padding(horizontal = Spacing.Medium))
-            SlotSection(state, zone, onStartSelected, onRetrySlots)
+            BookingSection(Strings.Date, Modifier.padding(horizontal = Spacing.Medium), edgeToEdge = true) {
+                DateScroller(state.days, state.selectedDay, onDaySelected)
+            }
+            BookingSection(Strings.StartTime, Modifier.padding(horizontal = Spacing.Medium)) {
+                SlotSection(state, zone, onStartSelected, onRetrySlots)
+            }
             if (state.durationOptions.isNotEmpty()) {
-                SectionTitle(Strings.DurationLabel, Modifier.padding(horizontal = Spacing.Medium))
-                ChoiceChips(state.durationOptions, state.selectedDurationMinutes, Strings::durationLabel, onDurationSelected)
+                BookingSection(Strings.DurationLabel, Modifier.padding(horizontal = Spacing.Medium)) {
+                    DurationPills(state.durationOptions, state.selectedDurationMinutes, onDurationSelected)
+                }
             }
             EstimateCard(state, Modifier.padding(horizontal = Spacing.Medium))
             PaymentMethodSection(
@@ -164,7 +167,6 @@ fun BookingFlowScreen(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SlotSection(
     state: BookingFlowUiState,
@@ -175,40 +177,57 @@ private fun SlotSection(
     when {
         state.isLoadingSlots -> LoadingBox(Modifier.padding(Spacing.Large))
         state.slotsError != null -> ErrorBox(state.slotsError, onRetry)
-        state.freeStarts.isEmpty() -> EmptyBox(Strings.NoFreeSlots)
-        else -> FlowRow(
-            modifier = Modifier.padding(horizontal = Spacing.Medium),
-            horizontalArrangement = Arrangement.spacedBy(Spacing.Small),
-        ) {
-            state.freeStarts.forEach { start ->
-                AppFilterChip(
-                    selected = start == state.selectedStart,
-                    onClick = { onStartSelected(start) },
-                    label = formatTime(start, zone),
-                )
+        state.freeStarts.isEmpty() && state.lockedStarts.isEmpty() -> EmptyBox(Strings.NoFreeSlots)
+        else -> StartTimeGrid(state.freeStarts, state.lockedStarts, state.selectedStart, zone, onStartSelected)
+    }
+}
+
+/**
+ * Abschnitt im Buchungsflow: Karte mit Versalien-Label (Design: `.booking-section`).
+ * Mit [edgeToEdge] bekommt der Inhalt keinen seitlichen Rand (z. B. für den scrollenden Datumsstreifen).
+ */
+@Composable
+private fun BookingSection(
+    label: String,
+    modifier: Modifier = Modifier,
+    edgeToEdge: Boolean = false,
+    content: @Composable () -> Unit,
+) {
+    val inset = Spacing.Medium - Spacing.XSmall
+    AppCard(modifier = modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(vertical = inset), verticalArrangement = Arrangement.spacedBy(Spacing.Small + Spacing.XSmall / 2)) {
+            BookingSectionLabel(label, Modifier.padding(horizontal = inset))
+            Box(Modifier.padding(horizontal = if (edgeToEdge) 0.dp else inset)) { content() }
+        }
+    }
+}
+
+/** Kostenschätzung als Amber-Karte (Design: Hinweisfläche in `AccentLight`). */
+@Composable
+private fun EstimateCard(state: BookingFlowUiState, modifier: Modifier = Modifier) {
+    val estimate = state.estimate
+    AppCard(modifier = modifier.fillMaxWidth(), containerColor = ChargeShareColors.AccentLight) {
+        Column(modifier = Modifier.padding(Spacing.Medium), verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
+            BookingSectionLabel(Strings.CostEstimate, Modifier.padding(bottom = Spacing.XSmall))
+            if (estimate == null) {
+                Text(Strings.SelectSlotFirst, style = MaterialTheme.typography.bodyMedium, color = ChargeShareColors.OnSurfaceVariant)
+            } else {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(Strings.estimateLine(estimate.kwh, state.wallbox.pricePerKwh), style = MaterialTheme.typography.bodyMedium, color = ChargeShareColors.OnSurfaceVariant)
+                    Text(formatEuro(estimate.totalEur), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                }
+                HorizontalDivider(color = ChargeShareColors.Accent.copy(alpha = AMBER_DIVIDER_ALPHA))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(Strings.Total, style = MaterialTheme.typography.titleSmall)
+                    Text(formatEuro(estimate.totalEur), style = MaterialTheme.typography.titleLarge, color = ChargeShareColors.AccentDark)
+                }
+                Text(Strings.CostDisclaimer, style = MaterialTheme.typography.bodySmall, color = ChargeShareColors.OnSurfaceVariant)
             }
         }
     }
 }
 
-@Composable
-private fun EstimateCard(state: BookingFlowUiState, modifier: Modifier = Modifier) {
-    val estimate = state.estimate
-    SurfaceCard(modifier) {
-        SectionTitle(Strings.CostEstimate)
-        if (estimate == null) {
-            Text(Strings.SelectSlotFirst, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            Text(Strings.estimateLine(estimate.kwh, state.wallbox.pricePerKwh), style = MaterialTheme.typography.bodyMedium)
-            HorizontalDivider()
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(Strings.Total, style = MaterialTheme.typography.titleMedium)
-                Text(formatEuro(estimate.totalEur), style = MaterialTheme.typography.titleMedium, color = ChargeShareColors.AccentDark)
-            }
-            Text(Strings.CostDisclaimer, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
+private const val AMBER_DIVIDER_ALPHA = 0.4f
 
 @Composable
 private fun BookingConfirmation(

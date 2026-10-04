@@ -129,11 +129,15 @@ data class WallboxListResponse(
     val offset: Int = 0,
 )
 
-/** Antwort von `GET /wallboxes/:id/slots?date=YYYY-MM-DD` (freie 30-Minuten-Slots, `HH:MM`, UTC). */
+/**
+ * Antwort von `GET /wallboxes/:id/slots?date=YYYY-MM-DD` (30-Minuten-Slots, `HH:MM`, UTC).
+ * [slots] sind frei buchbar, [locked] liegen im Verfuegbarkeitsfenster, sind aber schon belegt.
+ */
 @Serializable
 data class SlotsResponse(
     val date: String,
     val slots: List<TimeSlot> = emptyList(),
+    val locked: List<TimeSlot> = emptyList(),
 )
 
 /** Suchfilter fuer `GET /wallboxes` (Go: `models.WallboxListFilter`, Query-Parameter). */

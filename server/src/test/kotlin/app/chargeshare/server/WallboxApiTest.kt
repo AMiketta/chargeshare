@@ -120,6 +120,7 @@ class WallboxApiTest {
         val slots = newApi().api.wallboxSlots(wb.id, monday.toString())
         assertEquals(monday.toString(), slots.date)
         assertEquals(listOf(TimeSlot("09:00", "09:30"), TimeSlot("09:30", "10:00"), TimeSlot("10:00", "10:30")), slots.slots)
+        assertEquals(emptyList(), slots.locked)
         // Dienstag: nichts konfiguriert
         assertEquals(emptyList(), newApi().api.wallboxSlots(wb.id, monday.plusDays(1).toString()).slots)
         assertEquals(400, assertFailsWith<ApiException> { newApi().api.wallboxSlots(wb.id, "morgen") }.status)

@@ -3,6 +3,8 @@ package app.chargeshare.data
 import app.chargeshare.shared.api.ChargeShareApi
 import app.chargeshare.shared.model.ConnectorType
 import app.chargeshare.shared.model.Review
+import app.chargeshare.shared.model.SlotsResponse
+import app.chargeshare.shared.model.TimeSlot
 import app.chargeshare.shared.model.Wallbox
 import app.chargeshare.shared.model.WallboxSearch
 import kotlin.time.Instant
@@ -32,9 +34,19 @@ interface WallboxRepository {
     suspend fun wallbox(id: String): Outcome<Wallbox>
     suspend fun reviews(wallboxId: String): Outcome<List<Review>>
 
-    /** Freie Slot-Startzeiten, deren Beginn in den lokalen Tag [day] fällt (aufsteigend). */
-    suspend fun freeSlotStarts(wallboxId: String, day: LocalDate, zone: TimeZone): Outcome<List<Instant>>
+    /** Slot-Startzeiten, deren Beginn in den lokalen Tag [day] fällt: frei buchbare und bereits belegte (je aufsteigend). */
+    suspend fun daySlots(wallboxId: String, day: LocalDate, zone: TimeZone): Outcome<DaySlots>
+
+    /** Nur die frei buchbaren Startzeiten von [daySlots]. */
+    suspend fun freeSlotStarts(wallboxId: String, day: LocalDate, zone: TimeZone): Outcome<List<Instant>> =
+        when (val result = daySlots(wallboxId, day, zone)) {
+            is Outcome.Success -> Outcome.Success(result.value.free)
+            is Outcome.Failure -> result
+        }
 }
+
+/** Startzeiten eines Tages: [free] sind buchbar, [locked] liegen im Verfügbarkeitsfenster, sind aber belegt. */
+data class DaySlots(val free: List<Instant>, val locked: List<Instant> = emptyList())
 
 class ApiWallboxRepository(private val api: ChargeShareApi) : WallboxRepository {
 
@@ -58,14 +70,16 @@ class ApiWallboxRepository(private val api: ChargeShareApi) : WallboxRepository 
     override suspend fun reviews(wallboxId: String): Outcome<List<Review>> =
         runCatchingOutcome { api.wallboxReviews(wallboxId, limit = REVIEW_LIMIT).reviews }
 
-    override suspend fun freeSlotStarts(wallboxId: String, day: LocalDate, zone: TimeZone): Outcome<List<Instant>> =
+    override suspend fun daySlots(wallboxId: String, day: LocalDate, zone: TimeZone): Outcome<DaySlots> =
         runCatchingOutcome {
             val range = localDayRange(day, zone)
-            utcDatesTouchedBy(day, zone)
-                .flatMap { utcDate -> api.wallboxSlots(wallboxId, utcDate.toString()).slots.toStartInstants(utcDate) }
-                .filter { it in range }
-                .distinct()
-                .sorted()
+            val responses = utcDatesTouchedBy(day, zone).map { utcDate -> utcDate to api.wallboxSlots(wallboxId, utcDate.toString()) }
+            fun starts(pick: (SlotsResponse) -> List<TimeSlot>): List<Instant> =
+                responses.flatMap { (utcDate, response) -> pick(response).toStartInstants(utcDate) }
+                    .filter { it in range }
+                    .distinct()
+                    .sorted()
+            DaySlots(free = starts { it.slots }, locked = starts { it.locked })
         }
 
     private companion object {
