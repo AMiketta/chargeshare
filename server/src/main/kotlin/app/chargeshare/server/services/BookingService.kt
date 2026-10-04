@@ -61,6 +61,7 @@ class BookingService(
     private val db: Db,
     private val payments: PaymentProvider,
     private val platformFeePercent: Int,
+    private val payouts: PayoutService,
 ) {
     private val log = LoggerFactory.getLogger(BookingService::class.java)
 
@@ -72,6 +73,13 @@ class BookingService(
         val end = OffsetDateTime.ofInstant(java.time.Instant.ofEpochSecond(req.endTime.epochSeconds, req.endTime.nanosecondsOfSecond.toLong()), ZoneOffset.UTC)
         if (!end.isAfter(start)) throw badRequest("end_time must be after start_time")
         if (start.isBefore(now)) throw badRequest("start_time must be in the future")
+
+        // 0) Nur Wallboxes von Hosts mit eingerichtetem Auszahlungskonto sind buchbar (sonst 409 statt Fehler bei Stripe)
+        if (payments.requiresPayoutAccount) {
+            val ownerId = db.tx { Wallboxes.select(Wallboxes.ownerId).where { Wallboxes.id eq wallboxId }.singleOrNull()?.get(Wallboxes.ownerId) }
+                ?: throw notFound("wallbox not found")
+            payouts.ensureBookable(ownerId)
+        }
 
         // 1) Buchung als `pending` anlegen – der Exclusion-Constraint serialisiert konkurrierende Anfragen
         val bookingId = Uuid.random()
@@ -304,6 +312,9 @@ class BookingService(
 
         // Kein (oder ein stornierter) Intent: neuen anlegen und an die Buchung haengen. Nur wenn sie noch `pending` ist.
         val total = row[Bookings.totalAmount] ?: throw internal("booking has no total amount")
+        if (payments.requiresPayoutAccount) {
+            payouts.ensureBookable(db.tx { Wallboxes.select(Wallboxes.ownerId).where { Wallboxes.id eq row[Bookings.wallboxId] }.single()[Wallboxes.ownerId] })
+        }
         val (hostAccount, customerId) = db.tx {
             val wb = Wallboxes.selectAll().where { Wallboxes.id eq row[Bookings.wallboxId] }.single().toWallbox()
             Users.selectAll().where { Users.id eq Uuid.parse(wb.ownerId) }.singleOrNull()?.get(Users.stripeAccountId) to

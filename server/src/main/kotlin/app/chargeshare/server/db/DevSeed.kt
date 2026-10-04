@@ -50,6 +50,8 @@ object DevSeed {
                 it[id] = hostId; it[email] = HOST_EMAIL; it[passwordHash] = hash
                 it[name] = "Demo Host (Beispieldaten)"; it[role] = UserRole.BOTH.dbValue()
                 it[isVerified] = true; it[createdAt] = now; it[updatedAt] = now
+                // Demo-Host braucht kein Stripe-Konto: seine Wallboxes bleiben auch mit echtem Stripe buchbar (ohne Auszahlung).
+                it[payoutsReady] = true
             }
             Users.insert {
                 it[id] = Uuid.random(); it[email] = DRIVER_EMAIL; it[passwordHash] = hash

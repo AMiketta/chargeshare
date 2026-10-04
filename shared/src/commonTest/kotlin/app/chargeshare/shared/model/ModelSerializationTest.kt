@@ -57,6 +57,16 @@ class ModelSerializationTest {
     }
 
     @Test
+    fun payoutStateDefaultsToReadyAndGatesBooking() {
+        val wb = ChargeShareJson.decodeFromString<Wallbox>(goWallboxJson)
+        assertTrue(wb.payoutsReady, "ältere Server senden das Feld nicht")
+        val pending = ChargeShareJson.decodeFromString<Wallbox>(goWallboxJson.replace("\"distance_m\"", "\"payouts_ready\": false, \"distance_m\""))
+        assertFalse(pending.payoutsReady)
+        assertFalse(pending.isBookable)
+        assertEquals(wb.isOnline, wb.isBookable)
+    }
+
+    @Test
     fun wallboxRoundTripKeepsSnakeCaseFieldNames() {
         val wb = ChargeShareJson.decodeFromString<Wallbox>(goWallboxJson)
         val obj = ChargeShareJson.parseToJsonElement(ChargeShareJson.encodeToString(wb)).jsonObject

@@ -66,7 +66,12 @@ data class Wallbox(
     @SerialName("updated_at") @Serializable(InstantAsStringSerializer::class) val updatedAt: Instant,
     /** Entfernung in Metern, nur bei Umkreissuche gesetzt. */
     @SerialName("distance_m") val distanceM: Double? = null,
+    /** `false`: Der Host richtet gerade sein Auszahlungskonto ein, die Wallbox ist noch nicht buchbar. Ältere Server senden nichts (= `true`). */
+    @SerialName("payouts_ready") val payoutsReady: Boolean = true,
 ) {
+    /** Online und Auszahlung des Hosts eingerichtet: nur dann nimmt der Server Buchungen an. */
+    val isBookable: Boolean get() = isOnline && payoutsReady
+
     val fullAddress: String get() = "$address, $postalCode $city"
 }
 

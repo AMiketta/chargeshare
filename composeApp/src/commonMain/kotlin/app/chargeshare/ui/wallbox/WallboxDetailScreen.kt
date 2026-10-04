@@ -101,8 +101,10 @@ fun WallboxDetailScreen(
                     Column(modifier = Modifier.padding(Spacing.Medium), verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
                         if (!wallbox.isOnline) {
                             Text(Strings.OfflineCannotBook, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                        } else if (!wallbox.payoutsReady) {
+                            Text(Strings.HostPayoutsPendingHint, style = MaterialTheme.typography.bodyMedium, color = ChargeShareColors.OnSurfaceVariant)
                         }
-                        AmberButton(Strings.BookNow, onClick = { onBook(wallbox) }, enabled = wallbox.isOnline)
+                        AmberButton(Strings.BookNow, onClick = { onBook(wallbox) }, enabled = wallbox.isBookable)
                     }
                 }
             }
@@ -171,7 +173,7 @@ private fun TitleBlock(wallbox: Wallbox) {
         ) {
             if (wallbox.ratingCount > 0) Icon(AppIcons.Star, contentDescription = null, tint = ChargeShareColors.Accent)
             Text(Strings.ratingSummary(wallbox.ratingAvg, wallbox.ratingCount), style = MaterialTheme.typography.bodyMedium)
-            AvailabilityPill(wallbox.isOnline)
+            AvailabilityPill(wallbox.isOnline, wallbox.payoutsReady)
         }
     }
 }
