@@ -33,6 +33,7 @@ import app.chargeshare.presentation.host.EditWallboxViewModel
 import app.chargeshare.presentation.host.HostDashboardViewModel
 import app.chargeshare.presentation.profile.ProfileViewModel
 import app.chargeshare.presentation.session.SessionViewModel
+import app.chargeshare.presentation.wallbox.FavoritesViewModel
 import app.chargeshare.presentation.wallbox.WallboxDetailViewModel
 import app.chargeshare.platform.isMapSupported
 import app.chargeshare.presentation.wallbox.WallboxListViewModel
@@ -99,13 +100,16 @@ private fun MainContent(container: AppContainer, user: User, paymentLauncher: Pa
     val navigation = remember { NavigationState() }
     BackHandler(enabled = navigation.stack.isNotEmpty()) { navigation.pop() }
 
+    // Ein Exemplar pro angemeldetem Nutzer, geteilt von Liste und Detailseite, damit das Herz überall gleich steht.
+    val favorites = viewModel(key = "favorites") { FavoritesViewModel(container.favoritesRepository) }
+
     val screen = navigation.current
     if (screen != null) {
         // Jeder Vollbild-Screen hat einen eigenen ViewModel-Speicher und startet daher frisch.
         key(navigation.stack.size, screen) {
             val owner = rememberScopedViewModelStoreOwner()
             CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
-                FullScreen(screen, container, navigation, paymentLauncher)
+                FullScreen(screen, container, favorites, navigation, paymentLauncher)
             }
         }
         return
@@ -121,7 +125,7 @@ private fun MainContent(container: AppContainer, user: User, paymentLauncher: Pa
             )
         },
     ) { padding ->
-        TabContent(navigation.tab, container, user, navigation, paymentLauncher, Modifier.padding(padding))
+        TabContent(navigation.tab, container, user, favorites, navigation, paymentLauncher, Modifier.padding(padding))
     }
 }
 
@@ -130,6 +134,7 @@ private fun TabContent(
     tab: MainTab,
     container: AppContainer,
     user: User,
+    favorites: FavoritesViewModel,
     navigation: NavigationState,
     paymentLauncher: PaymentLauncher,
     modifier: Modifier,
@@ -137,7 +142,7 @@ private fun TabContent(
     when (tab) {
         MainTab.Search -> {
             val viewModel = viewModel(key = "search") { WallboxListViewModel(container.wallboxRepository, mapSupported = isMapSupported) }
-            WallboxListRoute(viewModel, container.tileSource, onOpenWallbox = { navigation.push(Screen.WallboxDetail(it.id)) }, modifier = modifier)
+            WallboxListRoute(viewModel, favorites, container.tileSource, onOpenWallbox = { navigation.push(Screen.WallboxDetail(it.id)) }, modifier = modifier)
         }
         MainTab.Bookings -> {
             val viewModel = viewModel(key = "bookings") {
@@ -186,11 +191,17 @@ private fun TabContent(
 }
 
 @Composable
-private fun FullScreen(screen: Screen, container: AppContainer, navigation: NavigationState, paymentLauncher: PaymentLauncher) {
+private fun FullScreen(
+    screen: Screen,
+    container: AppContainer,
+    favorites: FavoritesViewModel,
+    navigation: NavigationState,
+    paymentLauncher: PaymentLauncher,
+) {
     when (screen) {
         is Screen.WallboxDetail -> {
             val viewModel = viewModel { WallboxDetailViewModel(screen.wallboxId, container.wallboxRepository) }
-            WallboxDetailRoute(viewModel, onBack = { navigation.pop() }, onBook = { navigation.push(Screen.Booking(it)) })
+            WallboxDetailRoute(viewModel, favorites, onBack = { navigation.pop() }, onBook = { navigation.push(Screen.Booking(it)) })
         }
         is Screen.Booking -> {
             val viewModel = viewModel {

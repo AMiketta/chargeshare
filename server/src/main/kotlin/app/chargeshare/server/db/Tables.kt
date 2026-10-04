@@ -101,6 +101,13 @@ object ChargingSessions : Table("charging_sessions") {
     override val primaryKey = PrimaryKey(id)
 }
 
+object Favorites : Table("favorites") {
+    val userId = uuid("user_id").references(Users.id)
+    val wallboxId = uuid("wallbox_id").references(Wallboxes.id)
+    val createdAt = timestampWithTimeZone("created_at")
+    override val primaryKey = PrimaryKey(userId, wallboxId)
+}
+
 object RefreshTokens : Table("refresh_tokens") {
     val id = uuid("id")
     val userId = uuid("user_id").references(Users.id)

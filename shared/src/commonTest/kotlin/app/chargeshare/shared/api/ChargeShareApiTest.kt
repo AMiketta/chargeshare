@@ -176,4 +176,46 @@ class ChargeShareApiTest {
         api.me()
         assertEquals(listOf<String?>("Bearer DRIVER_AT", "Bearer HOST_AT"), usedTokens)
     }
+
+    @Test
+    fun wallboxHostDecodesPublicProfile() = runTest {
+        val api = api { req ->
+            assertEquals(HttpMethod.Get, req.method)
+            assertEquals("/api/v1/wallboxes/w1/host", req.url.encodedPath)
+            respond(
+                """{"name":"Andreas M.","member_since":"2024-03-01T10:00:00Z","sessions":47,"rating_avg":4.8,"rating_count":23,"is_superhost":true}""",
+                HttpStatusCode.OK,
+                jsonHeaders,
+            )
+        }
+        val host = api.wallboxHost("w1")
+        assertEquals("Andreas M.", host.name)
+        assertEquals(47, host.sessions)
+        assertEquals(4.8, host.ratingAvg)
+        assertEquals(true, host.isSuperhost)
+        assertEquals(2024, host.memberSince.toString().take(4).toInt())
+    }
+
+    @Test
+    fun favoritesUseListPutAndDelete() = runTest {
+        val calls = mutableListOf<String>()
+        val api = api(InMemoryTokenStore("AT", "RT")) { req ->
+            calls += "${req.method.value} ${req.url.encodedPath}"
+            if (req.method == HttpMethod.Get) respond("""{"wallbox_ids":["w2","w1"]}""", HttpStatusCode.OK, jsonHeaders)
+            else respond("", HttpStatusCode.NoContent)
+        }
+        assertEquals(listOf("w2", "w1"), api.favoriteIds())
+        api.addFavorite("w1")
+        api.removeFavorite("w2")
+        assertEquals(
+            listOf("GET /api/v1/users/me/favorites", "PUT /api/v1/users/me/favorites/w1", "DELETE /api/v1/users/me/favorites/w2"),
+            calls,
+        )
+    }
+
+    @Test
+    fun favoritesResponseWithoutIdsIsEmpty() = runTest {
+        val api = api(InMemoryTokenStore("AT", "RT")) { respond("{}", HttpStatusCode.OK, jsonHeaders) }
+        assertEquals(emptyList(), api.favoriteIds())
+    }
 }

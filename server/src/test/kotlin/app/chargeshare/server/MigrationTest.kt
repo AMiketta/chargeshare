@@ -38,7 +38,7 @@ class MigrationTest {
                     }
                 }
             }
-            for (t in listOf("users", "wallboxes", "bookings", "reviews", "charging_sessions", "refresh_tokens")) {
+            for (t in listOf("users", "wallboxes", "bookings", "reviews", "charging_sessions", "refresh_tokens", "favorites")) {
                 assertTrue(t in tables, "Tabelle $t fehlt (vorhanden: $tables)")
             }
 

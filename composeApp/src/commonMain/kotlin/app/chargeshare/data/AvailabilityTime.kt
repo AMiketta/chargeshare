@@ -75,6 +75,17 @@ private fun WeeklyAvailability.shifted(deltaMinutes: Int): WeeklyAvailability {
     }
 }
 
+/**
+ * Das eine Zeitfenster, das an allen Tagen mit Verfügbarkeit gleich ist (für den Kurzhinweis „9–20 Uhr“);
+ * `null`, wenn es keine Zeiten gibt, ein Tag mehrere Fenster hat oder sich die Tage unterscheiden.
+ */
+fun WeeklyAvailability.commonWindow(): TimeSlot? {
+    val windowsPerDay = values.filter { it.isNotEmpty() }
+    val first = windowsPerDay.firstOrNull() ?: return null
+    if (first.size != 1 || windowsPerDay.any { it != first }) return null
+    return first.single()
+}
+
 /** `HH:MM` oder Tagesende `24:00` als Minuten seit Mitternacht. */
 private fun parseMinutes(text: String): Int? {
     if (text == END_OF_DAY) return MINUTES_PER_DAY

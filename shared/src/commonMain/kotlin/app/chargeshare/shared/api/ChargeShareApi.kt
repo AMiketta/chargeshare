@@ -84,6 +84,21 @@ class ChargeShareApi(
     suspend fun updateRole(role: UserRole): User =
         http.put("$V1/users/me/role") { json(UpdateRoleRequest(role)) }.body()
 
+    // ---- Favoriten --------------------------------------------------------------------------
+
+    /** IDs der favorisierten Wallboxen des Nutzers, neueste zuerst. */
+    suspend fun favoriteIds(): List<String> = http.get("$V1/users/me/favorites").body<FavoritesResponse>().wallboxIds
+
+    /** Markiert die Wallbox als Favorit; mehrfaches Setzen ist unschädlich. */
+    suspend fun addFavorite(wallboxId: String) {
+        http.put("$V1/users/me/favorites/$wallboxId")
+    }
+
+    /** Entfernt den Favoriten; ist die Wallbox kein Favorit, passiert nichts. */
+    suspend fun removeFavorite(wallboxId: String) {
+        http.delete("$V1/users/me/favorites/$wallboxId")
+    }
+
     // ---- Wallboxes --------------------------------------------------------------------------
 
     suspend fun searchWallboxes(search: WallboxSearch = WallboxSearch()): WallboxListResponse =
@@ -99,6 +114,9 @@ class ChargeShareApi(
         }.body()
 
     suspend fun wallbox(id: String): Wallbox = http.get("$V1/wallboxes/$id").body()
+
+    /** Öffentliches Profil des Hosts der Wallbox [id] (gekürzter Name, Mitglied seit, Sessions, Superhost). */
+    suspend fun wallboxHost(id: String): HostProfile = http.get("$V1/wallboxes/$id/host").body()
 
     suspend fun createWallbox(request: CreateWallboxRequest): Wallbox =
         http.post("$V1/wallboxes") { json(request) }.body()

@@ -5,6 +5,7 @@ import app.chargeshare.data.AuthRepository
 import app.chargeshare.data.BookingCreation
 import app.chargeshare.data.BookingRepository
 import app.chargeshare.data.DaySlots
+import app.chargeshare.data.FavoritesRepository
 import app.chargeshare.data.GeoPoint
 import app.chargeshare.data.HostRepository
 import app.chargeshare.data.PaymentRepository
@@ -19,6 +20,7 @@ import app.chargeshare.shared.model.ConnectorType
 import app.chargeshare.shared.model.CreateWallboxRequest
 import app.chargeshare.shared.model.UpdateWallboxRequest
 import app.chargeshare.shared.model.HostEarnings
+import app.chargeshare.shared.model.HostProfile
 import app.chargeshare.shared.model.PaymentConfig
 import app.chargeshare.shared.model.PaymentProviderKind
 import app.chargeshare.shared.model.Review
@@ -152,6 +154,37 @@ class FakeAuthRepository(initial: SessionState = SessionState.SignedOut) : AuthR
         deleteResult.also { if (it is Outcome.Success) state.value = SessionState.SignedOut }
 }
 
+fun testHostProfile(isSuperhost: Boolean = false) = HostProfile(
+    name = "Andreas M.",
+    memberSince = Instant.parse("2024-03-01T10:00:00Z"),
+    sessions = 47,
+    ratingAvg = 4.8,
+    ratingCount = 23,
+    isSuperhost = isSuperhost,
+)
+
+/** Favoriten im Speicher; [failNext] lässt den nächsten Schreibaufruf scheitern. */
+class FakeFavoritesRepository(initial: Set<String> = emptySet()) : FavoritesRepository {
+    var idsResult: Outcome<Set<String>> = Outcome.Success(initial)
+    var failNext: AppError? = null
+    val added = mutableListOf<String>()
+    val removed = mutableListOf<String>()
+
+    override suspend fun ids(): Outcome<Set<String>> = idsResult
+
+    override suspend fun add(wallboxId: String): Outcome<Unit> = write { added += wallboxId }
+
+    override suspend fun remove(wallboxId: String): Outcome<Unit> = write { removed += wallboxId }
+
+    private fun write(action: () -> Unit): Outcome<Unit> {
+        val error = failNext
+        failNext = null
+        if (error != null) return Outcome.Failure(error)
+        action()
+        return Outcome.Success(Unit)
+    }
+}
+
 class FakeWallboxRepository : WallboxRepository {
     var searchResult: Outcome<List<Wallbox>> = Outcome.Success(emptyList())
     var wallboxResult: Outcome<Wallbox> = Outcome.Success(testWallbox())
@@ -170,6 +203,10 @@ class FakeWallboxRepository : WallboxRepository {
     override suspend fun wallbox(id: String): Outcome<Wallbox> = wallboxResult
 
     override suspend fun reviews(wallboxId: String): Outcome<List<Review>> = reviewsResult
+
+    var hostProfileResult: Outcome<HostProfile> = Outcome.Success(testHostProfile())
+
+    override suspend fun hostProfile(wallboxId: String): Outcome<HostProfile> = hostProfileResult
 
     val lockedByDay = mutableMapOf<LocalDate, List<Instant>>()
 

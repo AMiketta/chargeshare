@@ -1,5 +1,6 @@
 package app.chargeshare.ui
 
+import app.chargeshare.shared.model.TimeSlot
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
@@ -66,5 +67,27 @@ class FormattersTest {
     fun `Kostenzeile zeigt kWh mit einer Nachkommastelle`() {
         assertEquals("ca. 6,4 kWh × 0,39 €", Strings.estimateLine(6.4, 0.39))
         assertEquals("ca. 5,5 kWh × 0,39 €", Strings.estimateLine(5.5, 0.39))
+    }
+
+    @Test
+    fun openingHoursDropUselessZerosAndMinutes() {
+        assertEquals("9–20 Uhr", formatOpeningHours(TimeSlot("09:00", "20:00")))
+        assertEquals("9:30–20:15 Uhr", formatOpeningHours(TimeSlot("09:30", "20:15")))
+        assertEquals("0–24 Uhr", formatOpeningHours(TimeSlot("00:00", "24:00")))
+    }
+
+    @Test
+    fun modelBadgeCombinesManufacturerModelAndPower() {
+        assertEquals("KEBA P30 · 11 kW", Strings.modelBadge("KEBA", "P30", 11.0))
+        assertEquals("P30 · 7,4 kW", Strings.modelBadge(null, "P30", 7.4))
+        assertEquals("KEBA · 11 kW", Strings.modelBadge("KEBA", null, 11.0))
+        assertEquals("11 kW", Strings.modelBadge(null, null, 11.0))
+    }
+
+    @Test
+    fun hostSummaryPluralizesSessions() {
+        assertEquals("Mitglied seit 2024 · 47 Sessions", Strings.hostSummary(2024, 47))
+        assertEquals("Mitglied seit 2026 · 1 Session", Strings.hostSummary(2026, 1))
+        assertEquals("Mitglied seit 2026 · 0 Sessions", Strings.hostSummary(2026, 0))
     }
 }
