@@ -14,7 +14,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -71,20 +74,31 @@ fun App(
     paymentLauncher: PaymentLauncher = UnsupportedPaymentLauncher,
     photoPicker: PhotoPicker = UnsupportedPhotoPicker,
 ) {
-    ChargeShareTheme(darkTheme = rememberIsDarkTheme(container.themeSettings)) {
+    val darkTheme = rememberIsDarkTheme(container.themeSettings)
+    ChargeShareTheme(darkTheme = darkTheme) {
         CompositionLocalProvider(LocalImageLoader provides container.imageLoader) {
             Surface(modifier = Modifier.fillMaxSize(), color = ChargeShareColors.Background) {
                 val sessionViewModel = viewModel { SessionViewModel(container.authRepository) }
                 val session by sessionViewModel.session.collectAsState()
-                when (val current = session) {
-                    SessionState.Restoring -> RestoringSession()
-                    SessionState.SignedOut -> SignedOutContent(container)
-                    // Pro Nutzer ein eigener ViewModel-Speicher: nach Abmelden/Konto-Wechsel bleiben keine Daten des Vorgängers übrig.
-                    is SessionState.SignedIn -> key(current.user.id) {
-                        val owner = rememberScopedViewModelStoreOwner()
-                        CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
-                            MainContent(container, current.user, paymentLauncher, photoPicker)
+                var splashVisible by rememberSaveable { mutableStateOf(true) }
+                Box {
+                    when (val current = session) {
+                        SessionState.Restoring -> RestoringSession()
+                        SessionState.SignedOut -> SignedOutContent(container)
+                        // Pro Nutzer ein eigener ViewModel-Speicher: nach Abmelden/Konto-Wechsel bleiben keine Daten des Vorgängers übrig.
+                        is SessionState.SignedIn -> key(current.user.id) {
+                            val owner = rememberScopedViewModelStoreOwner()
+                            CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
+                                MainContent(container, current.user, paymentLauncher, photoPicker)
+                            }
                         }
+                    }
+                    if (splashVisible) {
+                        SplashOverlay(
+                            isDark = darkTheme,
+                            sessionRestoring = session == SessionState.Restoring,
+                            onFinished = { splashVisible = false },
+                        )
                     }
                 }
             }

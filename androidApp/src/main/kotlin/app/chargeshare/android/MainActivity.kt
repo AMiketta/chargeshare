@@ -8,6 +8,7 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.DisposableEffect
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import app.chargeshare.data.Outcome
 import app.chargeshare.ui.App
 import app.chargeshare.ui.rememberIsDarkTheme
@@ -26,6 +27,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Vor super.onCreate: tauscht das Startthema gegen Theme.ChargeShare; die Compose-Animation (SplashOverlay) setzt das Splash fort.
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         val container = (application as ChargeShareApplication).container
         // Das PaymentSheet muss vor dem Start der Activity registriert werden, daher hier und nicht erst in der UI.
