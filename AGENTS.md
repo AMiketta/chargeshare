@@ -152,7 +152,7 @@ Im Entwicklungsmodus (`ENV=development`, Standard) gilt:
   Client und Server nutzen **dieselben** Modelle. Ändert sich der Vertrag, ändern sich Modell, Client, Server und Tests **im selben Commit**.
 - **Basis:** `/api/v1`; Health: `GET /health`; OCPP-WebSocket: `GET /ocpp/{chargepoint_id}`.
 - **Endpunkte** (`ChargeShareApi`):
-  - Auth: `POST /auth/register|login|apple|refresh|logout`; Nutzer: `GET|PUT|DELETE /users/me`, `PUT /users/me/role`
+  - Auth: `POST /auth/register|login|apple|refresh|logout`; Nutzer: `GET|PUT|DELETE /users/me`, `GET /users/me/stats` (Profil-Kennzahlen `sessions`, `kwh_charged`, `rating_avg` (nullable), `rating_count`), `PUT /users/me/role`
   - Wallboxen: `GET /wallboxes` (Query `lat,lng,radius,connector,min_power,max_price,limit,offset`; `limit` 1..100, Standard 20; Standard-Radius 10 km, nur mit `lat`+`lng`),
     `GET|PUT|DELETE /wallboxes/{id}`, `POST /wallboxes`, `PUT /wallboxes/{id}/status`, `GET|PUT /wallboxes/{id}/availability`,
     `GET /wallboxes/{id}/slots?date=YYYY-MM-DD` (freie 30-Minuten-Slots, `HH:MM`, **UTC**; Verfügbarkeitsfenster dürfen um `24:00` enden), `GET /wallboxes/{id}/reviews`.
@@ -311,8 +311,11 @@ Der **Amber-Button** ist die eine Haupthandlung pro Screen (z. B. „Jetzt buche
 (`compose.resources.packageOfResClass` in `composeApp/build.gradle.kts`; auf Android braucht der KMP-Library-Plugin dafür `androidResources { enable = true }`).
 Texte nutzen immer `MaterialTheme.typography` (Stile in `Typography.kt`), nie eine eigene `fontSize`.
 
+**Debug-Angaben:** `AppContainer(showDebugInfo = …)` ist nur in Debug-Builds `true` (Android: `BuildConfig.DEBUG`, Desktop-Vorschau: immer); die UI zeigt dann z. B. die API-Adresse im Profil.
+In Release-Builds, im Web und auf iOS (Standard `false`) erscheinen solche Zeilen nicht.
+
 **Wiederverwendbare Design-Komponenten** (`ui/components`): `AppCard`/`SurfaceCard` (Karte mit Radius 20 dp, Schatten, Rand), `AppFilterChip`/`ChoiceChips` (vollrunde Filter-Pill,
-gewählt tiefgrün), `InfoPill` (kleines Label), `AppNavigationBar` (untere Navigation: aktiver Tab grün auf hellgrüner Pill, inaktiv grau). Den Material-`FilterChip`/`NavigationBar`/`Card`
+gewählt tiefgrün), `InfoPill` (kleines Label), `AppNavigationBar` (untere Navigation: aktiver Tab grün auf hellgrüner Pill, inaktiv grau), `MenuGroup`/`MenuItem` (gruppierte Liste mit farbigen Icons, `MenuIconStyle`). Den Material-`FilterChip`/`NavigationBar`/`Card`
 nicht direkt verwenden, damit das Design an einer Stelle gepflegt wird.
 
 ## 13. Recht und Datenschutz (Kurzform – Details im Konzept, Kap. 9)

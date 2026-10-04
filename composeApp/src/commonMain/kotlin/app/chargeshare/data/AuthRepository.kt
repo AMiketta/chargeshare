@@ -5,6 +5,7 @@ import app.chargeshare.shared.api.TokenStore
 import app.chargeshare.shared.model.UpdateUserRequest
 import app.chargeshare.shared.model.User
 import app.chargeshare.shared.model.UserRole
+import app.chargeshare.shared.model.UserStats
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,6 +34,9 @@ interface AuthRepository {
 
     /** Ändert Name und Telefonnummer ([phone] leer = Nummer entfernen) und aktualisiert den angemeldeten Nutzer. */
     suspend fun updateProfile(name: String, phone: String): Outcome<User>
+
+    /** Kennzahlen für das Profil (Ladevorgänge, kWh, Bewertung). */
+    suspend fun stats(): Outcome<UserStats>
 }
 
 /** [AuthRepository] über den gemeinsamen [ChargeShareApi]-Client. */
@@ -86,6 +90,8 @@ class ApiAuthRepository(
         if (result is Outcome.Success) state.value = SessionState.SignedIn(result.value)
         return result
     }
+
+    override suspend fun stats(): Outcome<UserStats> = runCatchingOutcome { api.myStats() }
 
     override suspend fun deleteAccount(): Outcome<Unit> {
         val result = runCatchingOutcome { api.deleteMe() }

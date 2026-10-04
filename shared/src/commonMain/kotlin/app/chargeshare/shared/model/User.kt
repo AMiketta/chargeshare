@@ -88,5 +88,21 @@ data class UpdateUserRequest(
     @SerialName("avatar_url") val avatarUrl: String? = null,
 )
 
+/**
+ * Kennzahlen für das Profil (`GET /users/me/stats`).
+ *
+ * @property sessions abgeschlossene Ladevorgänge als Fahrer (Buchungen mit Status `completed`)
+ * @property kwhCharged Summe der tatsächlich geladenen kWh dieser Buchungen
+ * @property ratingAvg Durchschnitt der Bewertungen auf den eigenen Wallboxen; `null`, solange es keine gibt
+ * @property ratingCount Anzahl dieser Bewertungen
+ */
+@Serializable
+data class UserStats(
+    val sessions: Int = 0,
+    @SerialName("kwh_charged") val kwhCharged: Double = 0.0,
+    @SerialName("rating_avg") val ratingAvg: Double? = null,
+    @SerialName("rating_count") val ratingCount: Int = 0,
+)
+
 @Serializable
 data class UpdateRoleRequest(val role: UserRole)

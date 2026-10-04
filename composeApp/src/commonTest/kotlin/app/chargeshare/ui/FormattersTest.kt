@@ -22,6 +22,13 @@ class FormattersTest {
     }
 
     @Test
+    fun compactKwhDropsDecimalFromHundredKwh() {
+        assertEquals("423 kWh", formatKwhShort(423.0))
+        assertEquals("15,8 kWh", formatKwhShort(15.8))
+        assertEquals("0,0 kWh", formatKwhShort(0.0))
+    }
+
+    @Test
     fun distanceSwitchesFromMetersToKilometers() {
         assertEquals("200 m", formatDistance(200.0))
         assertEquals("1,2 km", formatDistance(1_240.0))

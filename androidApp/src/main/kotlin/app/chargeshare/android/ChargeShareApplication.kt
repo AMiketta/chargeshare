@@ -15,6 +15,7 @@ class ChargeShareApplication : Application() {
         container = AppContainer(
             apiBaseUrl = BuildConfig.API_BASE_URL,
             tokenStore = createSecureTokenStore(PlatformContext(this)),
+            showDebugInfo = BuildConfig.DEBUG,
         )
     }
 }

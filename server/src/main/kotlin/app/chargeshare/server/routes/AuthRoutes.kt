@@ -59,6 +59,7 @@ fun Route.userRoutes(s: Services) {
                 s.auth.deleteAccount(call.userId())
                 call.respond(HttpStatusCode.NoContent)
             }
+            get("/stats") { call.respond(s.auth.stats(call.userId())) }
             put("/role") { call.respond(s.auth.updateRole(call.userId(), call.receive<UpdateRoleRequest>())) }
         }
     }

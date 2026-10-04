@@ -35,6 +35,10 @@ fun formatPowerKw(kw: Double): String {
 
 fun formatKwh(kwh: Double): String = "${formatDecimal(kwh, 1)} kWh"
 
+/** Kompakte kWh-Angabe für Kennzahlen: ab 100 kWh ohne Nachkommastelle (`423 kWh`), darunter mit (`15,8 kWh`). */
+fun formatKwhShort(kwh: Double): String =
+    "${formatDecimal(kwh, if (kwh >= COMPACT_KWH_THRESHOLD) 0 else 1)} kWh"
+
 /** Entfernung: unter 1 km in Metern, sonst in Kilometern mit einer Nachkommastelle. */
 fun formatDistance(meters: Double): String =
     if (meters < METERS_PER_KM) "${meters.roundToLong()} m" else "${formatDecimal(meters / METERS_PER_KM, 1)} km"
@@ -74,6 +78,7 @@ fun initialsOf(name: String): String =
     name.split(' ').filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }.ifEmpty { "?" }
 
 private const val CENT_DIGITS = 2
+private const val COMPACT_KWH_THRESHOLD = 100.0
 private const val METERS_PER_KM = 1000.0
 private val WEEKDAYS_SHORT = listOf("Mo", "Di", "Mi", "Do", "Fr", "Sa", "So")
 private val WEEKDAY_KEYS_ORDERED = listOf("monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday")

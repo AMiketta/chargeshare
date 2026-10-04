@@ -79,6 +79,8 @@ class ChargeShareApi(
         tokenStore.clear()
     }
 
+    suspend fun myStats(): UserStats = http.get("$V1/users/me/stats").body()
+
     suspend fun updateRole(role: UserRole): User =
         http.put("$V1/users/me/role") { json(UpdateRoleRequest(role)) }.body()
 

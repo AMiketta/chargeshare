@@ -23,6 +23,7 @@ import app.chargeshare.shared.model.PaymentProviderKind
 import app.chargeshare.shared.model.Review
 import app.chargeshare.shared.model.User
 import app.chargeshare.shared.model.UserRole
+import app.chargeshare.shared.model.UserStats
 import app.chargeshare.shared.model.Wallbox
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -103,6 +104,8 @@ class FakeAuthRepository(initial: SessionState = SessionState.SignedOut) : AuthR
     var becomeHostResult: Outcome<User> = Outcome.Success(testUser(UserRole.HOST))
     var deleteResult: Outcome<Unit> = Outcome.Success(Unit)
     var updateProfileResult: Outcome<User>? = null
+    var statsResult: Outcome<UserStats> = Outcome.Success(UserStats())
+    var statsCalls = 0
     val profileUpdates = mutableListOf<Pair<String, String>>()
     var restoredState: SessionState = SessionState.SignedOut
 
@@ -137,6 +140,11 @@ class FakeAuthRepository(initial: SessionState = SessionState.SignedOut) : AuthR
         val result = updateProfileResult ?: Outcome.Success(testUser().copy(name = name, phone = phone.ifEmpty { null }))
         if (result is Outcome.Success) state.value = SessionState.SignedIn(result.value)
         return result
+    }
+
+    override suspend fun stats(): Outcome<UserStats> {
+        statsCalls++
+        return statsResult
     }
 
     override suspend fun deleteAccount(): Outcome<Unit> =

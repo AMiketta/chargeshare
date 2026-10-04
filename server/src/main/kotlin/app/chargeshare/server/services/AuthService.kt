@@ -31,6 +31,7 @@ import app.chargeshare.shared.model.ProfileLimits
 import app.chargeshare.shared.model.UpdateUserRequest
 import app.chargeshare.shared.model.User
 import app.chargeshare.shared.model.UserRole
+import app.chargeshare.shared.model.UserStats
 import at.favre.lib.crypto.bcrypt.BCrypt
 import java.security.MessageDigest
 import java.security.SecureRandom
@@ -208,6 +209,24 @@ class AuthService(
     private fun org.jetbrains.exposed.v1.jdbc.JdbcTransaction.loadUserTx(id: Uuid): User =
         Users.selectAll().where { Users.id eq id }.singleOrNull()?.toUser() ?: throw notFound("user not found")
 
+    /** Profil-Kennzahlen: Ladevorgänge und kWh als Fahrer, Bewertungen auf den eigenen Wallboxen als Host. */
+    suspend fun stats(id: Uuid): UserStats = db.tx {
+        loadUserTx(id)
+        val completed = Bookings.select(Bookings.actualKwh)
+            .where { (Bookings.driverId eq id) and (Bookings.status eq "completed") }
+            .toList()
+        val kwh = completed.sumOf { it[Bookings.actualKwh]?.toDouble() ?: 0.0 }
+        val ratings = Reviews.select(Reviews.rating)
+            .where { Reviews.wallboxId inSubQuery Wallboxes.select(Wallboxes.id).where { Wallboxes.ownerId eq id } }
+            .map { it[Reviews.rating].toInt() }
+        UserStats(
+            sessions = completed.size,
+            kwhCharged = roundTo(kwh, STATS_KWH_DECIMALS),
+            ratingAvg = ratings.takeIf { it.isNotEmpty() }?.let { roundTo(it.average(), STATS_RATING_DECIMALS) },
+            ratingCount = ratings.size,
+        )
+    }
+
     suspend fun updateProfile(id: Uuid, req: UpdateUserRequest): User {
         val name = req.name?.trim()
         if (name != null && (name.isEmpty() || name.length > ProfileLimits.MAX_NAME_LENGTH)) {
@@ -266,7 +285,15 @@ class AuthService(
         }
     }
 
+    private fun roundTo(value: Double, decimals: Int): Double {
+        val factor = Math.pow(10.0, decimals.toDouble())
+        return Math.round(value * factor) / factor
+    }
+
     companion object {
+        private const val STATS_KWH_DECIMALS = 1
+        private const val STATS_RATING_DECIMALS = 1
+
         fun hashToken(token: String): String =
             MessageDigest.getInstance("SHA-256").digest(token.toByteArray()).joinToString("") { "%02x".format(it) }
     }
