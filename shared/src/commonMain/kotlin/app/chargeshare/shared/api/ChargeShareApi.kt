@@ -193,11 +193,15 @@ class ChargeShareApi(
             parameter("offset", offset)
         }.body()
 
-    /** @param from `YYYY-MM-DD` @param to `YYYY-MM-DD` (beide optional) */
-    suspend fun hostEarnings(from: String? = null, to: String? = null): HostEarnings =
+    /**
+     * @param from `YYYY-MM-DD` @param to `YYYY-MM-DD` (beide optional, nach Beginn der Buchung)
+     * @param timeZone IANA-Zeitzone (z. B. `Europe/Berlin`) für Monats- und Wochengrenzen; ohne Angabe UTC
+     */
+    suspend fun hostEarnings(from: String? = null, to: String? = null, timeZone: String? = null): HostEarnings =
         http.get("$V1/host/earnings") {
             parameter("from", from)
             parameter("to", to)
+            parameter("tz", timeZone)
         }.body()
 
     suspend fun hostSessions(limit: Int? = null, offset: Int? = null): SessionListResponse =

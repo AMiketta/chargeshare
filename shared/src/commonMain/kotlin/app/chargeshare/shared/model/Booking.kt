@@ -98,13 +98,42 @@ data class SessionListResponse(
     val offset: Int = 0,
 )
 
-/** Go: `models.HostEarnings` (`GET /host/earnings?from=&to=`). */
+/**
+ * Einnahmen eines Hosts (`GET /host/earnings?from=&to=&tz=`; Go: `models.HostEarnings`, hier um Dashboard-Werte erweitert).
+ * Gezählt werden nur abgeschlossene (`completed`) Buchungen auf den eigenen Wallboxes, zugeordnet nach dem **Beginn der Buchung**
+ * (Ladetag) in der Zeitzone `tz`. Alle Felder außer [avgRating] beziehen sich auf die per `from`/`to` gefilterten Buchungen.
+ *
+ * @property total Summe der Beträge in Euro
+ * @property month Einnahmen im laufenden Kalendermonat
+ * @property sessions Anzahl der Buchungen
+ * @property kwh geladene Energie in kWh (Summe `actual_kwh`)
+ * @property monthSessions Buchungen im laufenden Monat
+ * @property monthKwh geladene kWh im laufenden Monat
+ * @property previousMonth Einnahmen im Vormonat
+ * @property monthChangePct Veränderung von [month] gegenüber [previousMonth] in Prozent (eine Nachkommastelle);
+ * `null`, wenn der Vormonat 0 € hatte und sich daher kein Prozentwert bilden lässt
+ * @property week Einnahmen je Tag der laufenden Woche (Montag bis Sonntag, immer 7 Einträge; spätere Tage 0)
+ * @property avgRating Durchschnitt aller Bewertungen auf den Wallboxes des Hosts, 0 ohne Bewertungen
+ */
 @Serializable
 data class HostEarnings(
     val total: Double = 0.0,
     val month: Double = 0.0,
     val sessions: Int = 0,
     @SerialName("avg_rating") val avgRating: Double = 0.0,
+    val kwh: Double = 0.0,
+    @SerialName("month_sessions") val monthSessions: Int = 0,
+    @SerialName("month_kwh") val monthKwh: Double = 0.0,
+    @SerialName("previous_month") val previousMonth: Double = 0.0,
+    @SerialName("month_change_pct") val monthChangePct: Double? = null,
+    val week: List<DailyEarnings> = emptyList(),
+)
+
+/** Einnahmen eines Kalendertags; [date] ist `YYYY-MM-DD` in der angefragten Zeitzone. */
+@Serializable
+data class DailyEarnings(
+    val date: String,
+    val amount: Double = 0.0,
 )
 
 /** `POST /payments/onboard` -> `{"url": "..."}` (Stripe-Connect-Onboarding-Link). */
