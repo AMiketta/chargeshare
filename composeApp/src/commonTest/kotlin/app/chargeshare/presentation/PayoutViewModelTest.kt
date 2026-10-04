@@ -131,8 +131,8 @@ class PayoutViewModelTest {
 
     @Test
     fun deepLinksAreParsedAndConsumedOnce() {
-        assertEquals(DeepLink.ONBOARDING_DONE, DeepLink.parse("chargeshare://onboarding-done"))
-        assertEquals(DeepLink.ONBOARDING_REFRESH, DeepLink.parse("chargeshare://onboarding-refresh/"))
+        assertEquals(DeepLink.OnboardingDone, DeepLink.parse("chargeshare://onboarding-done"))
+        assertEquals(DeepLink.OnboardingRefresh, DeepLink.parse("chargeshare://onboarding-refresh/"))
         assertNull(DeepLink.parse("https://evil.test/onboarding-done"))
         assertNull(DeepLink.parse(null))
 
@@ -140,11 +140,11 @@ class PayoutViewModelTest {
         assertFalse(inbox.offer("chargeshare://unknown"))
         assertNull(inbox.pending.value)
         assertTrue(inbox.offer("chargeshare://onboarding-done"))
-        assertEquals(DeepLink.ONBOARDING_DONE, inbox.pending.value)
+        assertEquals(DeepLink.OnboardingDone, inbox.pending.value)
         inbox.offer("chargeshare://onboarding-refresh")
-        inbox.consume(DeepLink.ONBOARDING_DONE) // veraltet: der neue Link bleibt
-        assertEquals(DeepLink.ONBOARDING_REFRESH, inbox.pending.value)
-        inbox.consume(DeepLink.ONBOARDING_REFRESH)
+        inbox.consume(DeepLink.OnboardingDone) // veraltet: der neue Link bleibt
+        assertEquals(DeepLink.OnboardingRefresh, inbox.pending.value)
+        inbox.consume(DeepLink.OnboardingRefresh)
         assertNull(inbox.pending.value)
     }
 }

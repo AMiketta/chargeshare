@@ -149,6 +149,12 @@ fun ErrorText(message: String, modifier: Modifier = Modifier) {
     Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, modifier = modifier)
 }
 
+/** Inline-Hinweis für Erfolgsmeldungen unter Formularen. */
+@Composable
+fun SuccessText(message: String, modifier: Modifier = Modifier) {
+    Text(message, style = MaterialTheme.typography.bodyMedium, color = ChargeShareColors.PrimaryText, modifier = modifier)
+}
+
 @Composable
 fun EmptyBox(text: String, modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxWidth().padding(Spacing.Large), contentAlignment = Alignment.Center) {

@@ -2,6 +2,7 @@ package app.chargeshare.server.routes
 
 import app.chargeshare.server.payments.ONBOARDING_REFRESH_PATH
 import app.chargeshare.server.payments.ONBOARDING_RETURN_PATH
+import app.chargeshare.server.util.badRequest
 import app.chargeshare.shared.model.AppDeepLinks
 import io.ktor.http.ContentType
 import io.ktor.server.response.respondText
@@ -9,14 +10,25 @@ import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
 
 /**
- * Öffentliche Rückkehr-Seiten des Stripe-Onboardings. Stripe leitet den Browser hierher; die Seite öffnet per Deep Link
- * die App (`chargeshare://onboarding-done`) und bietet als Rückfall einen Button an, falls der Browser die automatische
- * Weiterleitung blockiert. Die Seiten enthalten keine Nutzerdaten und brauchen keinen Login.
+ * Öffentliche Zwischenseiten, die den Browser per Deep Link in die App schicken: Rückkehr vom Stripe-Onboarding
+ * (`chargeshare://onboarding-done`) und der Link aus der „Passwort vergessen“-Mail (`chargeshare://reset-password?token=…`).
+ * Stripe und E-Mail-Programme kennen keine eigenen URL-Schemata, daher der Umweg über https. Als Rückfall gibt es einen Button,
+ * falls der Browser die automatische Weiterleitung blockiert. Die Seiten brauchen keinen Login und enthalten keine Nutzerdaten.
  */
-fun Route.onboardingPageRoutes() {
+fun Route.appLinkPageRoutes() {
     get(ONBOARDING_RETURN_PATH) {
         call.respondText(
             returnPage(AppDeepLinks.ONBOARDING_DONE, "Zurück zu ChargeShare", "Die App prüft jetzt den Stand deiner Auszahlungen."),
+            ContentType.Text.Html,
+        )
+    }
+    get(RESET_PASSWORD_PATH) {
+        // Das Token landet in HTML und JavaScript: nur die Zeichen der Base64-URL-Kodierung sind erlaubt (kein Einschleusen von Markup).
+        val token = call.request.queryParameters["token"].orEmpty()
+        if (!TOKEN_PATTERN.matches(token)) throw badRequest("invalid token")
+        val link = "${AppDeepLinks.RESET_PASSWORD}?token=$token"
+        call.respondText(
+            returnPage(link, "Passwort in ChargeShare ändern", "Die App öffnet sich, damit du ein neues Passwort vergeben kannst."),
             ContentType.Text.Html,
         )
     }
@@ -27,6 +39,9 @@ fun Route.onboardingPageRoutes() {
         )
     }
 }
+
+private const val RESET_PASSWORD_PATH = "/reset-password"
+private val TOKEN_PATTERN = Regex("^[A-Za-z0-9_-]{16,128}$")
 
 private fun returnPage(deepLink: String, title: String, hint: String): String = """
     <!doctype html>

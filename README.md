@@ -119,6 +119,9 @@ Alle Pfade, JSON-Feldnamen und das Fehlerformat (`{"error": "...", "code": "VALI
 | Bereich | Status |
 |---|---|
 | Auth (`register`, `login`, `refresh`, `logout`, `users/me` GET/PUT/DELETE, `users/me/role`, `users/me/stats`) | implementiert (`PUT /users/me`: Name 1–100 Zeichen, getrimmt; Telefon optional, 6–20 Zeichen aus Ziffern/`+`/Leerzeichen/`-`/`/`/Klammern, leer = entfernen; Profil-Dialog in der App): bcrypt (Kosten 12), Access-JWT (15 min, HS256), Refresh-Token zufaellig + als SHA-256 in `refresh_tokens`, Rotation bei jedem Refresh (Einmalverwendung). `GET /users/me/stats` liefert die Profil-Kennzahlen: abgeschlossene Buchungen als Fahrer (`sessions`), Summe `actual_kwh` (`kwh_charged`, 1 Nachkommastelle) und Bewertungsdurchschnitt/-anzahl der eigenen Wallboxen (`rating_avg` ist `null` ohne Bewertungen) |
+| Passwort zurücksetzen (`POST /auth/forgot-password`, `POST /auth/reset-password`) | implementiert (Migration `V5__password_reset.sql`): `forgot-password` antwortet **immer** `204` (kein Hinweis, ob die Adresse existiert; Mailfehler bleiben unsichtbar) und ist wie Login ratenbegrenzt. Das Token (32 Zufallsbytes, base64url) steht nur als SHA-256 in der DB, gilt `PASSWORD_RESET_TTL_MINUTES` (Standard 60), ist einmalig, und eine neue Anfrage entwertet das alte. `reset-password` (`new_password` ≥ 8 Zeichen) → `204`, ungültiges/abgelaufenes/benutztes Token oder zu kurzes Passwort → `422`; danach sind alle Refresh-Tokens gelöscht (alle Geräte melden sich neu an). Die Mail enthält `{PUBLIC_BASE_URL}/reset-password?token=…`; die öffentliche Seite springt per `chargeshare://reset-password?token=…` in die App. **Offen: es gibt noch keinen echten Mailversand** – nur `LoggingMailer` (Dev: Link steht im Server-Log, in Produktion wird er nicht geloggt). Vor dem Livegang ein `Mailer` mit SMTP/Provider ergänzen |
+| `GET /bookings/{id}/receipt` | implementiert: Quittung als PDF (`application/pdf`, ohne Zusatzbibliothek erzeugt, `receipt/SimplePdf.kt`), nur für den Fahrer und nur bei Status `completed` (andere Nutzer `404`, nicht abgeschlossene Buchung `409`). Inhalt: Buchungsnummer, Wallbox, Zeitraum, kWh, Betrag, Plattformgebühr, Hinweis, dass es **keine Rechnung mit Umsatzsteuerausweis** ist |
+| Gespeicherte Karten (`GET /payments/methods`, `DELETE /payments/methods/{id}`, `POST /payments/setup-intent`, `POST /payments/customer-session`) | implementiert für Stripe (Stripe-Kunde wird bei Bedarf angelegt, `users.stripe_customer_id`): `methods` liefert Marke, letzte vier Ziffern und Ablauf (`supported=false` ohne Stripe), `DELETE` fremder Karten `404`, `setup-intent` (SetupIntent, nur Karten) zum Speichern ohne Zahlung, `customer-session` lässt das PaymentSheet gespeicherte Karten anzeigen und neue merken. Mit dem Fake-Provider `supported=false` bzw. `503`. **Nur mit Testdoubles getestet, nicht gegen Stripe** |
 | `POST /auth/apple` | implementiert, aber **nur mit `APPLE_BUNDLE_ID`** (prueft Signatur gegen Apples JWKS, `iss`, `aud`, `exp`); ohne Konfiguration `501`. Nicht gegen echte Apple-Tokens getestet (Test mit lokal signiertem Token) |
 | Wallboxen (CRUD, Suche per `earth_distance`, Status, Wochenplan, Slots, Reviews-Liste) | implementiert |
 | `GET /wallboxes/{id}/host` | implementiert, ohne Login: Host-Karte der Detailseite (`name` gekürzt auf „Vorname N.“, `member_since`, `sessions` = abgeschlossene Buchungen auf allen Wallboxen des Hosts, `rating_avg`/`rating_count` über alle seine Wallboxen, `is_superhost`). Superhost ist abgeleitet (`SuperhostCriteria`): mindestens 10 abgeschlossene Sessions **und** mindestens 5 Bewertungen **und** Durchschnitt ≥ 4,5. Keine Kontaktdaten |
@@ -195,6 +198,12 @@ abgelaufenen Link (`onboarding-refresh`) holt die App automatisch einen neuen. A
 sonst `PUBLIC_BASE_URL` + Pfad, sonst die Adresse der Anfrage (Emulator: `http://10.0.2.2:8080`). iOS: Deep Link noch nicht angebunden (URL-Schema + Brücke
 fehlen), Web: Link öffnet in neuem Tab, Rückkehr nur manuell über „Status prüfen“.
 
+**Gespeicherte Karten und Quittungen in der App:** Profil → „Zahlungsmethoden“ listet die bei Stripe gespeicherten Karten (Marke, letzte vier Ziffern,
+Ablauf), erlaubt Entfernen und – auf Android – „Karte hinzufügen“ (SetupIntent im PaymentSheet). Beim Bezahlen zeigt das PaymentSheet die gespeicherten
+Karten (Customer Session) und bietet an, neue zu merken. In der Buchungsliste gibt es bei abgeschlossenen Buchungen „Quittung (PDF)“ (Android:
+Teilen-Dialog, Desktop: PDF-Programm, Web: Download). Hinweis: Das Speichern/Entfernen von Karten ist nur gegen Testdoubles geprüft, nicht gegen Stripe; iOS hat
+keinen Kartenspeicher-Dialog.
+
 **Dev-Modus (ohne `STRIPE_SECRET_KEY`):** `GET /payments/config` meldet `provider: "fake"`; Buchungen sind sofort `confirmed`, die App zeigt
 nur den Hinweis „Testzahlung“ und öffnet kein Zahlungsfenster. Das gilt auch für Desktop und Web.
 
@@ -211,6 +220,7 @@ mit aktivem Stripe zeigt die Buchungsmaske den Hinweis, dass nur in der Android-
 | `GOOGLE_PAY_ENVIRONMENT` | `test` oder `production`; Standard: aus dem Publishable Key abgeleitet (`pk_live_` ⇒ `production`) |
 | `PENDING_BOOKING_TTL_MINUTES`, `PENDING_BOOKING_SWEEP_SECONDS` | Frist (Standard 15 Minuten, `0` = kein automatischer Ablauf) und Prüfintervall (Standard 60 s) für unbezahlte Buchungen |
 | `PUBLIC_BASE_URL`, `ONBOARDING_RETURN_URL`, `ONBOARDING_REFRESH_URL` | Öffentliche Server-Adresse (`https://api.chargeshare.app`) für die Rückkehr-Seiten des Stripe-Onboardings; Standard: Adresse der Anfrage. Die URLs können einzeln überschrieben werden. In Produktion `PUBLIC_BASE_URL` setzen |
+| `PASSWORD_RESET_TTL_MINUTES` | Gültigkeit des Passwort-Reset-Links in Minuten (Standard 60) |
 | `MERCHANT_DISPLAY_NAME`, `MERCHANT_COUNTRY_CODE` | Anzeigename (Standard `ChargeShare`) und ISO-Land (Standard `DE`) in den Zahlungsdialogen; Währung ist fest `eur` |
 
 Keine Schlüssel ins Repo: alles per Umgebung/`.env` (steht in `.gitignore`).

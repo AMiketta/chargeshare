@@ -5,10 +5,12 @@ import app.chargeshare.server.plugins.JWT_AUTH
 import app.chargeshare.server.plugins.RateLimiter
 import app.chargeshare.server.plugins.limitedPost
 import app.chargeshare.shared.model.AppleAuthRequest
+import app.chargeshare.shared.model.ForgotPasswordRequest
 import app.chargeshare.shared.model.LoginRequest
 import app.chargeshare.shared.model.LogoutRequest
 import app.chargeshare.shared.model.RefreshRequest
 import app.chargeshare.shared.model.RegisterRequest
+import app.chargeshare.shared.model.ResetPasswordRequest
 import app.chargeshare.shared.model.UpdateRoleRequest
 import app.chargeshare.shared.model.UpdateUserRequest
 import io.ktor.http.HttpStatusCode
@@ -36,6 +38,16 @@ fun Route.authRoutes(s: Services, rateLimiter: RateLimiter? = null, trustProxyHe
         }
         limitedPost("/apple", rateLimiter, trustProxyHeaders) {
             call.respond(s.auth.loginWithApple(call.receive<AppleAuthRequest>()))
+        }
+        limitedPost("/forgot-password", rateLimiter, trustProxyHeaders) {
+            // Immer 204, egal ob es das Konto gibt: keine Auskunft über registrierte Adressen.
+            s.passwordReset.request(call.receive<ForgotPasswordRequest>().email, call.requestBaseUrl())
+            call.respond(HttpStatusCode.NoContent)
+        }
+        limitedPost("/reset-password", rateLimiter, trustProxyHeaders) {
+            val req = call.receive<ResetPasswordRequest>()
+            s.passwordReset.reset(req.token, req.newPassword)
+            call.respond(HttpStatusCode.NoContent)
         }
         post("/refresh") {
             call.respond(s.auth.refresh(call.receive<RefreshRequest>().refreshToken))

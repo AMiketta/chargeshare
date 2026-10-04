@@ -2,6 +2,7 @@ package app.chargeshare.android
 
 import android.app.Application
 import app.chargeshare.di.AppContainer
+import app.chargeshare.platform.AndroidReceiptSharer
 import app.chargeshare.platform.AndroidUrlOpener
 import app.chargeshare.platform.PlatformContext
 import app.chargeshare.platform.createPreferenceStorage
@@ -20,6 +21,7 @@ class ChargeShareApplication : Application() {
             preferenceStorage = createPreferenceStorage(PlatformContext(this)),
             showDebugInfo = BuildConfig.DEBUG,
             urlOpener = AndroidUrlOpener(this),
+            receiptSharer = AndroidReceiptSharer(this),
         )
     }
 }

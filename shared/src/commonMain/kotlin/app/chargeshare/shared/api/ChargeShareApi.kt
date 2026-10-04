@@ -58,6 +58,16 @@ class ChargeShareApi(
     suspend fun refresh(refreshToken: String): TokenPair =
         http.post("$V1/auth/refresh") { json(RefreshRequest(refreshToken)) }.body<TokenPair>()
 
+    /** Fordert eine E-Mail zum Zurücksetzen an; antwortet immer ohne Fehler, auch bei unbekannter Adresse. */
+    suspend fun forgotPassword(email: String) {
+        http.post("$V1/auth/forgot-password") { json(ForgotPasswordRequest(email)) }
+    }
+
+    /** Setzt das Passwort mit dem Token aus der E-Mail neu; alle Geräte müssen sich danach neu anmelden. */
+    suspend fun resetPassword(token: String, newPassword: String) {
+        http.post("$V1/auth/reset-password") { json(ResetPasswordRequest(token, newPassword)) }
+    }
+
     suspend fun logout() {
         val refresh = tokenStore.refreshToken()
         if (refresh != null) {
@@ -219,6 +229,23 @@ class ChargeShareApi(
 
     /** Fragt Stripe sofort nach dem Kontostatus, speichert ihn und liefert ihn zurück (nach der Rückkehr vom Onboarding). */
     suspend fun refreshPayoutStatus(): PayoutStatus = http.post("$V1/payments/payout-status/refresh").body()
+
+    /** Gespeicherte Karten des Nutzers (Marke, letzte vier Ziffern, Ablauf). */
+    suspend fun savedCards(): SavedCardsResponse = http.get("$V1/payments/methods").body()
+
+    /** Entfernt eine gespeicherte Karte. */
+    suspend fun removeSavedCard(paymentMethodId: String) {
+        http.delete("$V1/payments/methods/$paymentMethodId")
+    }
+
+    /** Neuer SetupIntent, um eine Karte im PaymentSheet zu speichern. */
+    suspend fun createSetupIntent(): SetupIntentResponse = http.post("$V1/payments/setup-intent").body()
+
+    /** Customer Session für das PaymentSheet (gespeicherte Karten bei der Buchung). */
+    suspend fun createCustomerSession(): CustomerSessionResponse = http.post("$V1/payments/customer-session").body()
+
+    /** Quittung (PDF) einer abgeschlossenen, bezahlten Buchung. */
+    suspend fun bookingReceipt(bookingId: String): ByteArray = http.get("$V1/bookings/$bookingId/receipt").body()
 
     /** Öffentliche Zahlungskonfiguration (Publishable Key, Händlerdaten) für Google Pay / Apple Pay / PaymentSheet. */
     suspend fun paymentConfig(): PaymentConfig = http.get("$V1/payments/config").body()

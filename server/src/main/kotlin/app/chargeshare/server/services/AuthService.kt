@@ -27,6 +27,7 @@ import app.chargeshare.shared.model.LoginRequest
 import app.chargeshare.shared.model.RegisterRequest
 import app.chargeshare.shared.model.TokenPair
 import app.chargeshare.shared.model.UpdateRoleRequest
+import app.chargeshare.shared.model.PasswordLimits
 import app.chargeshare.shared.model.ProfileLimits
 import app.chargeshare.shared.model.UpdateUserRequest
 import app.chargeshare.shared.model.User
@@ -76,7 +77,9 @@ class AuthService(
         val email = req.email.trim().lowercase()
         val name = req.name.trim()
         if (!EMAIL_REGEX.matches(email)) throw validationError("email: must be a valid email address")
-        if (req.password.length < 8) throw validationError("password: must be at least 8 characters")
+        if (req.password.length < PasswordLimits.MIN_LENGTH) {
+            throw validationError("password: must be at least ${PasswordLimits.MIN_LENGTH} characters")
+        }
         if (name.isEmpty() || name.length > 100) throw validationError("name: must be 1-100 characters")
 
         val hash = hashPassword(req.password)

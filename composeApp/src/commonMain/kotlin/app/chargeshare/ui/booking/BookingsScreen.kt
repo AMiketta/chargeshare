@@ -24,10 +24,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import app.chargeshare.data.AppError
 import app.chargeshare.payment.PaymentLauncher
+import app.chargeshare.platform.ReceiptSharer
 import app.chargeshare.payment.payCatching
 import app.chargeshare.presentation.booking.BookingFilter
 import app.chargeshare.presentation.booking.PayNowState
+import app.chargeshare.presentation.booking.ReceiptState
 import app.chargeshare.presentation.booking.ReviewDraft
+import app.chargeshare.presentation.booking.hasReceipt
 import app.chargeshare.presentation.booking.isReviewable
 import app.chargeshare.presentation.booking.PaymentIssue
 import app.chargeshare.presentation.booking.PaymentStep
@@ -66,6 +69,7 @@ import kotlinx.datetime.TimeZone
 fun BookingsRoute(
     viewModel: BookingsViewModel,
     paymentLauncher: PaymentLauncher,
+    receiptSharer: ReceiptSharer,
     modifier: Modifier = Modifier,
     zone: TimeZone = TimeZone.currentSystemDefault(),
 ) {
@@ -73,6 +77,7 @@ fun BookingsRoute(
     LaunchedEffect(viewModel) { viewModel.refresh() }
     val state by viewModel.state.collectAsState()
     PayNowSheetEffect(state.payNow, viewModel, paymentLauncher)
+    ReceiptEffect(state.receipt, viewModel, receiptSharer)
     BookingsScreen(
         state = state,
         zone = zone,
@@ -89,8 +94,19 @@ fun BookingsRoute(
         onPayNow = viewModel::onPayNow,
         onRetryPayNow = viewModel::onRetryPayNow,
         onPayNowDismissed = viewModel::onPayNowDismissed,
+        canShareReceipt = receiptSharer.isSupported,
+        onReceiptRequested = viewModel::onReceiptRequested,
+        onReceiptErrorShown = viewModel::onReceiptErrorShown,
         modifier = modifier,
     )
+}
+
+/** Gibt die geladene Quittung über die Plattform aus und meldet das Ergebnis zurück. */
+@Composable
+private fun ReceiptEffect(receipt: ReceiptState, viewModel: BookingsViewModel, receiptSharer: ReceiptSharer) {
+    LaunchedEffect(receipt) {
+        if (receipt is ReceiptState.Ready) viewModel.onReceiptHandled(receiptSharer.share(receipt.fileName, receipt.pdf))
+    }
 }
 
 /**
@@ -128,6 +144,9 @@ fun BookingsScreen(
     onRetryPayNow: () -> Unit,
     onPayNowDismissed: () -> Unit,
     modifier: Modifier = Modifier,
+    canShareReceipt: Boolean = false,
+    onReceiptRequested: (Booking) -> Unit = {},
+    onReceiptErrorShown: () -> Unit = {},
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         HeroHeader(title = Strings.BookingsTitle)
@@ -163,6 +182,9 @@ fun BookingsScreen(
                         onPayNow = { onPayNow(booking) },
                         onRetryPayNow = onRetryPayNow,
                         onPayNowDismissed = onPayNowDismissed,
+                        receiptAvailable = canShareReceipt && booking.hasReceipt(),
+                        isReceiptLoading = (state.receipt as? ReceiptState.Loading)?.bookingId == booking.id,
+                        onReceipt = { onReceiptRequested(booking) },
                     )
                 }
             }
@@ -170,6 +192,14 @@ fun BookingsScreen(
     }
     state.reviewDraft?.let { draft ->
         ReviewDialog(draft, onReviewRatingChanged, onReviewCommentChanged, onReviewSubmitted, onReviewDismissed)
+    }
+    (state.receipt as? ReceiptState.Failed)?.let { failed ->
+        AlertDialog(
+            onDismissRequest = onReceiptErrorShown,
+            title = { Text(Strings.ReceiptAction) },
+            text = { Text(Strings.receiptErrorMessage(failed.error)) },
+            confirmButton = { TextButton(onClick = onReceiptErrorShown) { Text(Strings.Close) } },
+        )
     }
     state.cancelCandidate?.let { candidate ->
         AlertDialog(
@@ -193,6 +223,9 @@ private fun BookingCard(
     onPayNow: () -> Unit,
     onRetryPayNow: () -> Unit,
     onPayNowDismissed: () -> Unit,
+    receiptAvailable: Boolean,
+    isReceiptLoading: Boolean,
+    onReceipt: () -> Unit,
 ) {
     SurfaceCard {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
@@ -218,6 +251,11 @@ private fun BookingCard(
             TextButton(onClick = onReview) { Text(Strings.ReviewAction) }
         } else if (booking.status == BookingStatus.COMPLETED && booking.reviewed) {
             Text(Strings.Reviewed, style = MaterialTheme.typography.bodySmall, color = ChargeShareColors.PrimaryText)
+        }
+        if (receiptAvailable) {
+            TextButton(onClick = onReceipt, enabled = !isReceiptLoading) {
+                Text(if (isReceiptLoading) Strings.ReceiptLoading else Strings.ReceiptAction)
+            }
         }
         if (booking.isCancellable()) {
             TextButton(onClick = onCancel, enabled = !isCancelling && !payment.isAnyPaymentBusy) {

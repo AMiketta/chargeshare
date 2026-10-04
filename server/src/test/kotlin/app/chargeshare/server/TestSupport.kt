@@ -4,6 +4,8 @@ import app.chargeshare.server.auth.AppleTokenVerifier
 import app.chargeshare.server.auth.DisabledAppleTokenVerifier
 import app.chargeshare.server.config.AppConfig
 import app.chargeshare.server.db.DatabaseFactory
+import app.chargeshare.server.mail.MailMessage
+import app.chargeshare.server.mail.Mailer
 import app.chargeshare.server.payments.FakePaymentProvider
 import app.chargeshare.server.payments.PaymentProvider
 import app.chargeshare.shared.api.ChargeShareApi
@@ -51,7 +53,18 @@ object TestDb {
 
 val testConfig = AppConfig(bcryptCost = 4, authRateLimitPerWindow = 0)
 
-class ServerScope(private val builder: ApplicationTestBuilder, val payments: PaymentProvider) {
+/** Sammelt verschickte Mails, damit Tests den Reset-Link auslesen können. */
+class CapturingMailer : Mailer {
+    val sent: MutableList<MailMessage> = java.util.Collections.synchronizedList(mutableListOf())
+    @Volatile var failure: Throwable? = null
+
+    override fun send(message: MailMessage) {
+        failure?.let { throw it }
+        sent += message
+    }
+}
+
+class ServerScope(private val builder: ApplicationTestBuilder, val payments: PaymentProvider, val mailer: CapturingMailer) {
     fun wsClient(): HttpClient = builder.createClient { install(io.ktor.client.plugins.websocket.WebSockets) }
 
     /** Roher HTTP-Client (ohne Auth) fuer Statuscode-/JSON-Pruefungen. */
@@ -70,11 +83,12 @@ fun serverTest(
     config: AppConfig = testConfig,
     payments: PaymentProvider = FakePaymentProvider(),
     apple: AppleTokenVerifier = DisabledAppleTokenVerifier,
+    mailer: CapturingMailer = CapturingMailer(),
     block: suspend ServerScope.() -> Unit,
 ) = testApplication {
     TestDb.reset()
-    application { module(config, TestDb.database, payments, apple) }
-    ServerScope(this, payments).block()
+    application { module(config, TestDb.database, payments, apple, mailer) }
+    ServerScope(this, payments, mailer).block()
 }
 
 fun errOf(body: String): ApiError = ChargeShareJson.decodeFromString(body)
