@@ -31,6 +31,8 @@ data class WallboxListUiState(
     /** Ob die Plattform eine Karte anzeigen kann; sonst gibt es nur die Liste. */
     val mapSupported: Boolean = false,
     val viewMode: SearchViewMode = SearchViewMode.List,
+    /** Vom Nutzer angetippter Pin; `null` oder nicht mehr sichtbar = die nächste Wallbox gilt als aktiv. */
+    val selectedWallboxId: String? = null,
 ) {
     /** Karte nur anzeigen, wenn die Plattform sie unterstützt und sie gewählt ist. */
     val showMap: Boolean get() = mapSupported && viewMode == SearchViewMode.Map
@@ -41,6 +43,10 @@ data class WallboxListUiState(
             (!filter.onlyOnline || box.isOnline) &&
                 (query.isBlank() || listOf(box.name, box.address, box.city).any { it.contains(query.trim(), ignoreCase = true) })
         }
+
+    /** Die auf Karte und in der Liste hervorgehobene Wallbox: die gewählte, sonst die erste (nächste) sichtbare. */
+    val activeWallbox: Wallbox?
+        get() = visibleWallboxes.let { visible -> visible.firstOrNull { it.id == selectedWallboxId } ?: visible.firstOrNull() }
 }
 
 /** Standard-Suchzentrum Bremen, solange der Gerätestandort nicht (mit Einwilligung) angebunden ist. */
@@ -81,6 +87,12 @@ class WallboxListViewModel(
     fun onMaxPriceChange(maxPricePerKwh: Double?) = changeFilter { it.copy(maxPricePerKwh = maxPricePerKwh) }
 
     fun onOnlyOnlineChange(onlyOnline: Boolean) = _state.update { it.copy(filter = it.filter.copy(onlyOnline = onlyOnline)) }
+
+    /** Setzt alle Schnellfilter (Stecker, Mindestleistung, „jetzt verfügbar“) zurück, Umkreis und Preis bleiben. */
+    fun onClearQuickFilters() = changeFilter { it.copy(connector = null, minPowerKw = null, onlyOnline = false) }
+
+    /** Markiert eine Wallbox als aktiv (Tipp auf den Pin). */
+    fun onWallboxSelected(id: String) = _state.update { it.copy(selectedWallboxId = id) }
 
     fun onViewModeChange(viewMode: SearchViewMode) = _state.update { it.copy(viewMode = viewMode) }
 

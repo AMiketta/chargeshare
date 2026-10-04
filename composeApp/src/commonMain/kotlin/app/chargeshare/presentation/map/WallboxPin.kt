@@ -16,6 +16,8 @@ data class WallboxPin(
     val isOnline: Boolean,
     val x: Double,
     val y: Double,
+    /** Preis in Euro je kWh; steht im Pin als Preisschild. */
+    val pricePerKwh: Double,
 )
 
 /** Wallbox -> Pin. Die Karte zeigt nur diese Daten; Tipp auf den Pin öffnet die Wallbox mit der [WallboxPin.id]. */
@@ -25,6 +27,7 @@ fun Wallbox.toPin(): WallboxPin = WallboxPin(
     isOnline = isOnline,
     x = WebMercator.x(lng),
     y = WebMercator.y(lat),
+    pricePerKwh = pricePerKwh,
 )
 
 /** Rechteck in normalisierten Kartenkoordinaten. */
