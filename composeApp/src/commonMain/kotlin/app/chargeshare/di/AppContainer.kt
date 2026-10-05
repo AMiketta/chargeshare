@@ -11,7 +11,6 @@ import app.chargeshare.data.BookingRepository
 import app.chargeshare.data.FavoritesRepository
 import app.chargeshare.data.HostRepository
 import app.chargeshare.data.ImageLoader
-import app.chargeshare.data.OsmTileSource
 import app.chargeshare.data.PaymentRepository
 import app.chargeshare.data.PayoutRepository
 import app.chargeshare.data.ApiPayoutRepository
@@ -32,7 +31,6 @@ import app.chargeshare.shared.api.TokenStore
 import app.chargeshare.shared.api.createHttpClient
 import io.ktor.client.plugins.HttpTimeout
 import app.chargeshare.ui.map.WallboxMapHolder
-import ovh.plrapps.mapcompose.core.TileStreamProvider
 
 /**
  * Verdrahtet die Abhängigkeiten der App per Hand (kein DI-Framework): Http-Client → API → Repositories.
@@ -82,14 +80,12 @@ class AppContainer(
     /** Einführung beim ersten Start; das „gesehen“-Flag liegt lokal im Einstellungsspeicher. */
     val onboarding = OnboardingSettings(preferenceStorage)
 
-    /** Kachelquelle der Karte (OpenStreetMap); eigener Http-Client, ohne Login-Daten. */
-    val tileSource: TileStreamProvider by lazy { OsmTileSource() }
-
     /**
-     * Kartenzustand der Suche, einmal pro Prozess und nie beendet. Ein `shutdown()` beim Tab-Wechsel ließ die iOS-App
-     * abstürzen (Details in [WallboxMapHolder]).
+     * Kartenzustand der Suche, einmal pro Prozess und nie beendet.
+     * Android/Desktop: MapCompose-[WallboxMapHolder] ohne `shutdown` (PR #38).
+     * iOS: langlebige MapKit-[platform.MapKit.MKMapView] im Holder.
      */
-    val wallboxMap: WallboxMapHolder by lazy { WallboxMapHolder(tileSource) }
+    val wallboxMap: WallboxMapHolder by lazy { WallboxMapHolder() }
 
     private companion object {
         const val REQUEST_TIMEOUT_MS = 15_000L

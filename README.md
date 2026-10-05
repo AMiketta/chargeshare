@@ -156,15 +156,12 @@ Die Kamera startet auf dem Gerätestandort (Android/iOS, nach Freigabe) bzw. auf
 
 **Standort:** Beim Öffnen der Suche erscheint einmalig ein Hinweis; danach der Systemdialog (Android: Fine/Coarse Location, iOS: When-In-Use, Text in `NSLocationWhenInUseUsageDescription`). Bei Ablehnung oder auf Desktop/Web bleibt Bremen, mit Hinweis und Chip „In der Nähe“. Der Standort wird nicht gespeichert.
 
-- **Bibliothek:** [MapCompose-MP](https://github.com/p-lr/MapComposeMP) (`ovh.plrapps:mapcompose-mp`, Apache-2.0) – reines Compose Multiplatform (Android, Desktop, iOS, Wasm),
-  Marker/Gesten/Pinch-Zoom, **kein API-Key**, keine native SDK-Abhängigkeit. Kacheln liefert `OsmTileSource` von `tile.openstreetmap.org` (Quellenangabe „© OpenStreetMap-Mitwirkende“ steht auf der Karte).
-  Verworfen: MapLibre Compose (kein Wasm-Target, Desktop „early“, braucht zusätzlich einen Vektorstil-Anbieter), `Compose-Multiplatform-Tile-Map` (0.x, kein Marker-API, Pins müssten selbst gezeichnet werden).
-- **Plattformen:** `expect val isMapSupported` (`platform/MapSupport.kt`): Android, Desktop und iOS = `true`; **Web = `false`** – dort zeigt die Suche die Liste mit Hinweis, kein Umschalter.
-  Die Bibliothek läuft grundsätzlich auch auf Wasm; aktiviert wird sie dort erst nach einem Browser-Test (nur `actual` auf `true` setzen). Die iOS-Karte bitte einmal im Simulator prüfen.
-- **Ohne Internet** (oder wenn OSM Kacheln ablehnt) bleibt die Kartenfläche leer, Pins und Navigation funktionieren weiter.
-- **Produktion:** die OSM-Server sind nur für moderate Nutzung gedacht ([Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/)). Vor einem Store-Release einen eigenen Kachelserver oder einen
-  Anbieter mit Vertrag verwenden (`OsmTileSource(baseUrl = …)`).
-- **Code:** `presentation/map/` (Web-Mercator-Projektion, `Wallbox.toPin()`, Kartenausschnitt – getestet), `data/OsmTileSource.kt` (Kachelabruf mit Cache, getestet), `ui/map/WallboxMap.kt` (Composable).
+- **Android / Desktop:** [MapCompose-MP](https://github.com/p-lr/MapComposeMP) (`ovh.plrapps:mapcompose-mp`, Apache-2.0) mit OpenStreetMap-Kacheln über `OsmTileSource` (Quellenangabe „© OpenStreetMap-Mitwirkende“ auf der Karte). **Kein Google Maps**, kein API-Key.
+- **iOS:** native **Apple MapKit** (`MKMapView` über Compose `UIKitView`). Apple blendet die eigene Karten-Quellenangabe ein. Kein MapCompose auf iOS (Source-Set `mapcomposeMain` nur für Android/Desktop).
+- **Plattformen:** `expect val isMapSupported` (`platform/MapSupport.kt`): Android, Desktop und iOS = `true`; **Web = `false`** – dort zeigt die Suche die Liste mit Hinweis, kein Umschalter. Die iOS-MapKit-Karte bitte einmal im Simulator prüfen.
+- **Ohne Internet** (MapCompose/OSM): Kartenfläche leer, Pins und Navigation funktionieren weiter. MapKit braucht Netz für Kacheln, zeigt aber ggf. Cache.
+- **Produktion (OSM):** die OSM-Server sind nur für moderate Nutzung gedacht ([Tile Usage Policy](https://operations.osmfoundation.org/policies/tiles/)). Vor einem Store-Release eigenen Kachelserver oder Anbieter mit Vertrag (`OsmTileSource(baseUrl = …)`). MapKit braucht das nicht.
+- **Code:** `presentation/map/` (Web-Mercator, `Wallbox.toPin()` mit lat/lng, Kartenausschnitt – getestet), `data/OsmTileSource.kt` (nur MapCompose), `ui/map/WallboxMap` als `expect`/`actual` (`mapcomposeMain` / `iosMain` / `wasmJsMain`). `WallboxMapHolder` hält den Kartenzustand prozessweit (kein hartes Abschalten beim Tab-Wechsel, PR #38).
 
 ## Zahlung (Stripe, Google Pay, Apple Pay)
 
