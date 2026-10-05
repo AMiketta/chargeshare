@@ -4,9 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.chargeshare.data.AppError
 import app.chargeshare.data.GeoPoint
+import app.chargeshare.data.InMemoryPreferenceStorage
 import app.chargeshare.data.Outcome
+import app.chargeshare.data.PreferenceStorage
 import app.chargeshare.data.WallboxFilter
 import app.chargeshare.data.WallboxRepository
+import app.chargeshare.platform.LocationPermissionStatus
+import app.chargeshare.platform.LocationProvider
+import app.chargeshare.platform.UnsupportedLocationProvider
 import app.chargeshare.shared.model.ConnectorType
 import app.chargeshare.shared.model.Wallbox
 import kotlinx.coroutines.Job
@@ -33,6 +38,12 @@ data class WallboxListUiState(
     val viewMode: SearchViewMode = SearchViewMode.List,
     /** Vom Nutzer angetippter Pin; `null` oder nicht mehr sichtbar = die nächste Wallbox gilt als aktiv. */
     val selectedWallboxId: String? = null,
+    /** Suche nutzt den freigegebenen Gerätestandort statt Bremen. */
+    val usesDeviceLocation: Boolean = false,
+    /** Sanfter In-App-Dialog vor dem System-Permission-Sheet. */
+    val showLocationPrompt: Boolean = false,
+    /** Hinweis, dass ohne Freigabe Bremen als Zentrum gilt. */
+    val showLocationFallbackHint: Boolean = false,
 ) {
     /** Karte nur anzeigen, wenn die Plattform sie unterstützt und sie gewählt ist. */
     val showMap: Boolean get() = mapSupported && viewMode == SearchViewMode.Map
@@ -49,7 +60,7 @@ data class WallboxListUiState(
         get() = visibleWallboxes.let { visible -> visible.firstOrNull { it.id == selectedWallboxId } ?: visible.firstOrNull() }
 }
 
-/** Standard-Suchzentrum Bremen, solange der Gerätestandort nicht (mit Einwilligung) angebunden ist. */
+/** Standard-Suchzentrum Bremen, wenn der Gerätestandort fehlt oder verweigert wurde. */
 val DEFAULT_CENTER = GeoPoint(lat = 53.0793, lng = 8.8017)
 
 /**
@@ -57,10 +68,14 @@ val DEFAULT_CENTER = GeoPoint(lat = 53.0793, lng = 8.8017)
  *
  * @param mapSupported `true`, wenn die Plattform eine Karte zeigt (`isMapSupported`); dann ist die Karte die Startansicht,
  * sonst gibt es nur die Liste.
+ * @param locationProvider Gerätestandort (Android/iOS); Desktop/Web = [UnsupportedLocationProvider]
+ * @param preferences speichert, ob der Standort-Hinweis schon einmal beantwortet wurde (kein erneutes Nachfragen)
  */
 class WallboxListViewModel(
     private val repository: WallboxRepository,
     mapSupported: Boolean = false,
+    private val locationProvider: LocationProvider = UnsupportedLocationProvider,
+    private val preferences: PreferenceStorage = InMemoryPreferenceStorage(),
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -71,9 +86,12 @@ class WallboxListViewModel(
     )
     val state: StateFlow<WallboxListUiState> = _state.asStateFlow()
     private var searchJob: Job? = null
+    private var locationJob: Job? = null
 
     init {
+        // Sofort mit Bremen suchen, Standort danach nachziehen – die UI bleibt responsiv.
         search()
+        resolveDeviceLocation()
     }
 
     fun onQueryChange(query: String) = _state.update { it.copy(query = query) }
@@ -96,7 +114,101 @@ class WallboxListViewModel(
 
     fun onViewModeChange(viewMode: SearchViewMode) = _state.update { it.copy(viewMode = viewMode) }
 
-    fun onRefresh() = search()
+    fun onRefresh() {
+        locationJob?.cancel()
+        locationJob = viewModelScope.launch {
+            if (locationProvider.permissionStatus() == LocationPermissionStatus.Granted) {
+                applyDeviceLocationOrFallback()
+            }
+            search()
+        }
+    }
+
+    /** Nutzer bestätigt den sanften Standort-Hinweis → Systemdialog. */
+    fun onAllowLocation() {
+        markLocationPromptDone()
+        _state.update { it.copy(showLocationPrompt = false) }
+        locationJob?.cancel()
+        locationJob = viewModelScope.launch {
+            when (locationProvider.requestPermission()) {
+                LocationPermissionStatus.Granted -> {
+                    applyDeviceLocationOrFallback()
+                    search()
+                }
+                else -> _state.update { it.copy(showLocationFallbackHint = true, usesDeviceLocation = false) }
+            }
+        }
+    }
+
+    /** Nutzer lehnt den sanften Hinweis ab → Bremen bleibt, kurzer Hinweis. */
+    fun onSkipLocation() {
+        markLocationPromptDone()
+        _state.update {
+            it.copy(
+                showLocationPrompt = false,
+                showLocationFallbackHint = true,
+                usesDeviceLocation = false,
+                center = DEFAULT_CENTER,
+            )
+        }
+    }
+
+    /** Schließt den Dialog ohne Entscheidung (gleiche Wirkung wie „Nicht jetzt“). */
+    fun onDismissLocationPrompt() = onSkipLocation()
+
+    private fun resolveDeviceLocation() {
+        if (!locationProvider.isSupported) return
+        locationJob?.cancel()
+        locationJob = viewModelScope.launch {
+            when (locationProvider.permissionStatus()) {
+                LocationPermissionStatus.Granted -> {
+                    if (applyDeviceLocationOrFallback()) search()
+                }
+                LocationPermissionStatus.NotDetermined -> {
+                    if (preferences.read(LOCATION_PROMPT_DONE_KEY) == "true") {
+                        _state.update { it.copy(showLocationFallbackHint = true) }
+                    } else {
+                        _state.update { it.copy(showLocationPrompt = true) }
+                    }
+                }
+                LocationPermissionStatus.Denied,
+                LocationPermissionStatus.Unavailable,
+                -> _state.update { it.copy(showLocationFallbackHint = true) }
+            }
+        }
+    }
+
+    /**
+     * Liest den Gerätestandort und aktualisiert [WallboxListUiState.center].
+     * @return `true`, wenn sich das Zentrum geändert hat und eine neue Suche nötig ist
+     */
+    private suspend fun applyDeviceLocationOrFallback(): Boolean {
+        val point = locationProvider.currentLocation()
+        if (point == null) {
+            val changed = _state.value.center != DEFAULT_CENTER || _state.value.usesDeviceLocation
+            _state.update {
+                it.copy(
+                    center = DEFAULT_CENTER,
+                    usesDeviceLocation = false,
+                    showLocationFallbackHint = true,
+                )
+            }
+            return changed
+        }
+        val changed = _state.value.center != point
+        _state.update {
+            it.copy(
+                center = point,
+                usesDeviceLocation = true,
+                showLocationFallbackHint = false,
+            )
+        }
+        return changed
+    }
+
+    private fun markLocationPromptDone() {
+        preferences.write(LOCATION_PROMPT_DONE_KEY, "true")
+    }
 
     private fun changeFilter(change: (WallboxFilter) -> WallboxFilter) {
         _state.update { it.copy(filter = change(it.filter)) }
@@ -116,5 +228,9 @@ class WallboxListViewModel(
                 }
             }
         }
+    }
+
+    private companion object {
+        const val LOCATION_PROMPT_DONE_KEY = "location_prompt_done"
     }
 }

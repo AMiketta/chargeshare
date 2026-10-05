@@ -1,12 +1,16 @@
 package app.chargeshare.presentation
 
 import app.chargeshare.data.AppError
+import app.chargeshare.data.GeoPoint
+import app.chargeshare.data.InMemoryPreferenceStorage
 import app.chargeshare.data.Outcome
+import app.chargeshare.platform.LocationPermissionStatus
 import app.chargeshare.presentation.wallbox.DEFAULT_CENTER
 import app.chargeshare.presentation.wallbox.SearchViewMode
 import app.chargeshare.presentation.wallbox.WallboxDetailViewModel
 import app.chargeshare.presentation.wallbox.WallboxListViewModel
 import app.chargeshare.shared.model.ConnectorType
+import app.chargeshare.testing.FakeLocationProvider
 import app.chargeshare.testing.FakeWallboxRepository
 import app.chargeshare.testing.FixedClock
 import app.chargeshare.testing.TestMain
@@ -156,6 +160,89 @@ class WallboxViewModelsTest {
         val viewModel = WallboxListViewModel(repository, mapSupported = false)
         viewModel.onViewModeChange(SearchViewMode.Map)
         assertFalse(viewModel.state.value.showMap)
+    }
+
+
+    @Test
+    fun usesDeviceLocationWhenPermissionAlreadyGranted() {
+        val location = FakeLocationProvider(
+            status = LocationPermissionStatus.Granted,
+            location = GeoPoint(lat = 52.5, lng = 13.4),
+        )
+        val viewModel = WallboxListViewModel(repository, locationProvider = location)
+        assertEquals(GeoPoint(52.5, 13.4), viewModel.state.value.center)
+        assertTrue(viewModel.state.value.usesDeviceLocation)
+        assertFalse(viewModel.state.value.showLocationPrompt)
+        assertFalse(viewModel.state.value.showLocationFallbackHint)
+        assertEquals(GeoPoint(52.5, 13.4), repository.searches.last().first)
+    }
+
+    @Test
+    fun showsSoftLocationPromptWhenPermissionNotDetermined() {
+        val location = FakeLocationProvider(status = LocationPermissionStatus.NotDetermined)
+        val viewModel = WallboxListViewModel(repository, locationProvider = location)
+        assertTrue(viewModel.state.value.showLocationPrompt)
+        assertEquals(DEFAULT_CENTER, repository.searches.single().first)
+    }
+
+    @Test
+    fun allowingLocationRequestsPermissionAndResearches() {
+        val location = FakeLocationProvider(
+            status = LocationPermissionStatus.NotDetermined,
+            location = GeoPoint(lat = 48.1, lng = 11.5),
+        )
+        location.nextStatusAfterRequest = LocationPermissionStatus.Granted
+        val prefs = InMemoryPreferenceStorage()
+        val viewModel = WallboxListViewModel(repository, locationProvider = location, preferences = prefs)
+        viewModel.onAllowLocation()
+        assertEquals(1, location.requestCalls)
+        assertEquals(GeoPoint(48.1, 11.5), viewModel.state.value.center)
+        assertTrue(viewModel.state.value.usesDeviceLocation)
+        assertFalse(viewModel.state.value.showLocationPrompt)
+        assertEquals("true", prefs.read("location_prompt_done"))
+        assertTrue(repository.searches.any { it.first == GeoPoint(48.1, 11.5) })
+    }
+
+    @Test
+    fun skippingLocationKeepsBremenAndShowsFallbackHint() {
+        val location = FakeLocationProvider(status = LocationPermissionStatus.NotDetermined)
+        val prefs = InMemoryPreferenceStorage()
+        val viewModel = WallboxListViewModel(repository, locationProvider = location, preferences = prefs)
+        viewModel.onSkipLocation()
+        assertFalse(viewModel.state.value.showLocationPrompt)
+        assertTrue(viewModel.state.value.showLocationFallbackHint)
+        assertFalse(viewModel.state.value.usesDeviceLocation)
+        assertEquals(DEFAULT_CENTER, viewModel.state.value.center)
+        assertEquals(0, location.requestCalls)
+        assertEquals("true", prefs.read("location_prompt_done"))
+    }
+
+    @Test
+    fun deniedPermissionShowsFallbackWithoutPrompt() {
+        val location = FakeLocationProvider(status = LocationPermissionStatus.Denied)
+        val state = WallboxListViewModel(repository, locationProvider = location).state.value
+        assertFalse(state.showLocationPrompt)
+        assertTrue(state.showLocationFallbackHint)
+        assertEquals(DEFAULT_CENTER, state.center)
+    }
+
+    @Test
+    fun unsupportedLocationProviderSkipsPromptAndStaysOnBremen() {
+        val location = FakeLocationProvider(isSupported = false, status = LocationPermissionStatus.Unavailable)
+        val state = WallboxListViewModel(repository, locationProvider = location).state.value
+        assertFalse(state.showLocationPrompt)
+        assertFalse(state.showLocationFallbackHint)
+        assertEquals(DEFAULT_CENTER, state.center)
+        assertEquals(0, location.currentCalls)
+    }
+
+    @Test
+    fun promptNotShownAgainWhenAlreadyAnswered() {
+        val location = FakeLocationProvider(status = LocationPermissionStatus.NotDetermined)
+        val prefs = InMemoryPreferenceStorage(mapOf("location_prompt_done" to "true"))
+        val state = WallboxListViewModel(repository, locationProvider = location, preferences = prefs).state.value
+        assertFalse(state.showLocationPrompt)
+        assertTrue(state.showLocationFallbackHint)
     }
 
     @Test

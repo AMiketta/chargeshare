@@ -31,6 +31,8 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
+        # Standort für die Umkreissuche (When-In-Use); klarer Zweck auf Deutsch.
+        NSLocationWhenInUseUsageDescription: "ChargeShare zeigt dir Wallboxen in deiner Nähe. Dafür braucht die App deinen ungefähren Standort, während du die Suche nutzt. Ohne Freigabe suchen wir rund um Bremen. Der Standort wird nicht gespeichert."
         # Rueckkehr-URL fuer Stripe-Authentifizierungen mit Weiterleitung
         CFBundleURLTypes:
           - CFBundleURLName: app.chargeshare

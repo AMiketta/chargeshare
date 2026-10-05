@@ -28,7 +28,9 @@ import app.chargeshare.data.SessionState
 import app.chargeshare.data.isHost
 import app.chargeshare.di.AppContainer
 import app.chargeshare.payment.PaymentLauncher
+import app.chargeshare.platform.LocationProvider
 import app.chargeshare.platform.PhotoPicker
+import app.chargeshare.platform.UnsupportedLocationProvider
 import app.chargeshare.platform.UnsupportedPhotoPicker
 import app.chargeshare.ui.components.LocalImageLoader
 import app.chargeshare.payment.UnsupportedPaymentLauncher
@@ -68,12 +70,14 @@ import app.chargeshare.ui.wallbox.WallboxListRoute
  * @param paymentLauncher Zahlungsfenster der Plattform (Google Pay / Apple Pay über Stripe); Desktop und Web
  * nutzen [UnsupportedPaymentLauncher]
  * @param photoPicker Fotoauswahl der Plattform (Android: Photo Picker, Desktop: Dateidialog); sonst entfällt „Foto hinzufügen“
+ * @param locationProvider Gerätestandort für die Suche (Android/iOS); Desktop/Web = [UnsupportedLocationProvider]
  */
 @Composable
 fun App(
     container: AppContainer,
     paymentLauncher: PaymentLauncher = UnsupportedPaymentLauncher,
     photoPicker: PhotoPicker = UnsupportedPhotoPicker,
+    locationProvider: LocationProvider = UnsupportedLocationProvider,
 ) {
     val darkTheme = rememberIsDarkTheme(container.themeSettings)
     ChargeShareTheme(darkTheme = darkTheme) {
@@ -90,7 +94,7 @@ fun App(
                         is SessionState.SignedIn -> key(current.user.id) {
                             val owner = rememberScopedViewModelStoreOwner()
                             CompositionLocalProvider(LocalViewModelStoreOwner provides owner) {
-                                MainContent(container, current.user, paymentLauncher, photoPicker)
+                                MainContent(container, current.user, paymentLauncher, photoPicker, locationProvider)
                             }
                         }
                     }
@@ -126,7 +130,7 @@ private fun RestoringSession() {
 @Suppress("DEPRECATION")
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-private fun MainContent(container: AppContainer, user: User, paymentLauncher: PaymentLauncher, photoPicker: PhotoPicker) {
+private fun MainContent(container: AppContainer, user: User, paymentLauncher: PaymentLauncher, photoPicker: PhotoPicker, locationProvider: LocationProvider) {
     val navigation = remember { NavigationState() }
     BackHandler(enabled = navigation.stack.isNotEmpty()) { navigation.pop() }
 
@@ -157,7 +161,7 @@ private fun MainContent(container: AppContainer, user: User, paymentLauncher: Pa
             )
         },
     ) { padding ->
-        TabContent(navigation.tab, container, user, favorites, payoutViewModel, navigation, paymentLauncher, Modifier.padding(padding))
+        TabContent(navigation.tab, container, user, favorites, payoutViewModel, navigation, paymentLauncher, locationProvider, Modifier.padding(padding))
     }
 }
 
@@ -170,11 +174,19 @@ private fun TabContent(
     payoutViewModel: PayoutViewModel,
     navigation: NavigationState,
     paymentLauncher: PaymentLauncher,
+    locationProvider: LocationProvider,
     modifier: Modifier,
 ) {
     when (tab) {
         MainTab.Search -> {
-            val viewModel = viewModel(key = "search") { WallboxListViewModel(container.wallboxRepository, mapSupported = isMapSupported) }
+            val viewModel = viewModel(key = "search") {
+                WallboxListViewModel(
+                    repository = container.wallboxRepository,
+                    mapSupported = isMapSupported,
+                    locationProvider = locationProvider,
+                    preferences = container.preferenceStorage,
+                )
+            }
             WallboxListRoute(viewModel, favorites, container.tileSource, onOpenWallbox = { navigation.push(Screen.WallboxDetail(it.id)) }, modifier = modifier)
         }
         MainTab.Bookings -> {

@@ -37,6 +37,8 @@ class MainActivity : ComponentActivity() {
             (container.paymentRepository.customerSession() as? Outcome.Success)?.value
         }
         val photoPicker = AndroidPhotoPicker(this)
+        // Vor STARTED registrieren (Permission-Launcher), analog zum Photo Picker.
+        val locationProvider = AndroidLocationProvider(this)
         // Kaltstart über einen Deep Link (z. B. App wurde im Browser-Onboarding beendet).
         offerDeepLink(intent)
         setContent {
@@ -51,7 +53,7 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = barStyle, navigationBarStyle = barStyle)
                 onDispose {}
             }
-            App(container, paymentLauncher, photoPicker)
+            App(container, paymentLauncher, photoPicker, locationProvider)
         }
     }
 }

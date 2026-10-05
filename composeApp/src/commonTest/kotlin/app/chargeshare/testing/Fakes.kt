@@ -16,6 +16,8 @@ import app.chargeshare.data.Outcome
 import app.chargeshare.data.SessionState
 import app.chargeshare.data.WallboxFilter
 import app.chargeshare.data.WallboxRepository
+import app.chargeshare.platform.LocationPermissionStatus
+import app.chargeshare.platform.LocationProvider
 import app.chargeshare.shared.model.Booking
 import app.chargeshare.shared.model.GeocodeResponse
 import app.chargeshare.shared.model.BookingStatus
@@ -418,6 +420,30 @@ class FakePayoutRepository(
     override suspend fun startOnboarding(): Outcome<String> {
         onboardingCalls++
         return onboardingResult
+    }
+}
+
+/** Steuerbarer Standort für ViewModel-Tests. */
+class FakeLocationProvider(
+    override var isSupported: Boolean = true,
+    var status: LocationPermissionStatus = LocationPermissionStatus.NotDetermined,
+    var location: GeoPoint? = GeoPoint(lat = 53.1, lng = 8.9),
+) : LocationProvider {
+    var requestCalls = 0
+    var currentCalls = 0
+    var nextStatusAfterRequest: LocationPermissionStatus? = null
+
+    override fun permissionStatus(): LocationPermissionStatus = status
+
+    override suspend fun requestPermission(): LocationPermissionStatus {
+        requestCalls++
+        status = nextStatusAfterRequest ?: LocationPermissionStatus.Granted
+        return status
+    }
+
+    override suspend fun currentLocation(): GeoPoint? {
+        currentCalls++
+        return if (status == LocationPermissionStatus.Granted) location else null
     }
 }
 
