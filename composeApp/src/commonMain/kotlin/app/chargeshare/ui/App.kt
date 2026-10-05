@@ -201,7 +201,7 @@ private fun TabContent(
             BookingsRoute(viewModel, paymentLauncher, container.receiptSharer, modifier = modifier)
         }
         MainTab.Host -> {
-            // Session erneut lesen: NativeTabBar auf iOS erfasst Tab-Lambdas einmalig; Host-Status kann sich ändern.
+            // Session erneut lesen: Host-Status kann sich ändern, während der Tab angezeigt wird.
             val session by container.authRepository.session.collectAsState()
             val hostUser = (session as? SessionState.SignedIn)?.user ?: user
             if (hostUser.isHost) {
