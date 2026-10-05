@@ -12,6 +12,8 @@ import app.chargeshare.server.services.PaymentService
 import app.chargeshare.server.services.ReceiptService
 import app.chargeshare.server.services.ReviewService
 import app.chargeshare.server.services.SavedCardService
+import app.chargeshare.server.services.BookingPushService
+import app.chargeshare.server.services.PushDeviceService
 import app.chargeshare.server.services.WallboxService
 import app.chargeshare.shared.model.PaymentConfig
 
@@ -26,6 +28,8 @@ class Services(
     val photoUploadLimit: Long,
     val reviews: ReviewService,
     val bookings: BookingService,
+    val pushDevices: PushDeviceService,
+    val bookingPush: BookingPushService,
     val host: HostService,
     val favorites: FavoriteService,
     val paymentsSvc: PaymentService,

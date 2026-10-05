@@ -6,6 +6,7 @@ import app.chargeshare.platform.AndroidReceiptSharer
 import app.chargeshare.platform.AndroidUrlOpener
 import app.chargeshare.platform.PlatformContext
 import app.chargeshare.platform.createPreferenceStorage
+import app.chargeshare.platform.createPushTokenSource
 import app.chargeshare.platform.createSecureTokenStore
 
 /** Hält den [AppContainer] prozessweit, damit er Konfigurationsänderungen (Drehen) der Activity überlebt. */
@@ -22,6 +23,7 @@ class ChargeShareApplication : Application() {
             showDebugInfo = BuildConfig.DEBUG,
             urlOpener = AndroidUrlOpener(this),
             receiptSharer = AndroidReceiptSharer(this),
+            pushTokenSource = createPushTokenSource(PlatformContext(this)),
         )
     }
 }

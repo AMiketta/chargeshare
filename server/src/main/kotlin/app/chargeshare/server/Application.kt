@@ -7,10 +7,13 @@ import app.chargeshare.server.auth.TokenService
 import app.chargeshare.server.db.Db
 import app.chargeshare.server.db.DevSeed
 import app.chargeshare.server.mail.Mailer
+import app.chargeshare.server.push.PushNotifier
 import app.chargeshare.server.payments.PaymentProvider
 import app.chargeshare.server.payments.clientPaymentConfig
 import app.chargeshare.server.services.AuthService
+import app.chargeshare.server.services.BookingPushService
 import app.chargeshare.server.services.BookingService
+import app.chargeshare.server.services.PushDeviceService
 import app.chargeshare.server.services.CustomerService
 import app.chargeshare.server.services.FavoriteService
 import app.chargeshare.server.services.HostService
@@ -74,11 +77,12 @@ fun Application.module(
     mailer: Mailer = Mailer.from(config),
     photoStorage: PhotoStorage = FileSystemPhotoStorage(Path.of(config.photoStorageDir)),
     geocoder: Geocoder = Geocoder.from(config),
+    pushNotifier: PushNotifier = PushNotifier.logging(logBody = !config.isProduction),
 ) {
     val db = database ?: DatabaseFactory.connect(config)
     val tokens = TokenService(config)
     if (db != null && config.devSeed && !config.isProduction) DevSeed.run(Db(db), config.bcryptCost)
-    val services = db?.let { buildServices(config, Db(it), tokens, payments, apple, mailer, photoStorage, geocoder) }
+    val services = db?.let { buildServices(config, Db(it), tokens, payments, apple, mailer, photoStorage, geocoder, pushNotifier) }
 
     configureWebSockets()
     configureSerialization()
@@ -93,7 +97,7 @@ fun Application.module(
                 "ok"
             }.getOrDefault("down")
         }
-        if (db != null) ocppRoutes(OcppHandler(Db(db)))
+        if (db != null) ocppRoutes(OcppHandler(Db(db), services?.bookingPush))
         val authLimiter = if (config.authRateLimitPerWindow > 0) {
             RateLimiter(config.authRateLimitPerWindow, config.authRateLimitWindowSeconds.seconds)
         } else {
@@ -113,13 +117,16 @@ private fun Application.buildServices(
     mailer: Mailer,
     photoStorage: PhotoStorage,
     geocoder: Geocoder,
+    pushNotifier: PushNotifier,
 ): Services {
     val background = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     monitor.subscribe(io.ktor.server.application.ApplicationStopping) { background.coroutineContext[kotlinx.coroutines.Job]?.cancel() }
     val payouts = PayoutService(db, payments)
     if (payments.requiresPayoutAccount) PayoutSweeper(payouts, PAYOUT_SWEEP_INTERVAL).start(background)
     val customers = CustomerService(db, payments)
-    val bookings = BookingService(db, payments, config.stripePlatformFeePercent, payouts, customers)
+    val pushDevices = PushDeviceService(db, pushNotifier)
+    val bookingPush = BookingPushService(db, pushDevices)
+    val bookings = BookingService(db, payments, config.stripePlatformFeePercent, payouts, customers, bookingPush)
     if (config.pendingBookingTtlMinutes > 0) {
         PendingBookingSweeper(bookings, config.pendingBookingTtlMinutes.minutes, config.pendingBookingSweepSeconds.seconds).start(background)
     }
@@ -134,6 +141,8 @@ private fun Application.buildServices(
         geocoding = GeocodeService(geocoder),
         reviews = ReviewService(db),
         bookings = bookings,
+        pushDevices = pushDevices,
+        bookingPush = bookingPush,
         host = HostService(db, bookings),
         favorites = FavoriteService(db),
         paymentsSvc = PaymentService(db, payments, payouts, config),

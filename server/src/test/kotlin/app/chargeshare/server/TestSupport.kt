@@ -10,6 +10,7 @@ import app.chargeshare.server.geocoding.GeocoderUnavailableException
 import app.chargeshare.server.storage.InMemoryPhotoStorage
 import app.chargeshare.server.mail.MailMessage
 import app.chargeshare.server.mail.Mailer
+import app.chargeshare.server.push.PushNotifier
 import app.chargeshare.server.payments.FakePaymentProvider
 import app.chargeshare.server.payments.PaymentProvider
 import app.chargeshare.shared.api.ChargeShareApi
@@ -49,13 +50,22 @@ object TestDb {
         database // Migration sicherstellen
         pg.postgresDatabase.connection.use { c ->
             c.createStatement().use {
-                it.execute("TRUNCATE users, wallboxes, bookings, reviews, charging_sessions, refresh_tokens CASCADE")
+                it.execute("TRUNCATE users, wallboxes, bookings, reviews, charging_sessions, refresh_tokens, push_devices CASCADE")
             }
         }
     }
 }
 
 val testConfig = AppConfig(bcryptCost = 4, authRateLimitPerWindow = 0)
+
+/** Test-Doppel: sammelt verschickte Push-Nachrichten. */
+class CapturingPushNotifier : PushNotifier {
+    val sent: MutableList<app.chargeshare.server.push.DevicePush> = java.util.Collections.synchronizedList(mutableListOf())
+
+    override fun send(messages: List<app.chargeshare.server.push.DevicePush>) {
+        sent += messages
+    }
+}
 
 /** Sammelt verschickte Mails, damit Tests den Reset-Link auslesen können. */
 class CapturingMailer : Mailer {
@@ -87,6 +97,7 @@ class ServerScope(
     val mailer: CapturingMailer,
     val photoStorage: InMemoryPhotoStorage,
     val geocoder: FakeGeocoder,
+    val push: CapturingPushNotifier,
 ) {
     fun wsClient(): HttpClient = builder.createClient { install(io.ktor.client.plugins.websocket.WebSockets) }
 
@@ -109,11 +120,12 @@ fun serverTest(
     mailer: CapturingMailer = CapturingMailer(),
     photoStorage: InMemoryPhotoStorage = InMemoryPhotoStorage(),
     geocoder: FakeGeocoder = FakeGeocoder(),
+    push: CapturingPushNotifier = CapturingPushNotifier(),
     block: suspend ServerScope.() -> Unit,
 ) = testApplication {
     TestDb.reset()
-    application { module(config, TestDb.database, payments, apple, mailer, photoStorage, geocoder) }
-    ServerScope(this, payments, mailer, photoStorage, geocoder).block()
+    application { module(config, TestDb.database, payments, apple, mailer, photoStorage, geocoder, push) }
+    ServerScope(this, payments, mailer, photoStorage, geocoder, push).block()
 }
 
 fun errOf(body: String): ApiError = ChargeShareJson.decodeFromString(body)

@@ -52,7 +52,10 @@ private const val CALL_ERROR = 4
  * Unterstuetzt: BootNotification, Heartbeat, Authorize, StartTransaction, StopTransaction, MeterValues,
  * StatusNotification. Antworten sind OCPP-JSON-Frames (`[3, id, {...}]` bzw. `[4, id, code, desc, {}]`).
  */
-class OcppHandler(private val db: Db) {
+class OcppHandler(
+    private val db: Db,
+    private val push: app.chargeshare.server.services.BookingPushService? = null,
+) {
     private val log = LoggerFactory.getLogger(OcppHandler::class.java)
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
     private val random = SecureRandom()
@@ -128,7 +131,7 @@ class OcppHandler(private val db: Db) {
         val req = json.decodeFromJsonElement(StartTxReq.serializer(), payload)
         val txId = 10_000_000 + random.nextInt(90_000_000)
         val now = OffsetDateTime.now(ZoneOffset.UTC)
-        db.tx {
+        val startedBookingId = db.tx {
             // Buchung der Wallbox mit diesem ocpp_id, die jetzt laeuft (confirmed/active)
             val bookingId = (Bookings innerJoin Wallboxes).select(Bookings.id)
                 .where {
@@ -151,7 +154,9 @@ class OcppHandler(private val db: Db) {
                     it[updatedAt] = now
                 }
             }
+            bookingId
         }
+        if (startedBookingId != null) push?.onChargingStarted(startedBookingId)
         log.info("ocpp[{}]: transaction {} started (meterStart={})", cpId, txId, req.meterStart)
         return result(uniqueId, buildJsonObject {
             put("transactionId", txId)
@@ -162,7 +167,7 @@ class OcppHandler(private val db: Db) {
     private suspend fun stopTransaction(cpId: String, uniqueId: String, payload: JsonElement): String {
         val req = json.decodeFromJsonElement(StopTxReq.serializer(), payload)
         val now = OffsetDateTime.now(ZoneOffset.UTC)
-        db.tx {
+        val ended = db.tx {
             val session = ChargingSessions.selectAll()
                 .where { (ChargingSessions.transactionId eq req.transactionId) and (ChargingSessions.ocppId eq cpId) }
                 .singleOrNull()
@@ -182,8 +187,13 @@ class OcppHandler(private val db: Db) {
                     it[totalAmount] = kwh.multiply(price).setScale(2, RoundingMode.HALF_UP)
                     it[updatedAt] = now
                 }
+                bookingId to kwh
+            } else {
+                bookingId to null
             }
         }
+        val (endedBookingId, endedKwh) = ended
+        if (endedBookingId != null) push?.onChargingEnded(endedBookingId, endedKwh)
         log.info("ocpp[{}]: transaction {} stopped (meterStop={})", cpId, req.transactionId, req.meterStop)
         return result(uniqueId, JsonObject(emptyMap()))
     }

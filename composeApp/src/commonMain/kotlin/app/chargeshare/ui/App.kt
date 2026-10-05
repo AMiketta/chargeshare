@@ -83,6 +83,13 @@ fun App(
             Surface(modifier = Modifier.fillMaxSize(), color = ChargeShareColors.Background) {
                 val sessionViewModel = viewModel { SessionViewModel(container.authRepository) }
                 val session by sessionViewModel.session.collectAsState()
+                LaunchedEffect(session) {
+                    when (session) {
+                        is SessionState.SignedIn -> container.pushDevices.syncRegistration()
+                        SessionState.SignedOut -> container.pushDevices.unregisterLocal()
+                        SessionState.Restoring -> Unit
+                    }
+                }
                 var splashVisible by rememberSaveable { mutableStateOf(true) }
                 Box {
                     when (val current = session) {
