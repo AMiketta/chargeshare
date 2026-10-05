@@ -10,6 +10,7 @@ import app.chargeshare.shared.model.CancelBookingRequest
 import app.chargeshare.shared.model.CreateBookingRequest
 import app.chargeshare.shared.model.CreateReviewRequest
 import app.chargeshare.shared.model.MessageResponse
+import app.chargeshare.shared.model.ReportProblemRequest
 import app.chargeshare.shared.model.OnboardingLink
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -56,6 +57,14 @@ fun Route.bookingRoutes(s: Services) {
             post("/{id}/pay") { call.respond(s.bookings.payPending(call.pathUuid("id", "booking id"), call.userId())) }
             post("/{id}/confirm-payment") {
                 call.respond(s.bookings.confirmPayment(call.pathUuid("id", "booking id"), call.userId()))
+            }
+            post("/{id}/problem") {
+                s.bookingPush.reportProblem(
+                    call.pathUuid("id", "booking id"),
+                    call.userId(),
+                    call.receive<ReportProblemRequest>(),
+                )
+                call.respond(HttpStatusCode.NoContent)
             }
         }
         post("/reviews") {

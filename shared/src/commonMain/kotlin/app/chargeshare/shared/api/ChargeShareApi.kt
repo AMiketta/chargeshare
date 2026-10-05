@@ -220,6 +220,24 @@ class ChargeShareApi(
     suspend fun confirmPayment(bookingId: String): Booking =
         http.post("$V1/bookings/$bookingId/confirm-payment").body()
 
+
+    // ---- Push-Geräte -------------------------------------------------------------------------
+
+    /** Registriert ein Push-Token (Upsert). Antwort `204`. */
+    suspend fun registerDevice(request: RegisterDeviceRequest) {
+        http.post("$V1/devices") { json(request) }
+    }
+
+    /** Meldet ein Push-Token ab. Antwort `204`. */
+    suspend fun unregisterDevice(request: UnregisterDeviceRequest) {
+        http.delete("$V1/devices") { json(request) }
+    }
+
+    /** Fahrer meldet dem Host ein Problem zur Buchung. Antwort `204`. */
+    suspend fun reportBookingProblem(bookingId: String, request: ReportProblemRequest) {
+        http.post("$V1/bookings/$bookingId/problem") { json(request) }
+    }
+
     // ---- Reviews ----------------------------------------------------------------------------
 
     suspend fun createReview(request: CreateReviewRequest): Review =

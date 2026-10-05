@@ -19,8 +19,11 @@ import app.chargeshare.data.DeepLinkInbox
 import app.chargeshare.platform.ReceiptSharer
 import app.chargeshare.platform.UnsupportedReceiptSharer
 import app.chargeshare.platform.UnsupportedUrlOpener
+import app.chargeshare.platform.PushTokenSource
+import app.chargeshare.platform.UnsupportedPushTokenSource
 import app.chargeshare.platform.UrlOpener
 import app.chargeshare.data.PreferenceStorage
+import app.chargeshare.data.PushDeviceRepository
 import app.chargeshare.data.WallboxRepository
 import app.chargeshare.presentation.onboarding.OnboardingSettings
 import app.chargeshare.presentation.theme.ThemeSettings
@@ -49,6 +52,7 @@ class AppContainer(
     val showDebugInfo: Boolean = false,
     val urlOpener: UrlOpener = UnsupportedUrlOpener,
     val receiptSharer: ReceiptSharer = UnsupportedReceiptSharer,
+    pushTokenSource: PushTokenSource = UnsupportedPushTokenSource,
 ) {
     private val api = ChargeShareApi(
         http = createHttpClient(apiBaseUrl, tokenStore) {
@@ -64,6 +68,7 @@ class AppContainer(
     val favoritesRepository: FavoritesRepository = ApiFavoritesRepository(api)
     val paymentRepository: PaymentRepository = ApiPaymentRepository(api)
     val payoutRepository: PayoutRepository = ApiPayoutRepository(api)
+    val pushDevices = PushDeviceRepository(api, pushTokenSource, preferenceStorage)
 
     /** Briefkasten für Deep Links (`chargeshare://onboarding-done`), den die Plattform füllt und die UI abholt. */
     val deepLinks = DeepLinkInbox()

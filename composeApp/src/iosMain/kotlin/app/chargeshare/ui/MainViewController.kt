@@ -10,6 +10,8 @@ import app.chargeshare.payment.IosPaymentBridge
 import app.chargeshare.payment.IosPaymentLauncher
 import app.chargeshare.payment.UnsupportedPaymentLauncher
 import app.chargeshare.platform.createPreferenceStorage
+import app.chargeshare.platform.createPushTokenSource
+import app.chargeshare.platform.createPushTokenSource
 import app.chargeshare.platform.createSecureTokenStore
 import platform.UIKit.UIViewController
 
@@ -28,7 +30,7 @@ fun MainViewController(apiBaseUrl: String): UIViewController = MainViewControlle
  * `null` = keine Zahlungsfenster
  */
 fun MainViewController(apiBaseUrl: String, paymentBridge: IosPaymentBridge?): UIViewController = ComposeUIViewController {
-    val container = remember { AppContainer(apiBaseUrl, createSecureTokenStore(PlatformContext()), createPreferenceStorage(PlatformContext()), urlOpener = IosUrlOpener()) }
+    val container = remember { AppContainer(apiBaseUrl, createSecureTokenStore(PlatformContext()), createPreferenceStorage(PlatformContext()), urlOpener = IosUrlOpener(), pushTokenSource = createPushTokenSource(PlatformContext())) }
     val paymentLauncher = remember { paymentBridge?.let(::IosPaymentLauncher) ?: UnsupportedPaymentLauncher }
     val locationProvider = remember { IosLocationProvider() }
     App(container, paymentLauncher, locationProvider = locationProvider)

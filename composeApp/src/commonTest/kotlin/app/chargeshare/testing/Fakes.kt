@@ -291,6 +291,14 @@ class FakeBookingRepository : BookingRepository {
         cancelled += bookingId
         return cancelResult ?: Outcome.Success(testBooking(id = bookingId, status = BookingStatus.CANCELLED).copy(wallbox = null))
     }
+
+    var reportProblemResult: Outcome<Unit> = Outcome.Success(Unit)
+    val problems = mutableListOf<Pair<String, String>>()
+
+    override suspend fun reportProblem(bookingId: String, message: String): Outcome<Unit> {
+        problems += bookingId to message
+        return reportProblemResult
+    }
 }
 
 class FakeHostRepository : HostRepository {

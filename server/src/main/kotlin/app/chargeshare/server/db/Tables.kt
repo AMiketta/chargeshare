@@ -128,3 +128,14 @@ object PasswordResetTokens : Table("password_reset_tokens") {
     val createdAt = timestampWithTimeZone("created_at")
     override val primaryKey = PrimaryKey(id)
 }
+
+object PushDevices : Table("push_devices") {
+    val id = uuid("id")
+    val userId = uuid("user_id").references(Users.id)
+    val platform = text("platform")
+    val token = text("token")
+    val createdAt = timestampWithTimeZone("created_at")
+    val updatedAt = timestampWithTimeZone("updated_at")
+    override val primaryKey = PrimaryKey(id)
+}
+

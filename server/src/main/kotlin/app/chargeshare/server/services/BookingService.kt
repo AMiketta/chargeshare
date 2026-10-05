@@ -64,6 +64,7 @@ class BookingService(
     private val platformFeePercent: Int,
     private val payouts: PayoutService,
     private val customers: CustomerService,
+    private val push: BookingPushService? = null,
 ) {
     private val log = LoggerFactory.getLogger(BookingService::class.java)
 
@@ -148,6 +149,7 @@ class BookingService(
             }
             load(bookingId, withWallbox = true)
         }
+        if (confirmed) push?.onBookingConfirmed(bookingId)
         return BookingResponse(booking, intent.clientSecret)
     }
 
@@ -208,6 +210,8 @@ class BookingService(
         if (piId != null && status != "pending" && now.isBefore(start.minusMinutes(30))) {
             runCatching { payments.refund(piId) }.onFailure { log.warn("refund failed for booking $bookingId", it) }
         }
+        // Host nur benachrichtigen, wenn die Buchung schon bestätigt/aktiv war (nicht bei unbezahltem Storno)
+        if (status == "confirmed" || status == "active") push?.onBookingCancelled(bookingId)
     }
 
     /**
@@ -241,13 +245,15 @@ class BookingService(
      */
     private suspend fun confirmPaidBooking(bookingId: Uuid, paymentIntentId: String): Booking =
         try {
-            db.tx {
+            val booking = db.tx {
                 Bookings.update({ (Bookings.id eq bookingId) and (Bookings.status inList PAYABLE) }) {
                     it[Bookings.status] = BookingStatus.CONFIRMED.dbValue()
                     it[updatedAt] = OffsetDateTime.now(ZoneOffset.UTC)
                 }
                 load(bookingId, true)
             }
+            push?.onBookingConfirmed(bookingId)
+            booking
         } catch (e: Exception) {
             if (e.sqlState() != PgState.EXCLUSION_VIOLATION) throw e
             runCatching { payments.refund(paymentIntentId) }.onFailure { log.error("refund failed for booking $bookingId", it) }

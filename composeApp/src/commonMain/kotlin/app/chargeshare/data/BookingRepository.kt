@@ -4,6 +4,7 @@ import app.chargeshare.shared.api.ChargeShareApi
 import app.chargeshare.shared.model.Booking
 import app.chargeshare.shared.model.CreateBookingRequest
 import app.chargeshare.shared.model.CreateReviewRequest
+import app.chargeshare.shared.model.ReportProblemRequest
 import app.chargeshare.shared.model.Review
 import kotlin.time.Instant
 
@@ -37,6 +38,9 @@ interface BookingRepository {
     /** Alle Buchungen des Fahrers (neueste zuerst, wie vom Server geliefert). */
     suspend fun list(): Outcome<List<Booking>>
     suspend fun cancel(bookingId: String): Outcome<Booking>
+
+    /** Meldet dem Host ein Problem zur Buchung (löst Push an den Host aus). */
+    suspend fun reportProblem(bookingId: String, message: String): Outcome<Unit>
 }
 
 class ApiBookingRepository(private val api: ChargeShareApi) : BookingRepository {
@@ -72,6 +76,9 @@ class ApiBookingRepository(private val api: ChargeShareApi) : BookingRepository 
 
     override suspend fun cancel(bookingId: String): Outcome<Booking> =
         runCatchingOutcome { api.cancelBooking(bookingId) }
+
+    override suspend fun reportProblem(bookingId: String, message: String): Outcome<Unit> =
+        runCatchingOutcome { api.reportBookingProblem(bookingId, ReportProblemRequest(message)) }
 
     private companion object {
         const val LIST_LIMIT = 100
