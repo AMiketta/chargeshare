@@ -1,24 +1,23 @@
 package app.chargeshare.ui.onboarding
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,18 +29,24 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.chargeshare.presentation.onboarding.OnboardingPage
-import app.chargeshare.ui.AppIcons
+import app.chargeshare.resources.Res
+import app.chargeshare.resources.buchen
+import app.chargeshare.resources.finden
+import app.chargeshare.resources.host
+import app.chargeshare.resources.laden
 import app.chargeshare.ui.ChargeShareColors
 import app.chargeshare.ui.Spacing
 import app.chargeshare.ui.Strings
 import app.chargeshare.ui.components.AmberButton
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.painterResource
 
 /**
  * Einführung beim ersten Start: vier Seiten zum Wischen, jederzeit überspringbar.
@@ -105,34 +110,26 @@ private fun OnboardingPageContent(page: OnboardingPage) {
     }
 }
 
-/**
- * Platzhalter-Grafik im Design-Stil (grüner Kreis mit Symbol und Amber-Akzent). Die fertigen Stimmungsbilder ersetzen
- * diese Funktion; Aufrufer und Seitenlogik bleiben unverändert.
- */
+/** Stimmungsbild zur Seite (WebP in composeResources/drawable); hell/dunkel unverändert. */
 @Composable
 private fun OnboardingIllustration(page: OnboardingPage) {
-    val (icon, accent) = illustrationOf(page)
-    Box(
-        modifier = Modifier.size(ILLUSTRATION_SIZE).clip(CircleShape).background(ChargeShareColors.PrimarySurface)
+    Image(
+        painter = painterResource(illustrationOf(page)),
+        contentDescription = Strings.onboardingTitle(page),
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(ILLUSTRATION_ASPECT)
+            .clip(MaterialTheme.shapes.large)
             .semantics { contentDescription = Strings.onboardingTitle(page) },
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(modifier = Modifier.size(INNER_RING_SIZE).clip(CircleShape).background(ChargeShareColors.PrimaryLight), contentAlignment = Alignment.Center) {
-            Box(modifier = Modifier.size(ICON_DISC_SIZE).clip(CircleShape).background(ChargeShareColors.Primary), contentAlignment = Alignment.Center) {
-                Icon(icon, contentDescription = null, tint = ChargeShareColors.OnPrimary, modifier = Modifier.size(ICON_SIZE))
-            }
-        }
-        Box(modifier = Modifier.align(Alignment.TopEnd).padding(ACCENT_OFFSET).size(ACCENT_SIZE).clip(CircleShape).background(ChargeShareColors.Accent), contentAlignment = Alignment.Center) {
-            Icon(accent, contentDescription = null, tint = ChargeShareColors.OnAccent, modifier = Modifier.size(ACCENT_ICON_SIZE))
-        }
-    }
+    )
 }
 
-private fun illustrationOf(page: OnboardingPage): Pair<ImageVector, ImageVector> = when (page) {
-    OnboardingPage.Find -> AppIcons.Map to AppIcons.Search
-    OnboardingPage.Book -> AppIcons.Calendar to AppIcons.Star
-    OnboardingPage.Charge -> AppIcons.Plug to AppIcons.Bolt
-    OnboardingPage.Host -> AppIcons.Bolt to AppIcons.Person
+private fun illustrationOf(page: OnboardingPage): DrawableResource = when (page) {
+    OnboardingPage.Find -> Res.drawable.finden
+    OnboardingPage.Book -> Res.drawable.buchen
+    OnboardingPage.Charge -> Res.drawable.laden
+    OnboardingPage.Host -> Res.drawable.host
 }
 
 @Composable
@@ -153,12 +150,6 @@ private fun PageDots(count: Int, current: Int) {
 }
 
 private val SKIP_ROW_HEIGHT = 56.dp
-private val ILLUSTRATION_SIZE = 240.dp
-private val INNER_RING_SIZE = 176.dp
-private val ICON_DISC_SIZE = 112.dp
-private val ICON_SIZE = 56.dp
-private val ACCENT_SIZE = 52.dp
-private val ACCENT_ICON_SIZE = 28.dp
-private val ACCENT_OFFSET = 20.dp
+private val ILLUSTRATION_ASPECT = 16f / 9f
 private val DOT_SIZE = 8.dp
 private val DOT_ACTIVE_WIDTH = 24.dp

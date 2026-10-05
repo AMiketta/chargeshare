@@ -1,15 +1,17 @@
 package app.chargeshare.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
@@ -20,16 +22,21 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.chargeshare.data.AppError
+import app.chargeshare.resources.leer
+import app.chargeshare.resources.Res
 import app.chargeshare.ui.AppIcons
 import app.chargeshare.ui.ChargeShareColors
 import app.chargeshare.ui.Elevation
 import app.chargeshare.ui.Spacing
 import app.chargeshare.ui.Strings
+import org.jetbrains.compose.resources.painterResource
 
 /** Tiefgrüner Kopfbereich (Hero) mit weißer Schrift, optional mit Zurück-Pfeil. */
 @Composable
@@ -161,3 +168,34 @@ fun EmptyBox(text: String, modifier: Modifier = Modifier) {
         Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
     }
 }
+
+/**
+ * Leerzustand der Suche: Stimmungsbild „keine Stationen“ plus Hinweistext.
+ * Wird in Liste und Kartenansicht genutzt, wenn der Umkreis keine Wallboxen liefert.
+ */
+@Composable
+fun SearchEmptyBox(modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.fillMaxWidth().padding(Spacing.Large),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Spacing.Medium),
+    ) {
+        Image(
+            painter = painterResource(Res.drawable.leer),
+            contentDescription = Strings.NoWallboxes,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(SEARCH_EMPTY_ASPECT)
+                .clip(MaterialTheme.shapes.large),
+        )
+        Text(
+            Strings.NoWallboxes,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+private const val SEARCH_EMPTY_ASPECT = 16f / 9f
