@@ -39,9 +39,15 @@ class ScriptedPaymentProvider : PaymentProvider {
     @Volatile var paid = false
     val refunds: MutableList<String> = Collections.synchronizedList(mutableListOf())
     val amounts: MutableList<Long> = Collections.synchronizedList(mutableListOf())
+    /** Zuletzt an [createPaymentIntent] uebergebene Connect-Konten (`null` = kein Destination Charge). */
+    val destinations: MutableList<String?> = Collections.synchronizedList(mutableListOf())
+    /** Wenn gesetzt, wirft [createPaymentIntent] diesen Fehler (z. B. `insufficient_capabilities_for_transfer`). */
+    @Volatile var createIntentFailure: Throwable? = null
     override fun createCustomer(email: String, name: String): String? = null
     override fun createPaymentIntent(amountCents: Long, currency: String, customerId: String?, connectedAccountId: String?, platformFeePercent: Int): PaymentIntentInfo {
+        createIntentFailure?.let { throw it }
         amounts += amountCents
+        destinations += connectedAccountId
         return PaymentIntentInfo("pi_test_${amounts.size}", "pi_test_${amounts.size}_secret", paid = false)
     }
     override fun isPaid(paymentIntentId: String): Boolean {

@@ -188,7 +188,12 @@ class StripePaymentProvider(
 
     override fun isPayoutReady(accountId: String): Boolean {
         val params = AccountRetrieveParams.builder().addInclude(AccountRetrieveParams.Include.CONFIGURATION__RECIPIENT).build()
-        return client.v2().core().accounts().retrieve(accountId, params).canReceiveTransfers()
+        return try {
+            client.v2().core().accounts().retrieve(accountId, params).canReceiveTransfers()
+        } catch (e: InvalidRequestException) {
+            // Unbekanntes/ungueltiges Konto oder fehlende Empfaenger-Konfiguration: nicht auszahlbereit.
+            false
+        }
     }
 
     override fun createCustomer(email: String, name: String): String? =
@@ -398,6 +403,28 @@ internal fun buildOnboardingLinkParams(accountId: String, refreshUrl: String, re
         )
         .build()
 
-/** Das Konto darf Ueberweisungen empfangen (`stripe_transfers` aktiv), also ist das Onboarding abgeschlossen. */
-internal fun Account.canReceiveTransfers(): Boolean =
-    configuration?.recipient?.capabilities?.stripeBalance?.stripeTransfers?.status == "active"
+/**
+ * Das Konto darf Ueberweisungen empfangen (`stripe_transfers` aktiv), also ist das Onboarding abgeschlossen.
+ * Fehlt die Empfaenger-Konfiguration, die Capability oder der Status ist nicht `active` (z. B. `pending`/`inactive`),
+ * gilt das Konto als nicht bereit – Destination Charges wuerden sonst mit `insufficient_capabilities_for_transfer` scheitern.
+ */
+internal fun Account.canReceiveTransfers(): Boolean {
+    val transfers = configuration?.recipient?.capabilities?.stripeBalance?.stripeTransfers ?: return false
+    return transfers.status == CAPABILITY_ACTIVE
+}
+
+private const val CAPABILITY_ACTIVE = "active"
+
+/**
+ * Stripe-Fehler, bei dem das Connect-Konto keine Transfers empfangen kann (Destination Charge abgelehnt).
+ * Rohtexte koennen Schluesselhinweise enthalten – nur Code/Klassenname loggen, nie [Throwable.message] weiterreichen.
+ */
+internal fun isInsufficientTransferCapability(error: Throwable): Boolean {
+    val code = (error as? com.stripe.exception.StripeException)?.code.orEmpty()
+    if (code == INSUFFICIENT_CAPABILITIES_CODE) return true
+    // Fallback, falls die SDK den Code nicht setzt (z. B. Testdoubles mit plain Exception)
+    return INSUFFICIENT_CAPABILITIES_CODE in error.message.orEmpty()
+}
+
+/** Stripe-Fehlercode, wenn `transfer_data.destination` ein Konto ohne Transfers-Capability ist. */
+internal const val INSUFFICIENT_CAPABILITIES_CODE = "insufficient_capabilities_for_transfer"

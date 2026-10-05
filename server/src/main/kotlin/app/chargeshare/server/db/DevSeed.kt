@@ -44,8 +44,12 @@ object DevSeed {
     fun run(db: Db, bcryptCost: Int) {
         db.txBlocking {
             if (Users.selectAll().where { Users.email eq HOST_EMAIL }.any()) {
-                // Datenbanken aus der Zeit vor Migration V4 haben den Demo-Host mit `payouts_ready = false` migriert.
-                Users.update({ Users.email eq HOST_EMAIL }) { it[payoutsReady] = true }
+                // Vor V4: payouts_ready=false. Nach lokalem Stripe-Onboarding als Demo-Host: stripe_account_id ohne
+                // Transfers-Capability → Destination Charges scheitern. Demo-Host bleibt ohne Connect buchbar.
+                Users.update({ Users.email eq HOST_EMAIL }) {
+                    it[payoutsReady] = true
+                    it[stripeAccountId] = null
+                }
                 return@txBlocking
             }
             val now = OffsetDateTime.now(ZoneOffset.UTC)

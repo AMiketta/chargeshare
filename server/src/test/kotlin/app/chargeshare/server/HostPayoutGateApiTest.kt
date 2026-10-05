@@ -215,6 +215,34 @@ class HostPayoutGateApiTest {
     }
 
     @Test
+    fun devSeedClearsLeftoverStripeAccountSoDemoHostStaysBookableWithoutTransfer() = serverTest(
+        payments = PayoutGatedProvider(ScriptedPaymentProvider()),
+    ) {
+        DevSeed.run(Db(TestDb.database), 4)
+        // Demo-Host hat lokal Stripe-Onboarding gestartet: Konto ohne Transfers-Capability in der DB.
+        transaction(TestDb.database) {
+            exec("UPDATE users SET stripe_account_id = 'acct_demo_incomplete', payouts_ready = true WHERE email = '${DevSeed.HOST_EMAIL}'")
+        }
+        DevSeed.run(Db(TestDb.database), 4)
+
+        var account: String? = "still-set"
+        transaction(TestDb.database) {
+            exec("SELECT stripe_account_id FROM users WHERE email = '${DevSeed.HOST_EMAIL}'") {
+                account = if (it.next()) it.getString(1) else "missing"
+            }
+        }
+        assertTrue(account == null, "Demo-Host darf kein Connect-Konto behalten, war: $account")
+        assertTrue(payoutsReadyInDb(DevSeed.HOST_EMAIL))
+
+        val driver = registerUser("fahrer@example.com")
+        val box = driver.api.searchWallboxes(WallboxSearch(limit = 100)).wallboxes.first { it.name.contains("Marktplatz") }
+        val booking = driver.api.createBooking(tomorrow(box.id)).booking!!
+        assertEquals(BookingStatus.PENDING, booking.status)
+        val scripted = (payments as PayoutGatedProvider).base
+        assertEquals(listOf<String?>(null), scripted.destinations, "Buchung ohne Destination Charge (kein Transfer an Demo-Host)")
+    }
+
+    @Test
     fun accountIsReadyOnlyWithActiveTransfers() {
         assertFalse(Account().canReceiveTransfers())
         fun account(status: String?): Account {
