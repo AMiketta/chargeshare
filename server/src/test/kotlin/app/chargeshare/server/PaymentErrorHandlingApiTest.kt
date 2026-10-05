@@ -3,7 +3,11 @@ package app.chargeshare.server
 import app.chargeshare.shared.api.ApiException
 import app.chargeshare.shared.model.BookingStatus
 import app.chargeshare.shared.model.CreateBookingRequest
+import app.chargeshare.server.services.PayoutService
 import app.chargeshare.shared.model.ErrorCodes
+import app.chargeshare.server.payments.INSUFFICIENT_CAPABILITIES_CODE
+import app.chargeshare.server.payments.isInsufficientTransferCapability
+import org.jetbrains.exposed.v1.jdbc.transactions.transaction
 import com.stripe.exception.ApiConnectionException
 import com.stripe.exception.AuthenticationException
 import com.stripe.exception.InvalidRequestException
@@ -111,6 +115,55 @@ class PaymentErrorHandlingApiTest {
         driver.api.cancelBooking(booking.id)
         assertEquals(listOf(booking.stripePaymentIntentId), provider.refunds)
         assertTrue(provider.canceledIntents.isEmpty())
+    }
+
+    @Test
+    fun bookingWithInsufficientTransferCapabilitiesReturnsConflictNotServerError() = serverTest(
+        config = stripeConfig,
+        payments = ScriptedPaymentProvider().also {
+            it.createIntentFailure = InvalidRequestException(
+                "Account acct_x does not have capabilities required for transfer: $INSUFFICIENT_CAPABILITIES_CODE",
+                null, "req_cap", INSUFFICIENT_CAPABILITIES_CODE, 400, null,
+            )
+        },
+    ) {
+        val host = registerUser("host@example.com", host = true)
+        // Simuliert einen Host, dessen DB-Flag faelschlich "bereit" ist, Stripe aber Transfers ablehnt.
+        transaction(TestDb.database) {
+            exec("UPDATE users SET payouts_ready = true, stripe_account_id = 'acct_incomplete' WHERE email = 'host@example.com'")
+        }
+        val wallbox = host.api.createWallbox(newWallbox("Marktplatz-Box", power = 11.0, price = 0.40))
+        host.api.setWallboxOnline(wallbox.id, true)
+        val driver = registerUser("fahrer@example.com")
+
+        val error = assertFailsWith<ApiException> {
+            driver.api.createBooking(CreateBookingRequest(wallbox.id, inFuture(1, 10), inFuture(1, 12)))
+        }
+        assertEquals(409, error.status)
+        assertEquals(ErrorCodes.HOST_PAYOUTS_PENDING, error.code)
+        assertEquals(PayoutService.PENDING_MESSAGE, error.message)
+        assertFalse("acct_incomplete" in error.message.orEmpty())
+        assertFalse(INSUFFICIENT_CAPABILITIES_CODE in error.message.orEmpty())
+
+        // Buchung ist failed (Slot wieder frei), Host nicht mehr als auszahlbereit markiert
+        val bookings = driver.api.bookings().bookings
+        assertEquals(listOf(BookingStatus.FAILED), bookings.map { it.status })
+        var ready = true
+        transaction(TestDb.database) {
+            exec("SELECT payouts_ready FROM users WHERE email = 'host@example.com'") { if (it.next()) ready = it.getBoolean(1) }
+        }
+        assertFalse(ready)
+    }
+
+    @Test
+    fun insufficientCapabilitiesHelperRecognizesStripeCodeAndMessage() {
+        assertTrue(
+            isInsufficientTransferCapability(
+                InvalidRequestException("denied", null, "req", INSUFFICIENT_CAPABILITIES_CODE, 400, null),
+            ),
+        )
+        assertTrue(isInsufficientTransferCapability(RuntimeException("…$INSUFFICIENT_CAPABILITIES_CODE…")))
+        assertFalse(isInsufficientTransferCapability(InvalidRequestException("other", null, "req", "card_declined", 400, null)))
     }
 
     private suspend fun ServerScope.pendingBooking(): Pair<TestClient, app.chargeshare.shared.model.Booking> {

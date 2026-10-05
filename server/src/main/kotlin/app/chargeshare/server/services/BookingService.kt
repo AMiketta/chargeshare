@@ -13,6 +13,7 @@ import app.chargeshare.server.db.toUser
 import app.chargeshare.server.db.toWallbox
 import app.chargeshare.server.payments.PaymentEvent
 import app.chargeshare.server.payments.PaymentProvider
+import app.chargeshare.server.payments.isInsufficientTransferCapability
 import app.chargeshare.server.util.AppException
 import app.chargeshare.server.util.badRequest
 import app.chargeshare.server.util.conflict
@@ -76,11 +77,9 @@ class BookingService(
         if (start.isBefore(now)) throw badRequest("start_time must be in the future")
 
         // 0) Nur Wallboxes von Hosts mit eingerichtetem Auszahlungskonto sind buchbar (sonst 409 statt Fehler bei Stripe)
-        if (payments.requiresPayoutAccount) {
-            val ownerId = db.tx { Wallboxes.select(Wallboxes.ownerId).where { Wallboxes.id eq wallboxId }.singleOrNull()?.get(Wallboxes.ownerId) }
-                ?: throw notFound("wallbox not found")
-            payouts.ensureBookable(ownerId)
-        }
+        val ownerId = db.tx { Wallboxes.select(Wallboxes.ownerId).where { Wallboxes.id eq wallboxId }.singleOrNull()?.get(Wallboxes.ownerId) }
+            ?: throw notFound("wallbox not found")
+        if (payments.requiresPayoutAccount) payouts.ensureBookable(ownerId)
 
         // Stripe-Kunde des Fahrers sicherstellen: nur mit Kunde kann das PaymentSheet Karten merken und anzeigen.
         if (payments.supportsSavedCards) ensureCustomerQuietly(driverId)
@@ -135,15 +134,10 @@ class BookingService(
         val amountCents = maxOf(total.movePointRight(2).toLong(), MIN_CHARGE_CENTS)
         val intent = try {
             payments.createPaymentIntent(amountCents, "eur", customerId, hostAccount, platformFeePercent)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            log.error("payment intent creation failed", e)
-            db.tx {
-                Bookings.update({ Bookings.id eq bookingId }) {
-                    it[status] = BookingStatus.FAILED.dbValue()
-                    it[updatedAt] = OffsetDateTime.now(ZoneOffset.UTC)
-                }
-            }
-            throw internal("payment intent creation failed")
+            failAfterPaymentIntentError(bookingId, ownerId, e)
         }
         val confirmed = payments.autoConfirms && intent.paid
         val booking = db.tx {
@@ -326,19 +320,18 @@ class BookingService(
 
         // Kein (oder ein stornierter) Intent: neuen anlegen und an die Buchung haengen. Nur wenn sie noch `pending` ist.
         val total = row[Bookings.totalAmount] ?: throw internal("booking has no total amount")
-        if (payments.requiresPayoutAccount) {
-            payouts.ensureBookable(db.tx { Wallboxes.select(Wallboxes.ownerId).where { Wallboxes.id eq row[Bookings.wallboxId] }.single()[Wallboxes.ownerId] })
-        }
+        val ownerId = db.tx { Wallboxes.select(Wallboxes.ownerId).where { Wallboxes.id eq row[Bookings.wallboxId] }.single()[Wallboxes.ownerId] }
+        if (payments.requiresPayoutAccount) payouts.ensureBookable(ownerId)
         val (hostAccount, customerId) = db.tx {
-            val wb = Wallboxes.selectAll().where { Wallboxes.id eq row[Bookings.wallboxId] }.single().toWallbox()
-            Users.selectAll().where { Users.id eq Uuid.parse(wb.ownerId) }.singleOrNull()?.get(Users.stripeAccountId) to
+            Users.selectAll().where { Users.id eq ownerId }.singleOrNull()?.get(Users.stripeAccountId) to
                 Users.selectAll().where { Users.id eq userId }.singleOrNull()?.get(Users.stripeCustomerId)
         }
         val intent = try {
             payments.createPaymentIntent(maxOf(total.movePointRight(2).toLong(), MIN_CHARGE_CENTS), "eur", customerId, hostAccount, platformFeePercent)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            log.error("payment intent creation failed for booking $bookingId", e)
-            throw internal("payment intent creation failed")
+            failAfterPaymentIntentError(bookingId, ownerId, e)
         }
         val updated = db.tx {
             Bookings.update({ (Bookings.id eq bookingId) and (Bookings.status eq "pending") }) {
@@ -435,6 +428,47 @@ class BookingService(
         val reviewedIds = Reviews.select(Reviews.bookingId).where { Reviews.bookingId inList rows.map { it[Bookings.id] } }
             .map { it[Reviews.bookingId] }.toSet()
         return rows.map { it.toBooking(boxes[it[Bookings.wallboxId]], drivers[it[Bookings.driverId]], reviewed = it[Bookings.id] in reviewedIds) }
+    }
+
+    /**
+     * PaymentIntent fehlgeschlagen: Buchung auf `failed` (Slot frei). Connect-Capability-Fehler werden als
+     * `409 HOST_PAYOUTS_PENDING` gemeldet (kein 500); der Host gilt wieder als nicht auszahlbereit.
+     * Stripe-Rohtexte/Schluessel werden weder geloggt noch an den Client weitergereicht.
+     */
+    private suspend fun failAfterPaymentIntentError(bookingId: Uuid, ownerId: Uuid, error: Exception): Nothing {
+        val capability = isInsufficientTransferCapability(error)
+        if (capability) {
+            val code = (error as? com.stripe.exception.StripeException)?.code
+            log.warn(
+                "payment intent rejected for booking {}: host payouts not ready ({})",
+                bookingId,
+                code ?: error.javaClass.simpleName,
+            )
+        } else {
+            val code = (error as? com.stripe.exception.StripeException)?.code
+            log.error(
+                "payment intent creation failed for booking {}: {} code={}",
+                bookingId,
+                error.javaClass.simpleName,
+                code,
+            )
+        }
+        db.tx {
+            Bookings.update({ Bookings.id eq bookingId }) {
+                it[status] = BookingStatus.FAILED.dbValue()
+                it[updatedAt] = OffsetDateTime.now(ZoneOffset.UTC)
+            }
+            if (capability) {
+                Users.update({ Users.id eq ownerId }) {
+                    it[payoutsReady] = false
+                    it[updatedAt] = OffsetDateTime.now(ZoneOffset.UTC)
+                }
+            }
+        }
+        if (capability) {
+            throw AppException(HttpStatusCode.Conflict, ErrorCodes.HOST_PAYOUTS_PENDING, PayoutService.PENDING_MESSAGE)
+        }
+        throw internal("payment intent creation failed")
     }
 
     companion object {

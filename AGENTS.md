@@ -141,7 +141,7 @@ Im Entwicklungsmodus (`ENV=development`, Standard) gilt:
   - `demo-driver@chargeshare.local` / `demo1234`
   - `demo-host@chargeshare.local` / `demo1234`
   - abschaltbar mit `DEV_SEED=false`; in Produktion verboten.
-- **Stripe Connect:** Konten entstehen über die **Accounts-v2-API** (`/v2/core/accounts`, Express-Dashboard, Empfänger-Konfiguration mit `stripe_transfers`); v1 `POST /v1/accounts` ist für neue Plattformen gesperrt. Ein Host kann erst Zahlungen empfangen, wenn er das Onboarding im Stripe-Link abgeschlossen hat – bis dahin lehnt Stripe Destination Charges mit `insufficient_capabilities_for_transfer` ab.
+- **Stripe Connect:** Konten entstehen über die **Accounts-v2-API** (`/v2/core/accounts`, Express-Dashboard, Empfänger-Konfiguration mit `stripe_transfers`); v1 `POST /v1/accounts` ist für neue Plattformen gesperrt. Ein Host kann erst Zahlungen empfangen, wenn er das Onboarding im Stripe-Link abgeschlossen hat – bis dahin lehnt Stripe Destination Charges mit `insufficient_capabilities_for_transfer` ab; der Server meldet das als `409 HOST_PAYOUTS_PENDING` (Buchung `failed`), nicht als 500. Der Dev-Seed setzt den Demo-Host auf `payouts_ready=true` und **löscht** eine eventuell vorhandene `stripe_account_id` (z. B. nach lokalem Onboarding-Versuch), damit Beispiel-Wallboxen ohne Destination Charge buchbar bleiben.
 - **Fake-Zahlung:** ohne `STRIPE_SECRET_KEY` sind Buchungen sofort `confirmed`/bezahlt; `GET /payments/config` meldet dann `provider: fake` und die App öffnet kein Zahlungsfenster.
 - **API-Adresse aus Client-Sicht:** Android-Emulator `http://10.0.2.2:8080` (= Host-Rechner), Desktop/Web/iOS-Simulator `http://localhost:8080`.
   Die Adresse steckt im `AppContainer`, den die Einstiegspunkte erzeugen; sie ist nicht in der UI hartkodiert.
@@ -170,7 +170,7 @@ Im Entwicklungsmodus (`ENV=development`, Standard) gilt:
   Codes stehen in `ErrorCodes` (`RATE_LIMITED`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`, `CONFLICT`, `INTERNAL_ERROR`, `BAD_REQUEST`, `PAYMENT_REQUIRED`, `NOT_IMPLEMENTED`, `HOST_PAYOUTS_PENDING`).
   Die Fehlertexte des Servers sind **englisch und technisch** – sie werden nie 1:1 dem Nutzer gezeigt, sondern in `AppError` übersetzt (Abschnitt 8).
   Ausnahme: Stripe-Fehler beim Connect-Onboarding (`PaymentService.onboardingUrl`) kommen als `503`/`502` mit lesbarer deutscher Meldung; Stripe-Rohtexte und Schlüssel werden nie durchgereicht oder geloggt.
-  Zweite Ausnahme: `409 HOST_PAYOUTS_PENDING` (Wallbox eines Hosts ohne abgeschlossenes Stripe-Onboarding, `PayoutService`) hat eine deutsche Meldung; die App übersetzt sie in `AppError.HostPayoutsPending`. Nur mit `PaymentProvider.requiresPayoutAccount` (Stripe), nicht mit dem Fake-Provider.
+  Zweite Ausnahme: `409 HOST_PAYOUTS_PENDING` (Wallbox eines Hosts ohne abgeschlossenes Stripe-Onboarding bzw. Connect-Konto ohne Transfers-Capability bei der PaymentIntent-Anlage, `PayoutService`/`BookingService`) hat eine deutsche Meldung; die App übersetzt sie in `AppError.HostPayoutsPending`. Der Gate-Check gilt nur mit `PaymentProvider.requiresPayoutAccount` (Stripe); der Capability-Fehler beim PaymentIntent wird unabhängig davon auf denselben Code abgebildet.
 - **Auth:** Access-JWT (15 min) per `Authorization: Bearer`; Refresh-Token rotiert bei jedem Refresh (Einmalverwendung).
   Der Client (`createHttpClient`) erneuert bei `401` automatisch; scheitert das, wird der `TokenStore` geleert.
 - **Geld:** Beträge sind `Double` in Euro (Vertragsentscheidung aus dem Go-Backend). Nie selbst mit Fließkomma „weiterrechnen“,
