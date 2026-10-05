@@ -32,7 +32,7 @@ private Wallbox-Besitzer geben ihre Ladestation zeitgesteuert frei, Fahrer buche
 | `composeApp/` | Gemeinsame Compose-Multiplatform-UI, ViewModels, Repositories, DI-Container | Desktop-JVM, Wasm, Android\*, iOS\*\* |
 | `androidApp/` | Android-Application (`MainActivity` → `App(...)`), Manifest | Android\* |
 | `iosApp/` | dünne SwiftUI-Hülle + XcodeGen-Spec (`project.yml`, iOS 18+), ruft `MainViewController()` | iOS\*\* |
-| `third_party/cmp-ios-chrome/` | Git-Submodule: native iOS-Tabbar-Brücke für Compose (`NativeTabBar`) | iOS (via composeApp iosMain) |
+| `third_party/cmp-ios-chrome/` | Git-Submodule: native iOS-Tabbar-Brücke für Compose (`NativeTabBar`); aktuell **nicht** von composeApp genutzt (optional) | – |
 | `web/` | Wasm-Einstiegspunkt (`ComposeViewport`), nutzt `composeApp` | Wasm |
 | `server/` | Ktor-Backend (Netty, JWT, Exposed, Flyway, PostgreSQL, OCPP) | JVM |
 | `docs/` | Konzept (PDF) und Design (HTML) | – |
@@ -192,7 +192,7 @@ ui (Composables)  ─▶  presentation (ViewModel + UiState)  ─▶  data (Repo
   Die Implementierung übersetzt Exceptions in `Outcome.Failure(AppError)`.
 - **Dependency Injection per Konstruktor.** Abhängigkeiten (Repository, `CoroutineDispatcher`, Uhr) werden übergeben, nie im ViewModel erzeugt.
   Verdrahtet wird zentral im `AppContainer` (`di/`), der `App()` einmal pro Prozess erzeugt. Globale Singletons/`object` mit Zustand sind verboten.
-- **Navigation:** zustandsbasiert (sealed `Screen` + Back-Stack im `NavigationState`), Tabs über `MainTab` und `MainTabsChrome` (expect/actual: Android/Desktop/Web = Compose-`AppNavigationBar`, iOS = native `UITabBar` über [cmp-ios-chrome](https://github.com/AMiketta/cmp-ios-chrome) als Git-Submodule `third_party/cmp-ios-chrome`). Kein Compose-Code in ViewModels.
+- **Navigation:** zustandsbasiert (sealed `Screen` + Back-Stack im `NavigationState`), Tabs über `MainTab` und `MainTabsChrome` (expect/actual: Android/Desktop/Web = Compose-`AppNavigationBar`, iOS = native UIKit-`UITabBar` per `UIKitView` als `bottomBar`, Tab-Inhalt bleibt in derselben Komposition – kein `UITabBarController` mit eigenem `ComposeUIViewController` pro Tab, das verliert CompositionLocals/ViewModel-Scope und wurde ohne Größen-Modifier 0×0 gemessen = weißer Screen). Kein Compose-Code in ViewModels.
 - **Zahlung:** Das Zahlungsfenster gehört der Plattform (Activity bzw. ViewController). Das `BookingFlowViewModel` kennt nur `PaymentRequest`/`PaymentResult`; die UI (`BookingFlowRoute`) öffnet das Fenster über den `PaymentLauncher`, den `App(container, paymentLauncher)` bekommt. Neue Plattform-Zahlungsarten ⇒ `PaymentMethodChoice` erweitern, Launcher und `Strings.paymentMethod` ergänzen.
 - Domain-Typen aus `shared` (`Wallbox`, `Booking`, …) dürfen bis in die UI durchgereicht werden. UI-spezifische Aufbereitung (formatierte Texte)
   passiert in der UI oder in kleinen, getesteten Formatter-Funktionen, nicht in den DTOs.
@@ -325,7 +325,7 @@ Texte nutzen immer `MaterialTheme.typography` (Stile in `Typography.kt`), nie ei
 In Release-Builds, im Web und auf iOS (Standard `false`) erscheinen solche Zeilen nicht.
 
 **Wiederverwendbare Design-Komponenten** (`ui/components`): `AppCard`/`SurfaceCard` (Karte mit Radius 20 dp, Schatten, Rand), `AppFilterChip`/`ChoiceChips` (vollrunde Filter-Pill,
-gewählt tiefgrün), `InfoPill` (kleines Label mit Füllung), `OutlineChip` (Info-Label mit Rand und Icon, Detailseite), `FavoriteButton` (Herz; Zustand teilt sich der `FavoritesViewModel` pro Nutzer, optimistisch mit Rücknahme bei Fehler), `AppNavigationBar` / `MainTabsChrome` (untere Navigation: auf Android/Desktop/Web aktiver Tab grün auf hellgrüner Pill; auf iOS native `UITabBar` via cmp-ios-chrome, Deployment Target 18.0), `MenuGroup`/`MenuItem` (gruppierte Liste mit farbigen Icons, `MenuIconStyle`). Den Material-`FilterChip`/`NavigationBar`/`Card`
+gewählt tiefgrün), `InfoPill` (kleines Label mit Füllung), `OutlineChip` (Info-Label mit Rand und Icon, Detailseite), `FavoriteButton` (Herz; Zustand teilt sich der `FavoritesViewModel` pro Nutzer, optimistisch mit Rücknahme bei Fehler), `AppNavigationBar` / `MainTabsChrome` (untere Navigation: auf Android/Desktop/Web aktiver Tab grün auf hellgrüner Pill; auf iOS native `UITabBar` in `MainTabsChrome.ios.kt`, Deployment Target 18.0), `MenuGroup`/`MenuItem` (gruppierte Liste mit farbigen Icons, `MenuIconStyle`). Den Material-`FilterChip`/`NavigationBar`/`Card`
 nicht direkt verwenden, damit das Design an einer Stelle gepflegt wird.
 
 ## 13. Recht und Datenschutz (Kurzform – Details im Konzept, Kap. 9)

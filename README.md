@@ -70,9 +70,10 @@ Compose verlangt in der Info.plist `CADisableMinimumFrameDurationOnPhone = true`
 Das Xcode-Projekt baut das Kotlin-Framework `ComposeApp` per Gradle-Run-Script
 (`:composeApp:embedAndSignAppleFrameworkForXcode`).
 
-Die Haupt-Tabs nutzen auf iOS die **native `UITabBar`** aus dem Submodule
-[`cmp-ios-chrome`](https://github.com/AMiketta/cmp-ios-chrome) (`third_party/cmp-ios-chrome`, Deployment Target **18.0**).
-Nach dem Klonen: `git submodule update --init --recursive`. Auf dem Simulator mit iOS 26 erscheint die System-Tabbar (inkl. Liquid Glass) automatisch.
+Die Haupt-Tabs nutzen auf iOS eine **native UIKit-`UITabBar`** (`MainTabsChrome.ios.kt`, Deployment Target **18.0**);
+der Tab-Inhalt bleibt Compose in derselben Komposition. Auf dem Simulator mit iOS 26 erscheint die Systemoptik (inkl. Liquid Glass) automatisch.
+Das Submodule [`cmp-ios-chrome`](https://github.com/AMiketta/cmp-ios-chrome) (`third_party/cmp-ios-chrome`) ist optional und wird
+von der App derzeit nicht gebraucht – ein GitHub-ZIP ohne Submodule baut also auch.
 
 ### App gegen das lokale Backend
 

@@ -17,7 +17,7 @@ import app.chargeshare.shared.model.Wallbox
 enum class MainTab(
     val title: String,
     val icon: ImageVector,
-    /** SF Symbol für die native iOS-Tabbar ([dev.amiketta.cmpioschrome.NativeTabBar]). */
+    /** SF Symbol für die native iOS-`UITabBar` (MainTabsChrome.ios.kt). */
     val systemImage: String,
 ) {
     Search(Strings.TabSearch, AppIcons.Map, "map"),

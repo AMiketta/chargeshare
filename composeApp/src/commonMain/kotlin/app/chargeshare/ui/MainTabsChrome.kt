@@ -6,8 +6,8 @@ import androidx.compose.ui.Modifier
 /**
  * Plattform-Chrome für die vier Haupt-Tabs.
  *
- * - **iOS:** echte [platform.UIKit.UITabBarController]-Tabbar über cmp-ios-chrome (`NativeTabBar`,
- *   iOS 18+ `UITab` / Liquid Glass auf neueren Systemen).
+ * - **iOS:** echte UIKit-`UITabBar` (SF Symbols, Systemoptik / Liquid Glass ab iOS 26); der Tab-Inhalt
+ *   bleibt in derselben Compose-Komposition (kein verschachtelter `ComposeUIViewController` pro Tab).
  * - **Android / Desktop / Web:** bestehende Compose-[app.chargeshare.ui.components.AppNavigationBar].
  *
  * Vollbild-Screens (Detail, Buchung, …) liegen weiterhin oberhalb und ersetzen diese Chrome.
