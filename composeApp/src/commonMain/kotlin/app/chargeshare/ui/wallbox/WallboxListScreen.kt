@@ -45,7 +45,7 @@ import app.chargeshare.ui.Strings
 import app.chargeshare.ui.components.AppCard
 import app.chargeshare.ui.components.AppFilterChip
 import app.chargeshare.ui.components.ChoiceChips
-import app.chargeshare.ui.components.EmptyBox
+import app.chargeshare.ui.components.SearchEmptyBox
 import app.chargeshare.ui.components.ErrorBox
 import app.chargeshare.ui.components.ErrorText
 import app.chargeshare.ui.components.HeroHeader
@@ -176,7 +176,7 @@ private fun ListResults(
         when {
             state.isLoading -> item(key = "loading") { LoadingBox(Modifier.padding(Spacing.XLarge)) }
             state.error != null -> item(key = "error") { ErrorBox(state.error, onRetry) }
-            state.visibleWallboxes.isEmpty() -> item(key = "empty") { EmptyBox(Strings.NoWallboxes) }
+            state.visibleWallboxes.isEmpty() -> item(key = "empty") { SearchEmptyBox() }
             else -> {
                 item(key = "count") {
                     SectionTitle(Strings.stationsNearby(state.visibleWallboxes.size), Modifier.padding(horizontal = Spacing.Medium))
@@ -209,7 +209,7 @@ private fun MapResults(
     Column(modifier = Modifier.fillMaxSize()) {
         if (state.isLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
         state.error?.let { ErrorBox(it, onRetry) }
-        if (!state.isLoading && state.error == null && wallboxes.isEmpty()) EmptyBox(Strings.NoWallboxes)
+        if (!state.isLoading && state.error == null && wallboxes.isEmpty()) SearchEmptyBox()
         WallboxMap(
             pins = pins,
             tileSource = tileSource,
