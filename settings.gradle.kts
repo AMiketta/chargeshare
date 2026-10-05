@@ -58,3 +58,13 @@ include(":composeApp")
 include(":server")
 include(":web")
 if (androidEnabled) include(":androidApp")
+
+// cmp-ios-chrome: öffentliche KMP-Lib (https://github.com/AMiketta/cmp-ios-chrome), Git-Submodule.
+// Als Unterprojekt eingebunden (noch nicht auf Maven); iOS-/Android-Flags spiegeln ChargeShare.
+val cmpIosChromeDir = file("third_party/cmp-ios-chrome/library")
+if (cmpIosChromeDir.resolve("build.gradle.kts").isFile) {
+    gradle.extra["cmpioschrome.androidEnabled"] = androidEnabled
+    gradle.extra["cmpioschrome.iosEnabled"] = gradle.extra["chargeshare.iosEnabled"]
+    include(":cmpIosChrome")
+    project(":cmpIosChrome").projectDir = cmpIosChromeDir
+}

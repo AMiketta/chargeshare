@@ -1,0 +1,3 @@
+[submodule "third_party/cmp-ios-chrome"]
+	path = third_party/cmp-ios-chrome
+	url = https://github.com/AMiketta/cmp-ios-chrome.git
