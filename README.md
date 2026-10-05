@@ -146,7 +146,9 @@ Slots in der Vergangenheit werden nicht angeboten; belegte Slots der Zukunft ste
 
 Die Suche hat einen Umschalter **Karte / Liste**; auf Android, Desktop und iOS ist die Karte die Startansicht.
 Jede Wallbox ist ein Pin (grün = verfügbar, grau = offline); ein Tipp auf den Pin öffnet die Detailseite.
-Die Kamera startet auf Bremen und springt auf den Umfang der Suchergebnisse. Über „Filter“ lassen sich die Suchfilter über der Karte einblenden.
+Die Kamera startet auf dem Gerätestandort (Android/iOS, nach Freigabe) bzw. auf Bremen und springt auf den Umfang der Suchergebnisse. Über „Filter“ lassen sich die Suchfilter über der Karte einblenden.
+
+**Standort:** Beim Öffnen der Suche erscheint einmalig ein Hinweis; danach der Systemdialog (Android: Fine/Coarse Location, iOS: When-In-Use, Text in `NSLocationWhenInUseUsageDescription`). Bei Ablehnung oder auf Desktop/Web bleibt Bremen, mit Hinweis und Chip „In der Nähe“. Der Standort wird nicht gespeichert.
 
 - **Bibliothek:** [MapCompose-MP](https://github.com/p-lr/MapComposeMP) (`ovh.plrapps:mapcompose-mp`, Apache-2.0) – reines Compose Multiplatform (Android, Desktop, iOS, Wasm),
   Marker/Gesten/Pinch-Zoom, **kein API-Key**, keine native SDK-Abhängigkeit. Kacheln liefert `OsmTileSource` von `tile.openstreetmap.org` (Quellenangabe „© OpenStreetMap-Mitwirkende“ steht auf der Karte).
@@ -285,6 +287,6 @@ Kartenkacheln bleiben in beiden Modi hell (OpenStreetMap). Unter Android passen 
 ## Nächste Schritte
 
 1. Server: Stripe gegen Testkonto pruefen (Google Pay/Apple Pay mit echten Testschlüsseln durchspielen), Zahlung nach OCPP-Abschluss auf tatsaechliche kWh abrechnen, RemoteStart/Stop
-2. composeApp: Karte auf Web freischalten (nach Browser-Test), Gerätestandort mit Einwilligung; iOS-Karte im Simulator prüfen
+2. composeApp: Karte auf Web freischalten (nach Browser-Test); iOS-Karte und Standortfreigabe im Simulator prüfen
 3. iOS auf einem Mac bauen und testen (Keychain-`TokenStore` ist ungetestet)
 4. CI für iOS (macOS-Runner); Linux-CI läuft bereits (siehe „CI und Self-hosted-Runner“)

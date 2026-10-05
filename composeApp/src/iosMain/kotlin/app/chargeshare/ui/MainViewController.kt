@@ -3,6 +3,7 @@ package app.chargeshare.ui
 import androidx.compose.runtime.remember
 import androidx.compose.ui.window.ComposeUIViewController
 import app.chargeshare.di.AppContainer
+import app.chargeshare.platform.IosLocationProvider
 import app.chargeshare.platform.IosUrlOpener
 import app.chargeshare.platform.PlatformContext
 import app.chargeshare.payment.IosPaymentBridge
@@ -29,5 +30,6 @@ fun MainViewController(apiBaseUrl: String): UIViewController = MainViewControlle
 fun MainViewController(apiBaseUrl: String, paymentBridge: IosPaymentBridge?): UIViewController = ComposeUIViewController {
     val container = remember { AppContainer(apiBaseUrl, createSecureTokenStore(PlatformContext()), createPreferenceStorage(PlatformContext()), urlOpener = IosUrlOpener()) }
     val paymentLauncher = remember { paymentBridge?.let(::IosPaymentLauncher) ?: UnsupportedPaymentLauncher }
-    App(container, paymentLauncher)
+    val locationProvider = remember { IosLocationProvider() }
+    App(container, paymentLauncher, locationProvider = locationProvider)
 }

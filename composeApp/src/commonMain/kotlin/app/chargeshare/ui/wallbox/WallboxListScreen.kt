@@ -15,7 +15,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -87,6 +89,9 @@ fun WallboxListRoute(
         onWallboxSelected = viewModel::onWallboxSelected,
         onViewModeChange = viewModel::onViewModeChange,
         onRetry = viewModel::onRefresh,
+        onAllowLocation = viewModel::onAllowLocation,
+        onSkipLocation = viewModel::onSkipLocation,
+        onDismissLocationPrompt = viewModel::onDismissLocationPrompt,
         onOpenWallbox = onOpenWallbox,
         tileSource = tileSource,
         modifier = modifier,
@@ -113,6 +118,9 @@ fun WallboxListScreen(
     onWallboxSelected: (String) -> Unit,
     onViewModeChange: (SearchViewMode) -> Unit,
     onRetry: () -> Unit,
+    onAllowLocation: () -> Unit,
+    onSkipLocation: () -> Unit,
+    onDismissLocationPrompt: () -> Unit,
     onOpenWallbox: (Wallbox) -> Unit,
     tileSource: TileStreamProvider,
     modifier: Modifier = Modifier,
@@ -120,7 +128,10 @@ fun WallboxListScreen(
     // Rein visueller Zustand: ob die erweiterten Filter (Umkreis, alle Stecker, Leistung, Preis) aufgeklappt sind.
     var showMoreFilters by remember { mutableStateOf(false) }
     Column(modifier = modifier.fillMaxSize()) {
-        HeroHeader(title = Strings.AppName, subtitle = Strings.SearchCenterNote) {
+        HeroHeader(
+            title = Strings.AppName,
+            subtitle = Strings.searchCenterNote(state.usesDeviceLocation, state.showLocationFallbackHint),
+        ) {
             SearchField(state.query, onQueryChange)
         }
         if (state.mapSupported) {
@@ -134,6 +145,8 @@ fun WallboxListScreen(
             onMinPowerChange = onMinPowerChange,
             onOnlyOnlineChange = onOnlyOnlineChange,
             onClearQuickFilters = onClearQuickFilters,
+            showUseNearby = state.showLocationFallbackHint && !state.usesDeviceLocation,
+            onUseNearby = onAllowLocation,
             modifier = Modifier.padding(vertical = Spacing.Small),
         )
         if (showMoreFilters) {
@@ -147,6 +160,28 @@ fun WallboxListScreen(
             ListResults(state, favorites, onToggleFavorite, onFavoriteErrorShown, onRetry, onOpenWallbox)
         }
     }
+    if (state.showLocationPrompt) {
+        LocationPermissionDialog(
+            onAllow = onAllowLocation,
+            onSkip = onSkipLocation,
+            onDismiss = onDismissLocationPrompt,
+        )
+    }
+}
+
+@Composable
+private fun LocationPermissionDialog(
+    onAllow: () -> Unit,
+    onSkip: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(Strings.LocationPromptTitle) },
+        text = { Text(Strings.LocationPromptBody) },
+        confirmButton = { TextButton(onClick = onAllow) { Text(Strings.LocationPromptAllow) } },
+        dismissButton = { TextButton(onClick = onSkip) { Text(Strings.LocationPromptSkip) } },
+    )
 }
 
 private val MORE_FILTERS_MAX_HEIGHT = 220.dp
@@ -216,6 +251,7 @@ private fun MapResults(
             onPinClick = onWallboxSelected,
             modifier = Modifier.fillMaxWidth().weight(1f),
             activePinId = activeId,
+            center = state.center,
         ) {
             StationSheet(wallboxes, activeId, onOpenWallbox, Modifier.align(Alignment.BottomCenter))
         }
@@ -282,6 +318,8 @@ private fun QuickFilters(
     onMinPowerChange: (Double?) -> Unit,
     onOnlyOnlineChange: (Boolean) -> Unit,
     onClearQuickFilters: () -> Unit,
+    showUseNearby: Boolean,
+    onUseNearby: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val noQuickFilter = filter.connector == null && filter.minPowerKw == null && !filter.onlyOnline
@@ -290,6 +328,16 @@ private fun QuickFilters(
         contentPadding = PaddingValues(horizontal = Spacing.Medium),
         horizontalArrangement = Arrangement.spacedBy(Spacing.Small),
     ) {
+        if (showUseNearby) {
+            item {
+                AppFilterChip(
+                    selected = false,
+                    onClick = onUseNearby,
+                    label = Strings.UseNearby,
+                    leadingIcon = AppIcons.Map,
+                )
+            }
+        }
         item { AppFilterChip(selected = noQuickFilter, onClick = onClearQuickFilters, label = Strings.FilterAll) }
         item {
             AppFilterChip(

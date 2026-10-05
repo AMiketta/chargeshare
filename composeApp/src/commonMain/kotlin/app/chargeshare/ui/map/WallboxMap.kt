@@ -22,6 +22,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.dp
+import app.chargeshare.data.GeoPoint
 import app.chargeshare.presentation.map.DEFAULT_ZOOM
 import app.chargeshare.presentation.map.WallboxPin
 import app.chargeshare.presentation.map.WebMercator
@@ -58,7 +59,7 @@ private const val ATTRIBUTION_ALPHA = 0.8f
 
 /**
  * Interaktive Karte (OpenStreetMap-Kacheln) mit einem Pin je Wallbox.
- * Die Kamera startet auf Bremen und springt auf den Umfang der Pins, sobald es welche gibt.
+ * Die Kamera startet auf [center] (Gerätestandort oder Bremen) und springt auf den Umfang der Pins, sobald es welche gibt.
  *
  * Jeder Pin ist ein Preisschild („0,34 €“); der aktive Pin ist tiefgrün.
  *
@@ -73,6 +74,7 @@ fun WallboxMap(
     onPinClick: (wallboxId: String) -> Unit,
     modifier: Modifier = Modifier,
     activePinId: String? = null,
+    center: GeoPoint = DEFAULT_CENTER,
     content: @Composable BoxScope.() -> Unit = {},
 ) {
     val mapState = remember(tileSource) { createMapState(tileSource) }
@@ -82,7 +84,7 @@ fun WallboxMap(
     val currentActivePinId = rememberUpdatedState(activePinId)
     LaunchedEffect(mapState) { mapState.onMarkerClick { id, _, _ -> currentOnPinClick(id) } }
 
-    LaunchedEffect(mapState, pins) {
+    LaunchedEffect(mapState, pins, center) {
         mapState.removeAllMarkers()
         pins.forEach { pin ->
             mapState.addMarker(pin.id, pin.x, pin.y, relativeOffset = Offset(-0.5f, -0.5f)) { PinMarker(pin, isActive = currentActivePinId.value == pin.id) }
@@ -91,7 +93,7 @@ fun WallboxMap(
         if (bounds != null) {
             mapState.snapScrollTo(BoundingBox(bounds.xLeft, bounds.yTop, bounds.xRight, bounds.yBottom), Offset(FIT_PADDING, FIT_PADDING))
         } else {
-            mapState.snapScrollTo(WebMercator.x(DEFAULT_CENTER.lng), WebMercator.y(DEFAULT_CENTER.lat))
+            mapState.snapScrollTo(WebMercator.x(center.lng), WebMercator.y(center.lat))
         }
     }
 

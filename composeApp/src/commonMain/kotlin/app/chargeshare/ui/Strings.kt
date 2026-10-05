@@ -130,7 +130,21 @@ object Strings {
 
     fun mapPinDescription(name: String, isOnline: Boolean) = "$name, ${if (isOnline) Online else Offline}"
     const val NoWallboxes = "Keine Wallbox gefunden. Vergrößere den Umkreis oder lockere die Filter."
-    const val SearchCenterNote = "Suche rund um Bremen-Zentrum (Standortfreigabe folgt)."
+    const val SearchCenterNearYou = "Suche rund um deinen Standort"
+    const val SearchCenterBremen = "Suche rund um Bremen-Zentrum"
+    const val SearchCenterBremenFallback = "Suche rund um Bremen-Zentrum (Standort nicht freigegeben)."
+    const val LocationPromptTitle = "Standort für die Suche?"
+    const val LocationPromptBody =
+        "ChargeShare kann Wallboxen in deiner Nähe zeigen. Dafür braucht die App einmalig Zugriff auf deinen ungefähren Standort. Ohne Freigabe suchen wir rund um Bremen. Der Standort wird nicht gespeichert."
+    const val LocationPromptAllow = "Standort erlauben"
+    const val LocationPromptSkip = "Nicht jetzt"
+    const val UseNearby = "In der Nähe"
+
+    fun searchCenterNote(usesDeviceLocation: Boolean, showFallbackHint: Boolean): String = when {
+        usesDeviceLocation -> SearchCenterNearYou
+        showFallbackHint -> SearchCenterBremenFallback
+        else -> SearchCenterBremen
+    }
     const val Online = "Verfügbar"
     const val Offline = "Offline"
     const val Metered = "MID-geeicht"

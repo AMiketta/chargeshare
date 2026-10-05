@@ -44,7 +44,7 @@ import ovh.plrapps.mapcompose.core.TileStreamProvider
 class AppContainer(
     val apiBaseUrl: String,
     tokenStore: TokenStore,
-    preferenceStorage: PreferenceStorage,
+    val preferenceStorage: PreferenceStorage,
     val showDebugInfo: Boolean = false,
     val urlOpener: UrlOpener = UnsupportedUrlOpener,
     val receiptSharer: ReceiptSharer = UnsupportedReceiptSharer,
