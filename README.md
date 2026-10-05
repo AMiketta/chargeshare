@@ -65,6 +65,8 @@ brew install xcodegen
 cd iosApp && xcodegen generate && open ChargeShare.xcodeproj
 ```
 
+Compose verlangt in der Info.plist `CADisableMinimumFrameDurationOnPhone = true` (sonst Absturz beim Start auf dem iPhone).
+
 Das Xcode-Projekt baut das Kotlin-Framework `ComposeApp` per Gradle-Run-Script
 (`:composeApp:embedAndSignAppleFrameworkForXcode`).
 

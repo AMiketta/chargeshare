@@ -26,6 +26,7 @@ targets:
       path: ChargeShare/Info.plist
       properties:
         CFBundleDisplayName: ChargeShare
+        CADisableMinimumFrameDurationOnPhone: true
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         NSAppTransportSecurity:
