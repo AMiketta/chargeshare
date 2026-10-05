@@ -28,6 +28,7 @@ import app.chargeshare.shared.api.ChargeShareApi
 import app.chargeshare.shared.api.TokenStore
 import app.chargeshare.shared.api.createHttpClient
 import io.ktor.client.plugins.HttpTimeout
+import app.chargeshare.ui.map.WallboxMapHolder
 import ovh.plrapps.mapcompose.core.TileStreamProvider
 
 /**
@@ -78,6 +79,12 @@ class AppContainer(
 
     /** Kachelquelle der Karte (OpenStreetMap); eigener Http-Client, ohne Login-Daten. */
     val tileSource: TileStreamProvider by lazy { OsmTileSource() }
+
+    /**
+     * Kartenzustand der Suche, einmal pro Prozess und nie beendet. Ein `shutdown()` beim Tab-Wechsel ließ die iOS-App
+     * abstürzen (Details in [WallboxMapHolder]).
+     */
+    val wallboxMap: WallboxMapHolder by lazy { WallboxMapHolder(tileSource) }
 
     private companion object {
         const val REQUEST_TIMEOUT_MS = 15_000L

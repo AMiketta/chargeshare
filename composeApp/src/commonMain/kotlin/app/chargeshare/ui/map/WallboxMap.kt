@@ -11,10 +11,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,15 +68,15 @@ private const val ATTRIBUTION_ALPHA = 0.8f
 @Composable
 fun WallboxMap(
     pins: List<WallboxPin>,
-    tileSource: TileStreamProvider,
+    map: WallboxMapHolder,
     onPinClick: (wallboxId: String) -> Unit,
     modifier: Modifier = Modifier,
     activePinId: String? = null,
     center: GeoPoint = DEFAULT_CENTER,
     content: @Composable BoxScope.() -> Unit = {},
 ) {
-    val mapState = remember(tileSource) { createMapState(tileSource) }
-    DisposableEffect(mapState) { onDispose { mapState.shutdown() } }
+    // Bewusst kein `remember { MapState(…) }` + `shutdown()` beim Verlassen: siehe [WallboxMapHolder].
+    val mapState = map.state
 
     val currentOnPinClick by rememberUpdatedState(onPinClick)
     val currentActivePinId = rememberUpdatedState(activePinId)
@@ -110,6 +108,27 @@ fun WallboxMap(
                 .padding(horizontal = Spacing.Small, vertical = Spacing.XSmall),
         )
     }
+}
+
+/**
+ * Hält **einen** [MapState] für die gesamte App-Laufzeit (ein Exemplar in `AppContainer`).
+ *
+ * Hintergrund (iOS-Absturz beim Tab-Wechsel bzw. beim Öffnen einer Wallbox aus der Karte): Jeder Tab-Wechsel und jeder
+ * Vollbild-Screen entfernt die Suche aus der Komposition. Früher wurde der Kartenzustand dann mit [MapState.shutdown]
+ * beendet. MapCompose schließt dabei direkt nach `scope.cancel()` seinen Einzel-Thread-Dispatcher
+ * (`newSingleThreadContext("TileCanvasThread")`). Kachel-Worker auf `Dispatchers.IO`, die gerade noch laden, beenden sich
+ * danach und wollen ihre wartenden Eltern-Coroutinen auf genau diesem Dispatcher fortsetzen. Auf Kotlin/Native wirft
+ * `dispatch` nach `close()` eine `IllegalStateException` („Dispatcher TileCanvasThread was closed“) – in einem
+ * Completion-Handler, also als unbehandelte Coroutine-Exception: App beendet. Auf der JVM (Android) werden solche Aufgaben
+ * nur still verworfen, deshalb trat es dort nie auf.
+ *
+ * Mit einem langlebigen Zustand gibt es kein `shutdown` mehr (und als Nebeneffekt bleiben geladene Kacheln erhalten).
+ * Pins, Kamera und Klick-Callback setzt [WallboxMap] bei jedem Betreten neu. Der Zustand darf nur von **einer**
+ * sichtbaren [WallboxMap] gleichzeitig genutzt werden.
+ */
+class WallboxMapHolder(private val tileSource: TileStreamProvider) {
+    /** Wird beim ersten Anzeigen der Karte (Main-Thread) angelegt und danach nie beendet. */
+    val state: MapState by lazy { createMapState(tileSource) }
 }
 
 private fun createMapState(tileSource: TileStreamProvider): MapState =

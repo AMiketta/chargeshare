@@ -1,6 +1,11 @@
 package app.chargeshare.ui.wallbox
 
 import androidx.compose.foundation.clickable
+import app.chargeshare.ui.LocalTabBarOverlap
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -56,7 +61,7 @@ import app.chargeshare.ui.components.SectionTitle
 import app.chargeshare.ui.map.StationSheet
 import app.chargeshare.ui.map.WallboxMap
 import androidx.compose.ui.unit.dp
-import ovh.plrapps.mapcompose.core.TileStreamProvider
+import app.chargeshare.ui.map.WallboxMapHolder
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 
@@ -68,7 +73,7 @@ private val PRICE_OPTIONS_EUR = listOf(0.30, 0.40, 0.50)
 fun WallboxListRoute(
     viewModel: WallboxListViewModel,
     favorites: FavoritesViewModel,
-    tileSource: TileStreamProvider,
+    map: WallboxMapHolder,
     onOpenWallbox: (Wallbox) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -93,7 +98,7 @@ fun WallboxListRoute(
         onSkipLocation = viewModel::onSkipLocation,
         onDismissLocationPrompt = viewModel::onDismissLocationPrompt,
         onOpenWallbox = onOpenWallbox,
-        tileSource = tileSource,
+        map = map,
         modifier = modifier,
     )
 }
@@ -122,12 +127,61 @@ fun WallboxListScreen(
     onSkipLocation: () -> Unit,
     onDismissLocationPrompt: () -> Unit,
     onOpenWallbox: (Wallbox) -> Unit,
-    tileSource: TileStreamProvider,
+    map: WallboxMapHolder,
     modifier: Modifier = Modifier,
 ) {
     // Rein visueller Zustand: ob die erweiterten Filter (Umkreis, alle Stecker, Leistung, Preis) aufgeklappt sind.
     var showMoreFilters by remember { mutableStateOf(false) }
-    Column(modifier = modifier.fillMaxSize()) {
+    val controls: @Composable () -> Unit = {
+        SearchControls(
+            state = state,
+            showMoreFilters = showMoreFilters,
+            onShowMoreFiltersChange = { showMoreFilters = it },
+            onQueryChange = onQueryChange,
+            onRadiusChange = onRadiusChange,
+            onConnectorChange = onConnectorChange,
+            onMinPowerChange = onMinPowerChange,
+            onMaxPriceChange = onMaxPriceChange,
+            onOnlyOnlineChange = onOnlyOnlineChange,
+            onClearQuickFilters = onClearQuickFilters,
+            onViewModeChange = onViewModeChange,
+            onAllowLocation = onAllowLocation,
+        )
+    }
+    if (state.showMap) {
+        MapResults(state, controls, onRetry, onOpenWallbox, onWallboxSelected, map, modifier)
+    } else {
+        Column(modifier = modifier.fillMaxSize()) {
+            controls()
+            ListResults(state, favorites, onToggleFavorite, onFavoriteErrorShown, onRetry, onOpenWallbox, Modifier.weight(1f))
+        }
+    }
+    if (state.showLocationPrompt) {
+        LocationPermissionDialog(
+            onAllow = onAllowLocation,
+            onSkip = onSkipLocation,
+            onDismiss = onDismissLocationPrompt,
+        )
+    }
+}
+
+/** Kopf der Suche: Titel mit Suchfeld, Umschalter Karte/Liste, Schnellfilter und (aufgeklappt) erweiterte Filter. */
+@Composable
+private fun SearchControls(
+    state: WallboxListUiState,
+    showMoreFilters: Boolean,
+    onShowMoreFiltersChange: (Boolean) -> Unit,
+    onQueryChange: (String) -> Unit,
+    onRadiusChange: (Double) -> Unit,
+    onConnectorChange: (ConnectorType?) -> Unit,
+    onMinPowerChange: (Double?) -> Unit,
+    onMaxPriceChange: (Double?) -> Unit,
+    onOnlyOnlineChange: (Boolean) -> Unit,
+    onClearQuickFilters: () -> Unit,
+    onViewModeChange: (SearchViewMode) -> Unit,
+    onAllowLocation: () -> Unit,
+) {
+    Column {
         HeroHeader(
             title = Strings.AppName,
             subtitle = Strings.searchCenterNote(state.usesDeviceLocation, state.showLocationFallbackHint),
@@ -140,7 +194,7 @@ fun WallboxListScreen(
         QuickFilters(
             filter = state.filter,
             showMore = showMoreFilters,
-            onShowMoreChange = { showMoreFilters = it },
+            onShowMoreChange = onShowMoreFiltersChange,
             onConnectorChange = onConnectorChange,
             onMinPowerChange = onMinPowerChange,
             onOnlyOnlineChange = onOnlyOnlineChange,
@@ -154,18 +208,6 @@ fun WallboxListScreen(
                 MoreFilters(state.filter, onRadiusChange, onConnectorChange, onMinPowerChange, onMaxPriceChange)
             }
         }
-        if (state.showMap) {
-            MapResults(state, onRetry, onOpenWallbox, onWallboxSelected, tileSource)
-        } else {
-            ListResults(state, favorites, onToggleFavorite, onFavoriteErrorShown, onRetry, onOpenWallbox)
-        }
-    }
-    if (state.showLocationPrompt) {
-        LocationPermissionDialog(
-            onAllow = onAllowLocation,
-            onSkip = onSkipLocation,
-            onDismiss = onDismissLocationPrompt,
-        )
     }
 }
 
@@ -194,10 +236,12 @@ private fun ListResults(
     onFavoriteErrorShown: () -> Unit,
     onRetry: () -> Unit,
     onOpenWallbox: (Wallbox) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(vertical = Spacing.Medium),
+        modifier = modifier.fillMaxSize(),
+        // Unten zusätzlich um die (iOS: darüberliegende) Tab-Leiste polstern, damit die letzte Karte erreichbar bleibt.
+        contentPadding = PaddingValues(top = Spacing.Medium, bottom = Spacing.Medium + LocalTabBarOverlap.current),
         verticalArrangement = Arrangement.spacedBy(Spacing.Small),
     ) {
         favorites.error?.let { error ->
@@ -230,33 +274,54 @@ private fun ListResults(
     }
 }
 
+/**
+ * Kartenansicht. Die ganze Seite scrollt; die Karte bekommt die Resthöhe bis zum unteren Bildschirmrand (auf iOS
+ * **unter** der transluzenten Tab-Leiste durch), mindestens aber [MIN_MAP_HEIGHT] plus Leistenhöhe. Ist oben viel los
+ * (Leerzustand, erweiterte Filter, Fehler), wird gescrollt statt die Karte zu einem Streifen zu quetschen.
+ */
 @Composable
 private fun MapResults(
     state: WallboxListUiState,
+    controls: @Composable () -> Unit,
     onRetry: () -> Unit,
     onOpenWallbox: (Wallbox) -> Unit,
     onWallboxSelected: (String) -> Unit,
-    tileSource: TileStreamProvider,
+    map: WallboxMapHolder,
+    modifier: Modifier = Modifier,
 ) {
     val wallboxes = state.visibleWallboxes
     val pins = remember(wallboxes) { wallboxes.map(Wallbox::toPin) }
     val activeId = state.activeWallbox?.id
-    Column(modifier = Modifier.fillMaxSize()) {
-        if (state.isLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        state.error?.let { ErrorBox(it, onRetry) }
-        if (!state.isLoading && state.error == null && wallboxes.isEmpty()) SearchEmptyBox()
-        WallboxMap(
-            pins = pins,
-            tileSource = tileSource,
-            onPinClick = onWallboxSelected,
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            activePinId = activeId,
-            center = state.center,
-        ) {
-            StationSheet(wallboxes, activeId, onOpenWallbox, Modifier.align(Alignment.BottomCenter))
+    val tabBarOverlap = LocalTabBarOverlap.current
+    val density = LocalDensity.current
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val viewportHeight = maxHeight
+        var aboveMapHeight by remember { mutableStateOf(0.dp) }
+        val mapHeight = maxOf(viewportHeight - aboveMapHeight, MIN_MAP_HEIGHT + tabBarOverlap)
+        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+            Column(Modifier.fillMaxWidth().onSizeChanged { aboveMapHeight = with(density) { it.height.toDp() } }) {
+                controls()
+                if (state.isLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
+                state.error?.let { ErrorBox(it, onRetry) }
+                if (!state.isLoading && state.error == null && wallboxes.isEmpty()) SearchEmptyBox()
+            }
+            WallboxMap(
+                pins = pins,
+                map = map,
+                onPinClick = onWallboxSelected,
+                modifier = Modifier.fillMaxWidth().height(mapHeight),
+                activePinId = activeId,
+                center = state.center,
+            ) {
+                // Das Fenster reicht bis unter die Tab-Leiste; sein Inhalt ist intern um LocalTabBarOverlap gepolstert.
+                StationSheet(wallboxes, activeId, onOpenWallbox, Modifier.align(Alignment.BottomCenter))
+            }
         }
     }
 }
+
+/** Mindesthöhe der sichtbaren Kartenfläche (ohne den Bereich unter der Tab-Leiste). */
+private val MIN_MAP_HEIGHT = 320.dp
 
 /** Umschalter Karte/Liste. */
 @Composable
