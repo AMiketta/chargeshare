@@ -224,7 +224,8 @@ class BookingService(
             b to Unit
         }
         val status = row[Bookings.status]
-        if (status == "confirmed" && payments.autoConfirms) return db.tx { load(bookingId, true) }
+        // Webhook kann die Buchung schon bestätigt haben, bevor die App confirm-payment aufruft.
+        if (status == "confirmed") return db.tx { load(bookingId, true) }
         if (status !in PAYABLE) throw badRequest("booking is not in pending state")
         // Anders als im Go-Backend (das blind bestaetigt) wird der Zahlungsstatus beim Provider geprueft.
         val pi = row[Bookings.stripePaymentIntentId]
