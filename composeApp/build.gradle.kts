@@ -50,7 +50,6 @@ kotlin {
             implementation(libs.compose.ui)
             implementation(libs.compose.ui.backhandler)
             implementation(libs.kotlinx.datetime)
-            implementation(libs.mapcompose)
             implementation(libs.lifecycle.viewmodel.compose)
         }
         commonTest.dependencies {
@@ -59,8 +58,32 @@ kotlin {
             implementation(libs.ktor.client.mock)
         }
 
+        // Custom dependsOn schaltet das Default Hierarchy Template aus (wie cmp-ios-chrome) –
+        // deshalb iosMain / mapcomposeMain hier explizit verdrahten.
+        val common = getByName("commonMain")
+
+        // MapCompose + OSM nur für Android und Desktop; iOS nutzt MapKit, Web einen Stub.
+        val mapcomposeMain = create("mapcomposeMain") {
+            dependsOn(common)
+            dependencies {
+                implementation(libs.mapcompose)
+            }
+        }
+        getByName("desktopMain").dependsOn(mapcomposeMain)
+        if (androidEnabled) {
+            getByName("androidMain").dependsOn(mapcomposeMain)
+        }
+
+        if (iosEnabled) {
+            val iosMain = create("iosMain") {
+                dependsOn(common)
+            }
+            getByName("iosArm64Main").dependsOn(iosMain)
+            getByName("iosSimulatorArm64Main").dependsOn(iosMain)
+        }
+
         // MainTabsChrome actuals: desktopMain / wasmJsMain / androidMain (Compose AppNavigationBar);
-        // iosMain: Compose-Content + native UIKit-UITabBar (ohne Abhängigkeit auf cmp-ios-chrome).
+        // iosMain: Compose-Content + native UIKit-UITabBar + MapKit-Karte.
 
         sourceSets.getByName("desktopMain").dependencies {
             implementation(compose.desktop.currentOs)

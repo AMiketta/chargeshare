@@ -7,13 +7,17 @@ import kotlin.math.min
 /**
  * Markierung einer Wallbox auf der Karte.
  *
- * @property x horizontale Position, normalisiert `0.0..1.0` (siehe [WebMercator])
+ * @property lat geografische Breite (für MapKit und Geodaten)
+ * @property lng geografische Länge
+ * @property x horizontale Position, normalisiert `0.0..1.0` (siehe [WebMercator], MapCompose)
  * @property y vertikale Position, normalisiert `0.0..1.0`
  */
 data class WallboxPin(
     val id: String,
     val title: String,
     val isOnline: Boolean,
+    val lat: Double,
+    val lng: Double,
     val x: Double,
     val y: Double,
     /** Preis in Euro je kWh; steht im Pin als Preisschild. */
@@ -25,6 +29,8 @@ fun Wallbox.toPin(): WallboxPin = WallboxPin(
     id = id,
     title = name,
     isOnline = isOnline,
+    lat = lat,
+    lng = lng,
     x = WebMercator.x(lng),
     y = WebMercator.y(lat),
     pricePerKwh = pricePerKwh,

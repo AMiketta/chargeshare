@@ -52,6 +52,8 @@ class WallboxMapTest {
         assertEquals("Am Deich 22", pin.title)
         assertEquals(false, pin.isOnline)
         assertEquals(0.34, pin.pricePerKwh, "der Pin zeigt den Preis der Wallbox")
+        assertEquals(53.0793, pin.lat)
+        assertEquals(8.8017, pin.lng)
         assertNear(WebMercator.x(8.8017), pin.x)
         assertNear(WebMercator.y(53.0793), pin.y)
     }

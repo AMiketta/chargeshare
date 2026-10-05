@@ -10,10 +10,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.io.Buffer
 import kotlinx.io.RawSource
-import ovh.plrapps.mapcompose.core.TileStreamProvider
 
 /**
  * Lädt Kartenkacheln von OpenStreetMap (`https://tile.openstreetmap.org/{z}/{x}/{y}.png`, kein API-Key nötig).
+ *
+ * Genutzt von der MapCompose-Karte auf Android und Desktop. iOS nutzt Apple MapKit und lädt hier keine Kacheln.
  *
  * - Netzwerkfehler (kein Internet, Timeout, HTTP-Fehler) liefern `null`: die Karte zeigt dann leere Flächen, die Pins bleiben bedienbar.
  *   Die Karten-Komponente selbst behandelt Exceptions aus dem Provider als nicht behebbar, deshalb werden sie hier abgefangen.
@@ -24,12 +25,12 @@ import ovh.plrapps.mapcompose.core.TileStreamProvider
 class OsmTileSource(
     private val client: HttpClient = createTileHttpClient(),
     private val baseUrl: String = OSM_BASE_URL,
-) : TileStreamProvider {
+) {
 
     private val cacheLock = Mutex()
     private val cache = LinkedHashMap<String, ByteArray>()
 
-    override suspend fun getTileStream(row: Int, col: Int, zoomLvl: Int): RawSource? {
+    suspend fun getTileStream(row: Int, col: Int, zoomLvl: Int): RawSource? {
         val url = tileUrl(zoomLvl, col, row)
         val bytes = cached(url) ?: download(url)?.also { store(url, it) }
         return bytes?.let { Buffer().apply { write(it) } }
