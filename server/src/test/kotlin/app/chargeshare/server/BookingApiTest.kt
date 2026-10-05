@@ -241,7 +241,8 @@ class BookingApiTest {
         assertEquals(ErrorCodes.PAYMENT_REQUIRED, e.code)
         sp.paid = true
         assertEquals(BookingStatus.CONFIRMED, driver.api.confirmPayment(res.booking!!.id).status)
-        assertEquals(400, assertFailsWith<ApiException> { driver.api.confirmPayment(res.booking!!.id) }.status) // nicht mehr pending
+        // zweiter Aufruf bleibt idempotent (z. B. wenn der Webhook schon bestätigt hat)
+        assertEquals(BookingStatus.CONFIRMED, driver.api.confirmPayment(res.booking!!.id).status)
 
         // Webhooks
         val res2 = driver.api.createBooking(CreateBookingRequest(wb.id, inFuture(2, 10), inFuture(2, 11)))
