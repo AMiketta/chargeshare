@@ -9,6 +9,8 @@
     <!-- usesCleartextTraffic nur fuer lokale Entwicklung (http://10.0.2.2:8080); fuer Release entfernen. -->
     <application
         android:name=".ChargeShareApplication"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:allowBackup="true"
         android:label="ChargeShare"
         android:supportsRtl="true"
