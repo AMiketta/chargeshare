@@ -58,10 +58,20 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.ktor.client.mock)
         }
+
+        // MainTabsChrome actuals: desktopMain / wasmJsMain / androidMain (Compose AppNavigationBar);
+        // iosMain nutzt NativeTabBar aus cmp-ios-chrome (:cmpIosChrome).
+
         sourceSets.getByName("desktopMain").dependencies {
             implementation(compose.desktop.currentOs)
             // Dispatchers.Main für viewModelScope auf dem Desktop (Swing-Event-Thread)
             implementation(libs.kotlinx.coroutines.swing)
+        }
+        if (iosEnabled) {
+            // Echte UITabBar: https://github.com/AMiketta/cmp-ios-chrome (Submodule :cmpIosChrome)
+            iosMain.dependencies {
+                implementation(project(":cmpIosChrome"))
+            }
         }
     }
 }

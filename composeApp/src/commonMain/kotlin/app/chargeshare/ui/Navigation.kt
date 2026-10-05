@@ -14,11 +14,16 @@ import androidx.lifecycle.ViewModelStoreOwner
 import app.chargeshare.shared.model.Wallbox
 
 /** Tabs der Hauptnavigation. */
-enum class MainTab(val title: String, val icon: ImageVector) {
-    Search(Strings.TabSearch, AppIcons.Map),
-    Bookings(Strings.TabBookings, AppIcons.List),
-    Host(Strings.TabHost, AppIcons.Bolt),
-    Profile(Strings.TabProfile, AppIcons.Person),
+enum class MainTab(
+    val title: String,
+    val icon: ImageVector,
+    /** SF Symbol für die native iOS-Tabbar ([dev.amiketta.cmpioschrome.NativeTabBar]). */
+    val systemImage: String,
+) {
+    Search(Strings.TabSearch, AppIcons.Map, "map"),
+    Bookings(Strings.TabBookings, AppIcons.List, "list.bullet"),
+    Host(Strings.TabHost, AppIcons.Bolt, "bolt.fill"),
+    Profile(Strings.TabProfile, AppIcons.Person, "person"),
 }
 
 /** Vollbild-Screens oberhalb der Tabs. */

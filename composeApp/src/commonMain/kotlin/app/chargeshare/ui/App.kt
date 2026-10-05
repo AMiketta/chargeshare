@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,7 +50,6 @@ import app.chargeshare.presentation.wallbox.WallboxListViewModel
 import app.chargeshare.shared.model.User
 import app.chargeshare.ui.booking.BookingFlowRoute
 import app.chargeshare.ui.booking.BookingsRoute
-import app.chargeshare.ui.components.AppNavigationBar
 import app.chargeshare.ui.host.BecomeHostScreen
 import app.chargeshare.ui.host.CreateWallboxRoute
 import app.chargeshare.ui.host.EditWallboxRoute
@@ -150,19 +148,22 @@ private fun MainContent(container: AppContainer, user: User, paymentLauncher: Pa
         }
         return
     }
-    Scaffold(
-        bottomBar = {
-            AppNavigationBar(
-                items = MainTab.entries,
-                selected = navigation.tab,
-                title = MainTab::title,
-                icon = MainTab::icon,
-                onSelect = navigation::selectTab,
-            )
+    MainTabsChrome(
+        selected = navigation.tab,
+        onSelect = navigation::selectTab,
+        searchContent = {
+            TabContent(MainTab.Search, container, user, favorites, payoutViewModel, navigation, paymentLauncher, locationProvider, Modifier)
         },
-    ) { padding ->
-        TabContent(navigation.tab, container, user, favorites, payoutViewModel, navigation, paymentLauncher, locationProvider, Modifier.padding(padding))
-    }
+        bookingsContent = {
+            TabContent(MainTab.Bookings, container, user, favorites, payoutViewModel, navigation, paymentLauncher, locationProvider, Modifier)
+        },
+        hostContent = {
+            TabContent(MainTab.Host, container, user, favorites, payoutViewModel, navigation, paymentLauncher, locationProvider, Modifier)
+        },
+        profileContent = {
+            TabContent(MainTab.Profile, container, user, favorites, payoutViewModel, navigation, paymentLauncher, locationProvider, Modifier)
+        },
+    )
 }
 
 @Composable
@@ -200,13 +201,16 @@ private fun TabContent(
             BookingsRoute(viewModel, paymentLauncher, container.receiptSharer, modifier = modifier)
         }
         MainTab.Host -> {
-            if (user.isHost) {
-                val viewModel = viewModel(key = "host") { HostDashboardViewModel(user.id, container.hostRepository) }
+            // Session erneut lesen: NativeTabBar auf iOS erfasst Tab-Lambdas einmalig; Host-Status kann sich ändern.
+            val session by container.authRepository.session.collectAsState()
+            val hostUser = (session as? SessionState.SignedIn)?.user ?: user
+            if (hostUser.isHost) {
+                val viewModel = viewModel(key = "host") { HostDashboardViewModel(hostUser.id, container.hostRepository) }
                 HostDashboardRoute(
                     viewModel,
                     payoutViewModel = payoutViewModel,
                     urlOpener = container.urlOpener,
-                    userName = user.name,
+                    userName = hostUser.name,
                     onAddWallbox = { navigation.push(Screen.CreateWallbox) },
                     onEditWallbox = { navigation.push(Screen.EditWallbox(it)) },
                     modifier = modifier,
@@ -223,10 +227,12 @@ private fun TabContent(
             }
         }
         MainTab.Profile -> {
+            val session by container.authRepository.session.collectAsState()
+            val profileUser = (session as? SessionState.SignedIn)?.user ?: user
             val viewModel = viewModel(key = "profile") { ProfileViewModel(container.authRepository) }
             val themeMode by container.themeSettings.mode.collectAsState()
             ProfileRoute(
-                user = user,
+                user = profileUser,
                 viewModel = viewModel,
                 themeMode = themeMode,
                 onThemeModeChange = container.themeSettings::select,

@@ -1,11 +1,12 @@
 # XcodeGen-Spezifikation (macOS):  brew install xcodegen && cd iosApp && xcodegen generate && open ChargeShare.xcodeproj
 # Das Kotlin-Framework "ComposeApp" wird vor jedem Build per Gradle gebaut und eingebunden.
 # HINWEIS: Auf Linux nicht verifizierbar (iOS baut nur auf macOS mit Xcode).
+# Deployment 18.0: native UITab-Tabbar (cmp-ios-chrome); Liquid Glass kommt vom System (iOS 26+).
 name: ChargeShare
 options:
   bundleIdPrefix: app.chargeshare
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "18.0"
 settings:
   base:
     SWIFT_VERSION: "5.0"
