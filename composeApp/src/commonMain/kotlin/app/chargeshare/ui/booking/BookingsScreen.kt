@@ -1,5 +1,6 @@
 package app.chargeshare.ui.booking
 
+import app.chargeshare.ui.LocalTabBarOverlap
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -164,7 +165,12 @@ fun BookingsScreen(
             state.visibleBookings.isEmpty() ->
                 EmptyBox(if (state.filter == BookingFilter.Upcoming) Strings.NoUpcomingBookings else Strings.NoPastBookings)
             else -> LazyColumn(
-                contentPadding = PaddingValues(Spacing.Medium),
+                contentPadding = PaddingValues(
+                    start = Spacing.Medium,
+                    top = Spacing.Medium,
+                    end = Spacing.Medium,
+                    bottom = Spacing.Medium + LocalTabBarOverlap.current,
+                ),
                 verticalArrangement = Arrangement.spacedBy(Spacing.Small),
             ) {
                 items(state.visibleBookings, key = { it.id }) { booking ->

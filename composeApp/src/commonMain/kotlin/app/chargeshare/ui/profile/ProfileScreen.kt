@@ -1,5 +1,8 @@
 package app.chargeshare.ui.profile
 
+import app.chargeshare.ui.LocalTabBarOverlap
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -169,6 +172,8 @@ fun ProfileScreen(
                 )
             }
             debugInfo?.let { Text("API: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            // Platz für eine darüberliegende Tab-Leiste (iOS), damit der letzte Eintrag hochgescrollt werden kann.
+            Spacer(Modifier.height(LocalTabBarOverlap.current))
         }
     }
     state.edit?.let { edit -> EditProfileDialog(edit, onEditNameChanged, onEditPhoneChanged, onEditSaved, onEditDismissed) }

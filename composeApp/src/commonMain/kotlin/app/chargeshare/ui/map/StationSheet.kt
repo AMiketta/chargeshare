@@ -1,5 +1,8 @@
 package app.chargeshare.ui.map
 
+import app.chargeshare.ui.LocalTabBarOverlap
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -80,6 +83,8 @@ fun StationSheet(
                     StationRow(wallbox, isActive = wallbox.id == activeId, onClick = { onOpen(wallbox) })
                 }
             }
+            // Fläche läuft unter einer darüberliegenden Tab-Leiste (iOS) durch; Inhalt endet darüber.
+            Spacer(Modifier.height(LocalTabBarOverlap.current))
         }
     }
 }

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -186,6 +187,7 @@ fun SearchEmptyBox(modifier: Modifier = Modifier) {
             contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxWidth()
+                .heightIn(max = SEARCH_EMPTY_IMAGE_MAX_HEIGHT)
                 .aspectRatio(SEARCH_EMPTY_ASPECT)
                 .clip(MaterialTheme.shapes.large),
         )
@@ -199,3 +201,6 @@ fun SearchEmptyBox(modifier: Modifier = Modifier) {
 }
 
 private const val SEARCH_EMPTY_ASPECT = 16f / 9f
+
+/** Obergrenze fürs Leerzustands-Bild, damit darunter noch Karte bzw. Liste sichtbar bleibt. */
+private val SEARCH_EMPTY_IMAGE_MAX_HEIGHT = 160.dp

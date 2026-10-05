@@ -1,5 +1,8 @@
 package app.chargeshare.ui.host
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
+import app.chargeshare.ui.LocalTabBarOverlap
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -126,6 +129,8 @@ fun HostDashboardScreen(
                 SectionTitle(Strings.RecentSessions)
                 if (state.sessions.isEmpty()) EmptyBox(Strings.NoSessions) else state.sessions.forEach { SessionRow(it, zone) }
                 Text(Strings.PayoutNote, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                // Platz für eine darüberliegende Tab-Leiste (iOS), damit der letzte Eintrag hochgescrollt werden kann.
+                Spacer(Modifier.height(LocalTabBarOverlap.current))
             }
         }
     }
@@ -196,7 +201,8 @@ fun BecomeHostScreen(
     Column(modifier = modifier.fillMaxSize()) {
         HeroHeader(title = Strings.HostTitle)
         Column(
-            modifier = Modifier.padding(Spacing.Large),
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(Spacing.Large)
+                .padding(bottom = LocalTabBarOverlap.current),
             verticalArrangement = Arrangement.spacedBy(Spacing.Medium),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {

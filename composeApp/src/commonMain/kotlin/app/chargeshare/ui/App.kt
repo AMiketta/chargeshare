@@ -188,7 +188,7 @@ private fun TabContent(
                     preferences = container.preferenceStorage,
                 )
             }
-            WallboxListRoute(viewModel, favorites, container.tileSource, onOpenWallbox = { navigation.push(Screen.WallboxDetail(it.id)) }, modifier = modifier)
+            WallboxListRoute(viewModel, favorites, container.wallboxMap, onOpenWallbox = { navigation.push(Screen.WallboxDetail(it.id)) }, modifier = modifier)
         }
         MainTab.Bookings -> {
             val viewModel = viewModel(key = "bookings") {
