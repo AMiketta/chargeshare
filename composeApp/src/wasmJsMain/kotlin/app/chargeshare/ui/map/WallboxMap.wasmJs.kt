@@ -2,6 +2,7 @@ package app.chargeshare.ui.map
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.chargeshare.data.GeoPoint
@@ -19,6 +20,7 @@ actual fun WallboxMap(
     modifier: Modifier,
     activePinId: String?,
     center: GeoPoint,
+    contentPadding: PaddingValues,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Box(modifier) { content() }

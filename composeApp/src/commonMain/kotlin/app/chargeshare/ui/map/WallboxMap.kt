@@ -1,6 +1,7 @@
 package app.chargeshare.ui.map
 
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import app.chargeshare.data.GeoPoint
@@ -22,6 +23,8 @@ import app.chargeshare.presentation.wallbox.DEFAULT_CENTER
  *
  * @param activePinId Wallbox-ID des hervorgehobenen Pins (oder `null`)
  * @param onPinClick wird mit der Wallbox-ID aufgerufen, wenn ein Pin angetippt wird
+ * @param contentPadding Ränder, die von darüberliegenden Overlays (schwebende Filter oben, Tab-Leiste unten) verdeckt
+ *   sind. Die Karte selbst läuft darunter durch; nur ihre Ornamente (Kompass, Quellenangabe/Rechtliches) weichen aus.
  * @param content Überlagerung über der Karte (z. B. das Stationen-Fenster); wird unten ausgerichtet
  */
 @Composable
@@ -32,6 +35,7 @@ expect fun WallboxMap(
     modifier: Modifier = Modifier,
     activePinId: String? = null,
     center: GeoPoint = DEFAULT_CENTER,
+    contentPadding: PaddingValues = PaddingValues(),
     content: @Composable BoxScope.() -> Unit = {},
 )
 

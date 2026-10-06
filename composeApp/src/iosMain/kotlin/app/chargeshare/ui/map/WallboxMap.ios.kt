@@ -2,7 +2,9 @@ package app.chargeshare.ui.map
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -25,6 +27,7 @@ import platform.MapKit.MKMapViewDelegateProtocol
 import platform.MapKit.MKMarkerAnnotationView
 import platform.MapKit.MKPointAnnotation
 import platform.UIKit.UIColor
+import platform.UIKit.UIEdgeInsetsMake
 import platform.darwin.NSObject
 
 /** Markersichtweite ohne Pins: ca. Stadtausschnitt (~5 km), analog Zoom 12 bei MapCompose. */
@@ -50,6 +53,7 @@ actual fun WallboxMap(
     modifier: Modifier,
     activePinId: String?,
     center: GeoPoint,
+    contentPadding: PaddingValues,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val currentOnPinClick by rememberUpdatedState(onPinClick)
@@ -58,6 +62,14 @@ actual fun WallboxMap(
     val centerState = rememberUpdatedState(center)
     // Delegate hält onPinClick – UIKit ruft ihn schwach, deshalb in der Komposition merken.
     val coordinator = remember(map) { map.coordinator }.also { it.onPinClick = { id -> currentOnPinClick(id) } }
+
+    // Kompass und „Rechtliches“ von MapKit richten sich nach den layoutMargins der MKMapView: oben unter die
+    // schwebenden Filter-Chips, unten über die Tab-Leiste. Auf iOS entspricht 1 dp genau 1 pt.
+    val marginTop = contentPadding.calculateTopPadding().value.toDouble()
+    val marginBottom = contentPadding.calculateBottomPadding().value.toDouble()
+    LaunchedEffect(map, marginTop, marginBottom) {
+        map.mapView.layoutMargins = UIEdgeInsetsMake(marginTop, 0.0, marginBottom, 0.0)
+    }
 
     Box(modifier) {
         UIKitView(
@@ -78,9 +90,13 @@ actual fun WallboxMap(
                 )
             },
             // NonCooperative: Karten-Gesten (Pinch/Pan) gehen direkt an MapKit, ohne Compose-Verzögerung.
+            // placedAsOverlay = false (Standard, hier bewusst explizit): Die MKMapView liegt UNTER der Compose-Fläche.
+            // Nur so werden Compose-Overlays (schwebende Filter-Chips, Stationen-Fenster) über der Karte gezeichnet und
+            // bekommen deren Tipps; wo kein Compose-Element liegt, gehen die Gesten an MapKit.
             properties = UIKitInteropProperties(
                 interactionMode = UIKitInteropInteractionMode.NonCooperative,
                 isNativeAccessibilityEnabled = true,
+                placedAsOverlay = false,
             ),
         )
         content()
