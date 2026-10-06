@@ -46,6 +46,13 @@ class AuthViewModel(private val authRepository: AuthRepository) : ViewModel() {
     fun onPasswordChange(value: String) =
         _state.update { it.copy(password = value, passwordError = null, submitError = null) }
 
+    /** Nur Debug-Builds: meldet direkt mit einem Demo-Konto an (Felder füllen und absenden). */
+    fun onQuickLogin(email: String, password: String) {
+        if (_state.value.isSubmitting) return
+        _state.value = AuthUiState(mode = AuthMode.Login, email = email, password = password)
+        onSubmit()
+    }
+
     fun onSubmit() {
         val current = _state.value
         if (current.isSubmitting) return

@@ -84,6 +84,7 @@ object Strings {
     }
 
     const val ForgotPasswordLink = "Passwort vergessen?"
+    const val DebugQuickLogin = "Debug: Schnellanmeldung"
     const val ForgotPasswordTitle = "Passwort zurücksetzen"
     const val ForgotPasswordIntro = "Gib die E-Mail-Adresse deines Kontos ein. Wir schicken dir einen Link zum Zurücksetzen."
     const val ForgotPasswordSend = "Link senden"

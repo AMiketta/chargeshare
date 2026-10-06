@@ -7,6 +7,7 @@ import app.chargeshare.presentation.auth.FieldError
 import app.chargeshare.presentation.auth.validateEmail
 import app.chargeshare.presentation.auth.validatePassword
 import app.chargeshare.testing.FakeAuthRepository
+import app.chargeshare.ui.auth.DemoAccounts
 import app.chargeshare.testing.TestMain
 import app.chargeshare.testing.failure
 import kotlin.test.AfterTest
@@ -124,6 +125,18 @@ class AuthViewModelTest {
         viewModel.onModeChange(AuthMode.Register)
         assertEquals("a@b.de", viewModel.state.value.email)
         assertEquals("", viewModel.state.value.password)
+    }
+
+    @Test
+    fun quickLoginSignsInWithDemoAccountEvenFromRegisterMode() {
+        val viewModel = AuthViewModel(repository)
+        viewModel.onModeChange(AuthMode.Register)
+        viewModel.onEmailChange("andere@chargeshare.local")
+        viewModel.onQuickLogin(DemoAccounts.Host.email, DemoAccounts.Host.password)
+        assertEquals(listOf("demo-host@chargeshare.local" to "demo1234"), repository.loginCalls)
+        assertTrue(repository.registerCalls.isEmpty())
+        assertEquals(AuthMode.Login, viewModel.state.value.mode)
+        assertFalse(viewModel.state.value.isSubmitting)
     }
 
     @Test

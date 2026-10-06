@@ -17,6 +17,7 @@ import app.chargeshare.presentation.auth.AuthViewModel
 import app.chargeshare.presentation.auth.ForgotPasswordViewModel
 import app.chargeshare.presentation.auth.ResetPasswordViewModel
 import app.chargeshare.ui.auth.AuthRoute
+import app.chargeshare.ui.auth.DemoAccounts
 import app.chargeshare.ui.auth.ForgotPasswordRoute
 import app.chargeshare.ui.auth.ResetPasswordRoute
 
@@ -47,7 +48,12 @@ internal fun SignedOutContent(container: AppContainer) {
             when (val current = step) {
                 is SignedOutStep.Login -> {
                     val viewModel = viewModel { AuthViewModel(container.authRepository) }
-                    AuthRoute(viewModel, notice = current.notice, onForgotPassword = { step = SignedOutStep.Forgot })
+                    AuthRoute(
+                        viewModel,
+                        notice = current.notice,
+                        onForgotPassword = { step = SignedOutStep.Forgot },
+                        demoAccounts = if (container.showDebugInfo) DemoAccounts.all else emptyList(),
+                    )
                 }
                 SignedOutStep.Forgot -> {
                     val viewModel = viewModel { ForgotPasswordViewModel(container.authRepository) }

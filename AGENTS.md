@@ -322,7 +322,7 @@ Die gewählte Darstellung (`ThemeMode` Hell/Dunkel/System) hält `ThemeSettings`
 (`compose.resources.packageOfResClass` in `composeApp/build.gradle.kts`; auf Android braucht der KMP-Library-Plugin dafür `androidResources { enable = true }`).
 Texte nutzen immer `MaterialTheme.typography` (Stile in `Typography.kt`), nie eine eigene `fontSize`.
 
-**Debug-Angaben:** `AppContainer(showDebugInfo = …)` ist nur in Debug-Builds `true` (Android: `BuildConfig.DEBUG`, Desktop-Vorschau: immer); die UI zeigt dann z. B. die API-Adresse im Profil.
+**Debug-Angaben:** `AppContainer(showDebugInfo = …)` ist nur in Debug-Builds `true` (Android: `BuildConfig.DEBUG`, iOS: `Platform.isDebugBinary`, Desktop-Vorschau: immer, Web: nie); die UI zeigt dann z. B. die API-Adresse im Profil und auf dem Login-Screen die Schnellanmeldung „Demo Fahrer“ / „Demo Host“ (`DemoAccounts`, Konten aus `DevSeed`).
 In Release-Builds, im Web und auf iOS (Standard `false`) erscheinen solche Zeilen nicht.
 
 **Wiederverwendbare Design-Komponenten** (`ui/components`): `AppCard`/`SurfaceCard` (Karte mit Radius 20 dp, Schatten, Rand), `AppFilterChip`/`ChoiceChips` (vollrunde Filter-Pill,
