@@ -5,7 +5,7 @@ import app.chargeshare.ui.LocalTabBarOverlap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,6 +27,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -47,6 +48,7 @@ import app.chargeshare.shared.model.ConnectorType
 import app.chargeshare.shared.model.Wallbox
 import app.chargeshare.ui.AppIcons
 import app.chargeshare.ui.ChargeShareColors
+import app.chargeshare.ui.Elevation
 import app.chargeshare.ui.Spacing
 import app.chargeshare.ui.Strings
 import app.chargeshare.ui.components.AppCard
@@ -132,12 +134,14 @@ fun WallboxListScreen(
 ) {
     // Rein visueller Zustand: ob die erweiterten Filter (Umkreis, alle Stecker, Leistung, Preis) aufgeklappt sind.
     var showMoreFilters by remember { mutableStateOf(false) }
-    val controls: @Composable () -> Unit = {
-        SearchControls(
+    val header: @Composable () -> Unit = { SearchHeader(state, onQueryChange) }
+    // In der Kartenansicht schweben die Filter über der Karte (floating = true), in der Liste stehen sie darüber.
+    val filters: @Composable (floating: Boolean) -> Unit = { floating ->
+        SearchFilters(
             state = state,
+            floating = floating,
             showMoreFilters = showMoreFilters,
             onShowMoreFiltersChange = { showMoreFilters = it },
-            onQueryChange = onQueryChange,
             onRadiusChange = onRadiusChange,
             onConnectorChange = onConnectorChange,
             onMinPowerChange = onMinPowerChange,
@@ -149,10 +153,11 @@ fun WallboxListScreen(
         )
     }
     if (state.showMap) {
-        MapResults(state, controls, onRetry, onOpenWallbox, onWallboxSelected, map, modifier)
+        MapResults(state, header, filters, onRetry, onOpenWallbox, onWallboxSelected, map, modifier)
     } else {
         Column(modifier = modifier.fillMaxSize()) {
-            controls()
+            header()
+            filters(false)
             ListResults(state, favorites, onToggleFavorite, onFavoriteErrorShown, onRetry, onOpenWallbox, Modifier.weight(1f))
         }
     }
@@ -165,13 +170,30 @@ fun WallboxListScreen(
     }
 }
 
-/** Kopf der Suche: Titel mit Suchfeld, Umschalter Karte/Liste, Schnellfilter und (aufgeklappt) erweiterte Filter. */
+/** Grüner Kopf der Suche: Titel, Hinweis zum Suchzentrum und Suchfeld. */
 @Composable
-private fun SearchControls(
+private fun SearchHeader(state: WallboxListUiState, onQueryChange: (String) -> Unit) {
+    HeroHeader(
+        title = Strings.AppName,
+        subtitle = Strings.searchCenterNote(state.usesDeviceLocation, state.showLocationFallbackHint),
+    ) {
+        SearchField(state.query, onQueryChange)
+    }
+}
+
+/**
+ * Umschalter Karte/Liste, Schnellfilter und (aufgeklappt) erweiterte Filter.
+ *
+ * Mit [floating] = `true` liegen die Zeilen ohne eigenen Hintergrund über der Karte: Die Chips selbst sind weiß mit
+ * Rand und leichtem Schatten und bleiben so über Kartenkacheln lesbar; die erweiterten Filter kommen in ein
+ * schwebendes, abgerundetes Panel.
+ */
+@Composable
+private fun SearchFilters(
     state: WallboxListUiState,
+    floating: Boolean,
     showMoreFilters: Boolean,
     onShowMoreFiltersChange: (Boolean) -> Unit,
-    onQueryChange: (String) -> Unit,
     onRadiusChange: (Double) -> Unit,
     onConnectorChange: (ConnectorType?) -> Unit,
     onMinPowerChange: (Double?) -> Unit,
@@ -180,14 +202,10 @@ private fun SearchControls(
     onClearQuickFilters: () -> Unit,
     onViewModeChange: (SearchViewMode) -> Unit,
     onAllowLocation: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column {
-        HeroHeader(
-            title = Strings.AppName,
-            subtitle = Strings.searchCenterNote(state.usesDeviceLocation, state.showLocationFallbackHint),
-        ) {
-            SearchField(state.query, onQueryChange)
-        }
+    val rowGap = if (floating) Spacing.XSmall else Spacing.Small
+    Column(modifier) {
         if (state.mapSupported) {
             ViewModeSwitch(state.viewMode, onViewModeChange, Modifier.padding(top = Spacing.Small))
         }
@@ -201,15 +219,42 @@ private fun SearchControls(
             onClearQuickFilters = onClearQuickFilters,
             showUseNearby = state.showLocationFallbackHint && !state.usesDeviceLocation,
             onUseNearby = onAllowLocation,
-            modifier = Modifier.padding(vertical = Spacing.Small),
+            modifier = Modifier.padding(vertical = rowGap),
         )
         if (showMoreFilters) {
-            Column(Modifier.heightIn(max = MORE_FILTERS_MAX_HEIGHT).verticalScroll(rememberScrollState())) {
-                MoreFilters(state.filter, onRadiusChange, onConnectorChange, onMinPowerChange, onMaxPriceChange)
+            if (floating) {
+                FloatingCard {
+                    Column(
+                        Modifier
+                            .heightIn(max = MORE_FILTERS_MAX_HEIGHT)
+                            .verticalScroll(rememberScrollState())
+                            .padding(top = Spacing.Small),
+                    ) {
+                        MoreFilters(state.filter, onRadiusChange, onConnectorChange, onMinPowerChange, onMaxPriceChange)
+                    }
+                }
+            } else {
+                Column(Modifier.heightIn(max = MORE_FILTERS_MAX_HEIGHT).verticalScroll(rememberScrollState())) {
+                    MoreFilters(state.filter, onRadiusChange, onConnectorChange, onMinPowerChange, onMaxPriceChange)
+                }
             }
         }
     }
 }
+
+/** Schwebendes Panel/Karte über der Karte (erweiterte Filter, Fehler, Leerzustand). */
+@Composable
+private fun FloatingCard(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Surface(
+        modifier = modifier.fillMaxWidth().padding(horizontal = Spacing.Small),
+        shape = RoundedCornerShape(FLOATING_PANEL_CORNER),
+        color = ChargeShareColors.Surface,
+        shadowElevation = Elevation.Raised,
+        content = content,
+    )
+}
+
+private val FLOATING_PANEL_CORNER = 20.dp
 
 @Composable
 private fun LocationPermissionDialog(
@@ -275,14 +320,24 @@ private fun ListResults(
 }
 
 /**
- * Kartenansicht. Die ganze Seite scrollt; die Karte bekommt die Resthöhe bis zum unteren Bildschirmrand (auf iOS
- * **unter** der transluzenten Tab-Leiste durch), mindestens aber [MIN_MAP_HEIGHT] plus Leistenhöhe. Ist oben viel los
- * (Leerzustand, erweiterte Filter, Fehler), wird gescrollt statt die Karte zu einem Streifen zu quetschen.
+ * Kartenansicht: Unter dem grünen Kopf füllt die Karte die gesamte Restfläche bis zum unteren Bildschirmrand (auf iOS
+ * **unter** der transluzenten Tab-Leiste durch, das Stationen-Fenster polstert sich um [LocalTabBarOverlap]).
+ *
+ * Umschalter Karte/Liste und Filter-Chips schweben oben über der Karte (kein eigener Streifen mehr). Erweiterte
+ * Filter, Fehler und Leerzustand erscheinen als schwebende Karten darunter. Das Overlay ist gewöhnliches
+ * Compose und funktioniert so auf allen Plattformen:
+ * - **Android/Desktop:** MapCompose ist selbst Compose, das Overlay liegt einfach darüber.
+ * - **iOS:** Die `MKMapView` ist ein `UIKitView` mit `placedAsOverlay = false` (Standard) – die native View liegt
+ *   **unter** der Compose-Fläche, Compose-Inhalt darüber wird gezeichnet und bekommt die Tipps; außerhalb der Chips
+ *   gehen Gesten an MapKit.
+ *
+ * Die Höhe der Chip-Zeilen geht als `contentPadding` an die Karte, damit Kompass/Quellenangabe nicht darunter liegen.
  */
 @Composable
 private fun MapResults(
     state: WallboxListUiState,
-    controls: @Composable () -> Unit,
+    header: @Composable () -> Unit,
+    filters: @Composable (floating: Boolean) -> Unit,
     onRetry: () -> Unit,
     onOpenWallbox: (Wallbox) -> Unit,
     onWallboxSelected: (String) -> Unit,
@@ -294,34 +349,38 @@ private fun MapResults(
     val activeId = state.activeWallbox?.id
     val tabBarOverlap = LocalTabBarOverlap.current
     val density = LocalDensity.current
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val viewportHeight = maxHeight
-        var aboveMapHeight by remember { mutableStateOf(0.dp) }
-        val mapHeight = maxOf(viewportHeight - aboveMapHeight, MIN_MAP_HEIGHT + tabBarOverlap)
-        Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-            Column(Modifier.fillMaxWidth().onSizeChanged { aboveMapHeight = with(density) { it.height.toDp() } }) {
-                controls()
-                if (state.isLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
-                state.error?.let { ErrorBox(it, onRetry) }
-                if (!state.isLoading && state.error == null && wallboxes.isEmpty()) SearchEmptyBox()
-            }
+    Column(modifier = modifier.fillMaxSize()) {
+        header()
+        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            var chipsHeight by remember { mutableStateOf(0.dp) }
             WallboxMap(
                 pins = pins,
                 map = map,
                 onPinClick = onWallboxSelected,
-                modifier = Modifier.fillMaxWidth().height(mapHeight),
+                modifier = Modifier.fillMaxSize(),
                 activePinId = activeId,
                 center = state.center,
+                contentPadding = PaddingValues(top = chipsHeight, bottom = tabBarOverlap),
             ) {
                 // Das Fenster reicht bis unter die Tab-Leiste; sein Inhalt ist intern um LocalTabBarOverlap gepolstert.
                 StationSheet(wallboxes, activeId, onOpenWallbox, Modifier.align(Alignment.BottomCenter))
             }
+            Column(
+                modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(Spacing.Small),
+            ) {
+                Box(Modifier.fillMaxWidth().onSizeChanged { chipsHeight = with(density) { it.height.toDp() } }) {
+                    filters(true)
+                    if (state.isLoading) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
+                }
+                state.error?.let { error -> FloatingCard { ErrorBox(error, onRetry) } }
+                if (!state.isLoading && state.error == null && wallboxes.isEmpty()) {
+                    FloatingCard { SearchEmptyBox() }
+                }
+            }
         }
     }
 }
-
-/** Mindesthöhe der sichtbaren Kartenfläche (ohne den Bereich unter der Tab-Leiste). */
-private val MIN_MAP_HEIGHT = 320.dp
 
 /** Umschalter Karte/Liste. */
 @Composable

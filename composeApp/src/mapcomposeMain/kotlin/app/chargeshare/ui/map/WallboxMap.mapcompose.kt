@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
@@ -68,6 +69,7 @@ actual fun WallboxMap(
     modifier: Modifier,
     activePinId: String?,
     center: GeoPoint,
+    contentPadding: PaddingValues,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val mapState = map.state
@@ -103,6 +105,8 @@ actual fun WallboxMap(
             color = ChargeShareColors.OnSurface,
             modifier = Modifier
                 .align(Alignment.TopEnd)
+                // Unter die schwebenden Filter-Chips rücken, statt von ihnen verdeckt zu werden.
+                .padding(top = contentPadding.calculateTopPadding())
                 .background(ChargeShareColors.Surface.copy(alpha = ATTRIBUTION_ALPHA))
                 .padding(horizontal = Spacing.Small, vertical = Spacing.XSmall),
         )
