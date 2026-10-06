@@ -14,6 +14,7 @@ import app.chargeshare.platform.createPushTokenSource
 import app.chargeshare.platform.createPushTokenSource
 import app.chargeshare.platform.createSecureTokenStore
 import platform.UIKit.UIViewController
+import kotlin.experimental.ExperimentalNativeApi
 
 /** Im iOS-Simulator erreicht `localhost` den Mac, auf dem das Backend läuft. */
 private const val DEFAULT_API_URL = "http://localhost:8080"
@@ -29,8 +30,19 @@ fun MainViewController(apiBaseUrl: String): UIViewController = MainViewControlle
  * @param paymentBridge Swift-Brücke zum Stripe-PaymentSheet mit Apple Pay (`StripePaymentBridge` in `iosApp`);
  * `null` = keine Zahlungsfenster
  */
+@OptIn(ExperimentalNativeApi::class)
 fun MainViewController(apiBaseUrl: String, paymentBridge: IosPaymentBridge?): UIViewController = ComposeUIViewController {
-    val container = remember { AppContainer(apiBaseUrl, createSecureTokenStore(PlatformContext()), createPreferenceStorage(PlatformContext()), urlOpener = IosUrlOpener(), pushTokenSource = createPushTokenSource(PlatformContext())) }
+    val container = remember {
+        AppContainer(
+            apiBaseUrl,
+            createSecureTokenStore(PlatformContext()),
+            createPreferenceStorage(PlatformContext()),
+            // Debug-Framework (Xcode-Konfiguration „Debug“) = Debug-Angaben und Demo-Schnellanmeldung; Release nie.
+            showDebugInfo = Platform.isDebugBinary,
+            urlOpener = IosUrlOpener(),
+            pushTokenSource = createPushTokenSource(PlatformContext()),
+        )
+    }
     val paymentLauncher = remember { paymentBridge?.let(::IosPaymentLauncher) ?: UnsupportedPaymentLauncher }
     val locationProvider = remember { IosLocationProvider() }
     App(container, paymentLauncher, locationProvider = locationProvider)

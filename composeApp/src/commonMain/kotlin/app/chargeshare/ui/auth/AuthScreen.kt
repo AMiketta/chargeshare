@@ -2,11 +2,14 @@ package app.chargeshare.ui.auth
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,6 +36,7 @@ fun AuthRoute(
     modifier: Modifier = Modifier,
     notice: String? = null,
     onForgotPassword: () -> Unit = {},
+    demoAccounts: List<DemoAccount> = emptyList(),
 ) {
     val state by viewModel.state.collectAsState()
     AuthScreen(
@@ -45,10 +49,15 @@ fun AuthRoute(
         modifier = modifier,
         notice = notice,
         onForgotPassword = onForgotPassword,
+        demoAccounts = demoAccounts,
+        onQuickLogin = { viewModel.onQuickLogin(it.email, it.password) },
     )
 }
 
-/** Login- und Registrierungsmaske. */
+/**
+ * Login- und Registrierungsmaske.
+ * @param demoAccounts nur in Debug-Builds befüllt: Schnellanmeldung mit den Demo-Konten des lokalen Backends
+ */
 @Composable
 fun AuthScreen(
     state: AuthUiState,
@@ -60,6 +69,8 @@ fun AuthScreen(
     modifier: Modifier = Modifier,
     notice: String? = null,
     onForgotPassword: () -> Unit = {},
+    demoAccounts: List<DemoAccount> = emptyList(),
+    onQuickLogin: (DemoAccount) -> Unit = {},
 ) {
     val isRegister = state.mode == AuthMode.Register
     Column(modifier = modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
@@ -116,6 +127,26 @@ fun AuthScreen(
                 enabled = !state.isSubmitting,
             ) {
                 Text(if (isRegister) Strings.HaveAccount else Strings.NoAccountYet)
+            }
+            if (!isRegister && demoAccounts.isNotEmpty()) {
+                DebugQuickLogin(demoAccounts, onQuickLogin, enabled = !state.isSubmitting)
+            }
+        }
+    }
+}
+
+/** Dezente Debug-Leiste: ein umrandeter Button je Demo-Konto. */
+@Composable
+private fun DebugQuickLogin(accounts: List<DemoAccount>, onQuickLogin: (DemoAccount) -> Unit, enabled: Boolean) {
+    Column(verticalArrangement = Arrangement.spacedBy(Spacing.Small)) {
+        Text(Strings.DebugQuickLogin, style = MaterialTheme.typography.labelMedium, color = ChargeShareColors.OnSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(Spacing.Small)) {
+            accounts.forEach { account ->
+                OutlinedButton(
+                    onClick = { onQuickLogin(account) },
+                    enabled = enabled,
+                    modifier = Modifier.weight(1f).defaultMinSize(minHeight = Spacing.MinTouchTarget),
+                ) { Text(account.label) }
             }
         }
     }
