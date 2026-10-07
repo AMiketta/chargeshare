@@ -114,6 +114,9 @@ object Strings {
 
     // ---- Suche
     const val SearchPlaceholder = "Wallbox in der Nähe suchen …"
+    const val SearchClear = "Suche löschen"
+    fun noQueryMatches(query: String): String =
+        "Keine Wallbox im Umkreis passt zu „${query.trim()}“. Gesucht wird in Name, Straße, PLZ und Ort der Wallboxen."
     const val MoreFilters = "Mehr Filter"
     const val FewerFilters = "Weniger Filter"
     const val FilterOnlyOnline = "Jetzt frei"

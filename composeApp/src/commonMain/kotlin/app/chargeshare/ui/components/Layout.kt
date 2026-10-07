@@ -175,7 +175,7 @@ fun EmptyBox(text: String, modifier: Modifier = Modifier) {
  * Wird in Liste und Kartenansicht genutzt, wenn der Umkreis keine Wallboxen liefert.
  */
 @Composable
-fun SearchEmptyBox(modifier: Modifier = Modifier) {
+fun SearchEmptyBox(modifier: Modifier = Modifier, message: String = Strings.NoWallboxes) {
     Column(
         modifier = modifier.fillMaxWidth().padding(Spacing.Large),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -192,7 +192,7 @@ fun SearchEmptyBox(modifier: Modifier = Modifier) {
                 .clip(MaterialTheme.shapes.large),
         )
         Text(
-            Strings.NoWallboxes,
+            message,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
