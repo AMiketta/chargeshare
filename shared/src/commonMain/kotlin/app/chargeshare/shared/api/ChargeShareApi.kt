@@ -164,6 +164,10 @@ class ChargeShareApi(
     /** Koordinaten zur Adresse. `404` = Adresse unbekannt, `503` = Adresssuche gerade nicht verfügbar. */
     suspend fun geocode(request: GeocodeRequest): GeocodeResponse = http.post("$V1/geocode") { json(request) }.body()
 
+    /** Ortssuche (Ort, Stadtteil oder PLZ) für das Suchzentrum. `404` = Ort unbekannt, `503` = Suche nicht verfügbar. */
+    suspend fun geocodePlace(query: String): GeocodeResponse =
+        http.get("$V1/geocode/place") { parameter("q", query) }.body()
+
     suspend fun deleteWallbox(id: String) {
         http.delete("$V1/wallboxes/$id")
     }

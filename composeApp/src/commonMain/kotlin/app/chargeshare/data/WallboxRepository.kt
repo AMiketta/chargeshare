@@ -33,6 +33,9 @@ interface WallboxRepository {
     /** Wallboxen im Umkreis um [center], nach Entfernung sortiert. Das Online-Filter wirkt clientseitig in der UI. */
     suspend fun search(center: GeoPoint, filter: WallboxFilter): Outcome<List<Wallbox>>
     suspend fun wallbox(id: String): Outcome<Wallbox>
+
+    /** Ortssuche (Ort, Stadtteil, PLZ) → neues Suchzentrum. [AppError.NotFound] = Ort unbekannt. */
+    suspend fun findPlace(query: String): Outcome<GeoPoint>
     suspend fun reviews(wallboxId: String): Outcome<List<Review>>
 
     /** Öffentliches Profil des Hosts der Wallbox (gekürzter Name, Mitglied seit, Sessions, Superhost). */
@@ -70,6 +73,9 @@ class ApiWallboxRepository(private val api: ChargeShareApi) : WallboxRepository 
         }
 
     override suspend fun wallbox(id: String): Outcome<Wallbox> = runCatchingOutcome { api.wallbox(id) }
+
+    override suspend fun findPlace(query: String): Outcome<GeoPoint> =
+        runCatchingOutcome { api.geocodePlace(query).let { GeoPoint(it.lat, it.lng) } }
 
     override suspend fun reviews(wallboxId: String): Outcome<List<Review>> =
         runCatchingOutcome { api.wallboxReviews(wallboxId, limit = REVIEW_LIMIT).reviews }

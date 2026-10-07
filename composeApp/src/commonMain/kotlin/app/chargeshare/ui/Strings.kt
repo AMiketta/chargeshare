@@ -115,6 +115,13 @@ object Strings {
     // ---- Suche
     const val SearchPlaceholder = "Wallbox in der Nähe suchen …"
     const val SearchClear = "Suche löschen"
+    const val SearchingPlace = "Ort wird gesucht …"
+    fun searchAsPlace(query: String): String = "„${query.trim()}“ als Ort suchen"
+    fun placeSearchFailed(query: String, error: AppError): String =
+        if (error == AppError.NotFound) "Ort „${query.trim()}“ nicht gefunden. Versuche es mit Ortsname oder PLZ."
+        else "Die Ortssuche ist gerade nicht erreichbar. Bitte versuche es gleich noch einmal."
+    fun noWallboxesAround(placeName: String): String =
+        "Keine Wallbox rund um $placeName. Vergrößere den Umkreis oder lockere die Filter."
     fun noQueryMatches(query: String): String =
         "Keine Wallbox im Umkreis passt zu „${query.trim()}“. Gesucht wird in Name, Straße, PLZ und Ort der Wallboxen."
     const val MoreFilters = "Mehr Filter"
@@ -144,7 +151,8 @@ object Strings {
     const val LocationPromptSkip = "Nicht jetzt"
     const val UseNearby = "In der Nähe"
 
-    fun searchCenterNote(usesDeviceLocation: Boolean, showFallbackHint: Boolean): String = when {
+    fun searchCenterNote(usesDeviceLocation: Boolean, showFallbackHint: Boolean, placeName: String? = null): String = when {
+        placeName != null -> "Suche rund um $placeName"
         usesDeviceLocation -> SearchCenterNearYou
         showFallbackHint -> SearchCenterBremenFallback
         else -> SearchCenterBremen

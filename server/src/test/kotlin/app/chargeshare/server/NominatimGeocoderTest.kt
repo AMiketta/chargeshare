@@ -44,6 +44,17 @@ class NominatimGeocoderTest {
     }
 
     @Test
+    fun placeSearchSendsTheFreeTextAndSharesTheCache() = runBlocking {
+        val recorder = Recorder()
+        val geocoder = geocoder(recorder)
+        assertEquals(53.0758, geocoder.searchPlace("  Lemwerder ")?.lat)
+        geocoder.searchPlace("lemwerder")
+        val (uri, agent, _) = recorder.calls.single()
+        assertEquals("ChargeShareTest/1.0 (test@example.com)", agent)
+        assertTrue(uri.rawQuery.contains("q=Lemwerder") && uri.rawQuery.contains("countrycodes=de"), uri.rawQuery)
+    }
+
+    @Test
     fun repeatedAddressesComeFromTheCacheEvenWithDifferentCase() = runBlocking {
         val recorder = Recorder()
         val geocoder = geocoder(recorder)

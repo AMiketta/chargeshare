@@ -38,6 +38,12 @@ data class WallboxListUiState(
     val viewMode: SearchViewMode = SearchViewMode.List,
     /** Vom Nutzer angetippter Pin; `null` oder nicht mehr sichtbar = die nächste Wallbox gilt als aktiv. */
     val selectedWallboxId: String? = null,
+    /** Per Ortssuche gewähltes Suchzentrum (Anzeigename, z. B. „Lemwerder“); `null` = Gerätestandort bzw. Bremen. */
+    val placeName: String? = null,
+    /** Ortssuche läuft gerade. */
+    val isSearchingPlace: Boolean = false,
+    /** Fehlgeschlagene Ortssuche: Suchtext und Grund ([AppError.NotFound] = Ort unbekannt). */
+    val placeSearchFailure: Pair<String, AppError>? = null,
     /** Suche nutzt den freigegebenen Gerätestandort statt Bremen. */
     val usesDeviceLocation: Boolean = false,
     /** Sanfter In-App-Dialog vor dem System-Permission-Sheet. */
@@ -108,10 +114,66 @@ class WallboxListViewModel(
         resolveDeviceLocation()
     }
 
-    fun onQueryChange(query: String) = _state.update { it.copy(query = query) }
+    fun onQueryChange(query: String) = _state.update { it.copy(query = query, placeSearchFailure = null) }
 
-    /** Leert das Suchfeld (X-Button); alle Wallboxen im Umkreis sind wieder sichtbar. */
-    fun onClearQuery() = onQueryChange("")
+    /**
+     * Such-Taste der Tastatur bzw. „… als Ort suchen“: Passt der Freitext auf geladene Wallboxen, bleibt es beim lokalen
+     * Filter. Sonst wird der Text als Ort gesucht; bei Erfolg wird er zum neuen Suchzentrum und das Feld geleert.
+     */
+    fun onSearchSubmit() {
+        val snapshot = _state.value
+        val query = snapshot.query.trim()
+        if (query.isEmpty() || snapshot.visibleWallboxes.isNotEmpty() || snapshot.isSearchingPlace) return
+        onSearchPlace()
+    }
+
+    /** Sucht den Freitext ausdrücklich als Ort (auch wenn er lokal Treffer hat). */
+    fun onSearchPlace() {
+        val query = _state.value.query.trim()
+        if (query.isEmpty()) return
+        locationJob?.cancel()
+        _state.update { it.copy(isSearchingPlace = true, placeSearchFailure = null) }
+        locationJob = viewModelScope.launch {
+            when (val result = repository.findPlace(query)) {
+                is Outcome.Success -> {
+                    _state.update {
+                        it.copy(
+                            center = result.value,
+                            placeName = query,
+                            query = "",
+                            isSearchingPlace = false,
+                            selectedWallboxId = null,
+                            usesDeviceLocation = false,
+                            showLocationFallbackHint = false,
+                        )
+                    }
+                    search()
+                }
+                is Outcome.Failure -> _state.update {
+                    it.copy(isSearchingPlace = false, placeSearchFailure = query to result.error)
+                }
+            }
+        }
+    }
+
+    /**
+     * X-Button: leert das Suchfeld. War ein Ort gewählt, gilt wieder der Gerätestandort (falls freigegeben) bzw. Bremen.
+     */
+    fun onClearQuery() {
+        val hadPlace = _state.value.placeName != null
+        _state.update { it.copy(query = "", placeSearchFailure = null) }
+        if (!hadPlace) return
+        locationJob?.cancel()
+        _state.update { it.copy(placeName = null, center = DEFAULT_CENTER, isSearchingPlace = false, selectedWallboxId = null) }
+        locationJob = viewModelScope.launch {
+            if (locationProvider.isSupported && locationProvider.permissionStatus() == LocationPermissionStatus.Granted) {
+                applyDeviceLocationOrFallback()
+            } else {
+                _state.update { it.copy(usesDeviceLocation = false) }
+            }
+            search()
+        }
+    }
 
     fun onRadiusChange(radiusM: Double) = changeFilter { it.copy(radiusM = radiusM) }
 
@@ -134,7 +196,7 @@ class WallboxListViewModel(
     fun onRefresh() {
         locationJob?.cancel()
         locationJob = viewModelScope.launch {
-            if (locationProvider.permissionStatus() == LocationPermissionStatus.Granted) {
+            if (_state.value.placeName == null && locationProvider.permissionStatus() == LocationPermissionStatus.Granted) {
                 applyDeviceLocationOrFallback()
             }
             search()
@@ -200,6 +262,8 @@ class WallboxListViewModel(
      * @return `true`, wenn sich das Zentrum geändert hat und eine neue Suche nötig ist
      */
     private suspend fun applyDeviceLocationOrFallback(): Boolean {
+        // Ein per Ortssuche gewähltes Zentrum hat Vorrang vor einem spät eintreffenden Gerätestandort.
+        if (_state.value.placeName != null) return false
         val point = locationProvider.currentLocation()
         if (point == null) {
             val changed = _state.value.center != DEFAULT_CENTER || _state.value.usesDeviceLocation
