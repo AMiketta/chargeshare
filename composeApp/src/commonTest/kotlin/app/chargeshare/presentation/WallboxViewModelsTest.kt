@@ -67,6 +67,41 @@ class WallboxViewModelsTest {
     }
 
     @Test
+    fun queryMatchesEveryWordInNameStreetPostalCodeOrCityAndClears() {
+        repository.searchResult = Outcome.Success(
+            listOf(
+                testWallbox("a", name = "Wallbox Nr. 2", address = "Am Markt 1", city = "Bremen"),
+                testWallbox("b", name = "Garage", address = "Weserterrassen 1", city = "Bremen"),
+            ),
+        )
+        val viewModel = WallboxListViewModel(repository)
+        viewModel.onQueryChange("nr. 2")
+        assertEquals(listOf("a"), viewModel.state.value.visibleWallboxes.map { it.id })
+        viewModel.onQueryChange("  WESER  bremen ")
+        assertEquals(listOf("b"), viewModel.state.value.visibleWallboxes.map { it.id })
+        viewModel.onQueryChange("bremen")
+        assertEquals(2, viewModel.state.value.visibleWallboxes.size)
+        viewModel.onQueryChange("Lemwerder")
+        assertTrue(viewModel.state.value.noQueryMatches)
+        viewModel.onClearQuery()
+        assertEquals("", viewModel.state.value.query)
+        assertFalse(viewModel.state.value.noQueryMatches)
+        assertEquals(2, viewModel.state.value.visibleWallboxes.size)
+        assertEquals(1, repository.searches.size)
+    }
+
+    @Test
+    fun queryCombinesWithOnlyOnlineFilter() {
+        repository.searchResult = Outcome.Success(
+            listOf(testWallbox("a", name = "Markt", isOnline = false), testWallbox("b", name = "Markt Süd")),
+        )
+        val viewModel = WallboxListViewModel(repository)
+        viewModel.onQueryChange("markt")
+        viewModel.onOnlyOnlineChange(true)
+        assertEquals(listOf("b"), viewModel.state.value.visibleWallboxes.map { it.id })
+    }
+
+    @Test
     fun queryFiltersLocallyByNameAddressOrCity() {
         repository.searchResult = Outcome.Success(
             listOf(testWallbox("a", name = "Weinbergweg 5"), testWallbox("b", name = "Am Deich 22")),

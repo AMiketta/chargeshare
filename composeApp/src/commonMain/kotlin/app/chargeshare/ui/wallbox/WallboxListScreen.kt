@@ -64,7 +64,12 @@ import app.chargeshare.ui.map.StationSheet
 import app.chargeshare.ui.map.WallboxMap
 import androidx.compose.ui.unit.dp
 import app.chargeshare.ui.map.WallboxMapHolder
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 
 private val RADIUS_OPTIONS_M = listOf(1_000.0, 3_000.0, 5_000.0, 10_000.0, 25_000.0)
@@ -87,6 +92,7 @@ fun WallboxListRoute(
         onToggleFavorite = favorites::onToggle,
         onFavoriteErrorShown = favorites::onErrorShown,
         onQueryChange = viewModel::onQueryChange,
+        onClearQuery = viewModel::onClearQuery,
         onRadiusChange = viewModel::onRadiusChange,
         onConnectorChange = viewModel::onConnectorChange,
         onMinPowerChange = viewModel::onMinPowerChange,
@@ -116,6 +122,7 @@ fun WallboxListScreen(
     onToggleFavorite: (String) -> Unit,
     onFavoriteErrorShown: () -> Unit,
     onQueryChange: (String) -> Unit,
+    onClearQuery: () -> Unit = { onQueryChange("") },
     onRadiusChange: (Double) -> Unit,
     onConnectorChange: (ConnectorType?) -> Unit,
     onMinPowerChange: (Double?) -> Unit,
@@ -134,7 +141,7 @@ fun WallboxListScreen(
 ) {
     // Rein visueller Zustand: ob die erweiterten Filter (Umkreis, alle Stecker, Leistung, Preis) aufgeklappt sind.
     var showMoreFilters by remember { mutableStateOf(false) }
-    val header: @Composable () -> Unit = { SearchHeader(state, onQueryChange) }
+    val header: @Composable () -> Unit = { SearchHeader(state, onQueryChange, onClearQuery) }
     // In der Kartenansicht schweben die Filter über der Karte (floating = true), in der Liste stehen sie darüber.
     val filters: @Composable (floating: Boolean) -> Unit = { floating ->
         SearchFilters(
@@ -172,12 +179,12 @@ fun WallboxListScreen(
 
 /** Grüner Kopf der Suche: Titel, Hinweis zum Suchzentrum und Suchfeld. */
 @Composable
-private fun SearchHeader(state: WallboxListUiState, onQueryChange: (String) -> Unit) {
+private fun SearchHeader(state: WallboxListUiState, onQueryChange: (String) -> Unit, onClearQuery: () -> Unit) {
     HeroHeader(
         title = Strings.AppName,
         subtitle = Strings.searchCenterNote(state.usesDeviceLocation, state.showLocationFallbackHint),
     ) {
-        SearchField(state.query, onQueryChange)
+        SearchField(state.query, onQueryChange, onClearQuery)
     }
 }
 
@@ -300,7 +307,7 @@ private fun ListResults(
         when {
             state.isLoading -> item(key = "loading") { LoadingBox(Modifier.padding(Spacing.XLarge)) }
             state.error != null -> item(key = "error") { ErrorBox(state.error, onRetry) }
-            state.visibleWallboxes.isEmpty() -> item(key = "empty") { SearchEmptyBox() }
+            state.visibleWallboxes.isEmpty() -> item(key = "empty") { SearchEmptyBox(message = emptyMessage(state)) }
             else -> {
                 item(key = "count") {
                     SectionTitle(Strings.stationsNearby(state.visibleWallboxes.size), Modifier.padding(horizontal = Spacing.Medium))
@@ -375,7 +382,7 @@ private fun MapResults(
                 }
                 state.error?.let { error -> FloatingCard { ErrorBox(error, onRetry) } }
                 if (!state.isLoading && state.error == null && wallboxes.isEmpty()) {
-                    FloatingCard { SearchEmptyBox() }
+                    FloatingCard { SearchEmptyBox(message = emptyMessage(state)) }
                 }
             }
         }
@@ -410,7 +417,9 @@ private fun ViewModeSwitch(
 }
 
 @Composable
-private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
+private fun SearchField(query: String, onQueryChange: (String) -> Unit, onClearQuery: () -> Unit) {
+    val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
@@ -418,14 +427,30 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit) {
         singleLine = true,
         placeholder = { Text(Strings.SearchPlaceholder) },
         leadingIcon = { Icon(AppIcons.Search, contentDescription = null) },
+        trailingIcon = if (query.isNotEmpty()) {
+            {
+                IconButton(onClick = onClearQuery) { Icon(AppIcons.Clear, contentDescription = Strings.SearchClear) }
+            }
+        } else {
+            null
+        },
         shape = RoundedCornerShape(SEARCH_FIELD_CORNER_DP),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+        // Gefiltert wird schon beim Tippen; „Suchen“ auf der Tastatur blendet sie nur aus, damit Karte/Liste frei werden.
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = {
+            keyboard?.hide()
+            focusManager.clearFocus()
+        }),
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = ChargeShareColors.Surface,
             unfocusedContainerColor = ChargeShareColors.Surface,
         ),
     )
 }
+
+/** Leerzustand: eigener Text, wenn nur der Freitext alles ausblendet, sonst der allgemeine Umkreis-/Filter-Hinweis. */
+private fun emptyMessage(state: WallboxListUiState): String =
+    if (state.noQueryMatches) Strings.noQueryMatches(state.query) else Strings.NoWallboxes
 
 private val SEARCH_FIELD_CORNER_DP = Spacing.Large
 

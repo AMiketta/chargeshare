@@ -48,17 +48,31 @@ data class WallboxListUiState(
     /** Karte nur anzeigen, wenn die Plattform sie unterstützt und sie gewählt ist. */
     val showMap: Boolean get() = mapSupported && viewMode == SearchViewMode.Map
 
-    /** Ergebnisliste nach Freitext und Online-Filter. */
+    /** Ergebnisliste nach Freitext und Online-Filter (gilt für Karten-Pins und Liste). */
     val visibleWallboxes: List<Wallbox>
-        get() = wallboxes.filter { box ->
-            (!filter.onlyOnline || box.isOnline) &&
-                (query.isBlank() || listOf(box.name, box.address, box.city).any { it.contains(query.trim(), ignoreCase = true) })
-        }
+        get() = wallboxes.filter { box -> (!filter.onlyOnline || box.isOnline) && box.matchesQuery(query) }
+
+    /** Es ist ein Freitext gesetzt, der alle geladenen Wallboxen ausblendet (eigener Leerzustand). */
+    val noQueryMatches: Boolean
+        get() = query.isNotBlank() && wallboxes.isNotEmpty() && visibleWallboxes.isEmpty()
 
     /** Die auf Karte und in der Liste hervorgehobene Wallbox: die gewählte, sonst die erste (nächste) sichtbare. */
     val activeWallbox: Wallbox?
         get() = visibleWallboxes.let { visible -> visible.firstOrNull { it.id == selectedWallboxId } ?: visible.firstOrNull() }
 }
+
+/**
+ * Freitext-Treffer: jedes Wort der Eingabe (Leerzeichen-getrennt, ohne Groß/Klein) muss in Name, Straße, PLZ oder Ort
+ * vorkommen. So finden „Nr. 2“, „markt bremen“ oder „28195“ ihre Wallbox, unabhängig von der Reihenfolge.
+ */
+fun Wallbox.matchesQuery(query: String): Boolean {
+    val tokens = query.trim().split(WHITESPACE).filter { it.isNotEmpty() }
+    if (tokens.isEmpty()) return true
+    val haystack = listOf(name, address, postalCode, city).joinToString(" ")
+    return tokens.all { haystack.contains(it, ignoreCase = true) }
+}
+
+private val WHITESPACE = Regex("\\s+")
 
 /** Standard-Suchzentrum Bremen, wenn der Gerätestandort fehlt oder verweigert wurde. */
 val DEFAULT_CENTER = GeoPoint(lat = 53.0793, lng = 8.8017)
@@ -95,6 +109,9 @@ class WallboxListViewModel(
     }
 
     fun onQueryChange(query: String) = _state.update { it.copy(query = query) }
+
+    /** Leert das Suchfeld (X-Button); alle Wallboxen im Umkreis sind wieder sichtbar. */
+    fun onClearQuery() = onQueryChange("")
 
     fun onRadiusChange(radiusM: Double) = changeFilter { it.copy(radiusM = radiusM) }
 
