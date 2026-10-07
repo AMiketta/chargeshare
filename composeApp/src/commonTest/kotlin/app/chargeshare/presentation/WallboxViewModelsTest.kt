@@ -91,6 +91,50 @@ class WallboxViewModelsTest {
     }
 
     @Test
+    fun searchKeyLooksUpUnknownTextAsPlaceAndRecenters() {
+        val lemwerder = GeoPoint(53.1667, 8.6167)
+        repository.places["Lemwerder"] = lemwerder
+        repository.searchResult = Outcome.Success(listOf(testWallbox("a", name = "Marktplatz")))
+        val viewModel = WallboxListViewModel(repository)
+        viewModel.onQueryChange(" Lemwerder ")
+        viewModel.onSearchSubmit()
+        val state = viewModel.state.value
+        assertEquals(listOf("Lemwerder"), repository.placeQueries)
+        assertEquals(lemwerder, state.center)
+        assertEquals("Lemwerder", state.placeName)
+        assertEquals("", state.query)
+        assertEquals(lemwerder, repository.searches.last().first)
+
+        viewModel.onClearQuery()
+        assertNull(viewModel.state.value.placeName)
+        assertEquals(DEFAULT_CENTER, viewModel.state.value.center)
+        assertEquals(DEFAULT_CENTER, repository.searches.last().first)
+    }
+
+    @Test
+    fun searchKeyKeepsLocalFilterWhenTextMatchesLoadedWallboxes() {
+        repository.searchResult = Outcome.Success(listOf(testWallbox("a", name = "Marktplatz")))
+        val viewModel = WallboxListViewModel(repository)
+        viewModel.onQueryChange("markt")
+        viewModel.onSearchSubmit()
+        assertTrue(repository.placeQueries.isEmpty())
+        assertEquals(1, repository.searches.size)
+    }
+
+    @Test
+    fun unknownPlaceShowsFailureAndKeepsCenter() {
+        val viewModel = WallboxListViewModel(repository)
+        viewModel.onQueryChange("Nirgendwo")
+        viewModel.onSearchPlace()
+        val state = viewModel.state.value
+        assertEquals("Nirgendwo" to AppError.NotFound, state.placeSearchFailure)
+        assertEquals(DEFAULT_CENTER, state.center)
+        assertNull(state.placeName)
+        viewModel.onQueryChange("Nirgendw")
+        assertNull(viewModel.state.value.placeSearchFailure)
+    }
+
+    @Test
     fun queryCombinesWithOnlyOnlineFilter() {
         repository.searchResult = Outcome.Success(
             listOf(testWallbox("a", name = "Markt", isOnline = false), testWallbox("b", name = "Markt Süd")),

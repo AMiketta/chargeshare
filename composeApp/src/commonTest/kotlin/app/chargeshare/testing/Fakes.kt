@@ -228,6 +228,17 @@ class FakeWallboxRepository : WallboxRepository {
 
     override suspend fun wallbox(id: String): Outcome<Wallbox> = wallboxResult
 
+    /** Ortssuche: bekannte Orte, sonst [AppError.NotFound]. */
+    val places = mutableMapOf<String, GeoPoint>()
+    var placeFailure: AppError? = null
+    val placeQueries = mutableListOf<String>()
+
+    override suspend fun findPlace(query: String): Outcome<GeoPoint> {
+        placeQueries += query
+        placeFailure?.let { return Outcome.Failure(it) }
+        return places[query]?.let { Outcome.Success(it) } ?: Outcome.Failure(AppError.NotFound)
+    }
+
     override suspend fun reviews(wallboxId: String): Outcome<List<Review>> = reviewsResult
 
     var hostProfileResult: Outcome<HostProfile> = Outcome.Success(testHostProfile())

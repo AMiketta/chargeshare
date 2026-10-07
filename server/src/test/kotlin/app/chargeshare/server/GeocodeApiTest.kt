@@ -59,4 +59,24 @@ class GeocodeApiTest {
         val other = registerUser("anderer@example.com", host = true)
         assertEquals(53.0, other.api.geocode(request).lat)
     }
+
+    @Test
+    fun placeSearchReturnsTheCenterForAPlaceName() = serverTest {
+        geocoder.placeHits["Lemwerder"] = GeocodeHit(53.1667, 8.6167, "Lemwerder, Wesermarsch, Niedersachsen")
+        val driver = registerUser("fahrer@example.com")
+        val result = driver.api.geocodePlace("  Lemwerder ")
+        assertEquals(53.1667, result.lat)
+        assertEquals(8.6167, result.lng)
+        assertEquals(listOf("Lemwerder"), geocoder.placeCalls)
+    }
+
+    @Test
+    fun placeSearchErrors() = serverTest {
+        val driver = registerUser("fahrer@example.com")
+        assertEquals(404, assertFailsWith<ApiException> { driver.api.geocodePlace("Nirgendwo") }.status)
+        assertEquals(422, assertFailsWith<ApiException> { driver.api.geocodePlace("  ") }.status)
+        assertEquals(401, assertFailsWith<ApiException> { newApi().api.geocodePlace("Bremen") }.status)
+        geocoder.unavailable = true
+        assertEquals(503, assertFailsWith<ApiException> { driver.api.geocodePlace("Bremen") }.status)
+    }
 }

@@ -93,6 +93,8 @@ fun WallboxListRoute(
         onFavoriteErrorShown = favorites::onErrorShown,
         onQueryChange = viewModel::onQueryChange,
         onClearQuery = viewModel::onClearQuery,
+        onSearchSubmit = viewModel::onSearchSubmit,
+        onSearchPlace = viewModel::onSearchPlace,
         onRadiusChange = viewModel::onRadiusChange,
         onConnectorChange = viewModel::onConnectorChange,
         onMinPowerChange = viewModel::onMinPowerChange,
@@ -123,6 +125,8 @@ fun WallboxListScreen(
     onFavoriteErrorShown: () -> Unit,
     onQueryChange: (String) -> Unit,
     onClearQuery: () -> Unit = { onQueryChange("") },
+    onSearchSubmit: () -> Unit = {},
+    onSearchPlace: () -> Unit = {},
     onRadiusChange: (Double) -> Unit,
     onConnectorChange: (ConnectorType?) -> Unit,
     onMinPowerChange: (Double?) -> Unit,
@@ -141,7 +145,7 @@ fun WallboxListScreen(
 ) {
     // Rein visueller Zustand: ob die erweiterten Filter (Umkreis, alle Stecker, Leistung, Preis) aufgeklappt sind.
     var showMoreFilters by remember { mutableStateOf(false) }
-    val header: @Composable () -> Unit = { SearchHeader(state, onQueryChange, onClearQuery) }
+    val header: @Composable () -> Unit = { SearchHeader(state, onQueryChange, onClearQuery, onSearchSubmit, onSearchPlace) }
     // In der Kartenansicht schweben die Filter über der Karte (floating = true), in der Liste stehen sie darüber.
     val filters: @Composable (floating: Boolean) -> Unit = { floating ->
         SearchFilters(
@@ -179,12 +183,38 @@ fun WallboxListScreen(
 
 /** Grüner Kopf der Suche: Titel, Hinweis zum Suchzentrum und Suchfeld. */
 @Composable
-private fun SearchHeader(state: WallboxListUiState, onQueryChange: (String) -> Unit, onClearQuery: () -> Unit) {
+private fun SearchHeader(
+    state: WallboxListUiState,
+    onQueryChange: (String) -> Unit,
+    onClearQuery: () -> Unit,
+    onSearchSubmit: () -> Unit,
+    onSearchPlace: () -> Unit,
+) {
     HeroHeader(
         title = Strings.AppName,
-        subtitle = Strings.searchCenterNote(state.usesDeviceLocation, state.showLocationFallbackHint),
+        subtitle = Strings.searchCenterNote(state.usesDeviceLocation, state.showLocationFallbackHint, state.placeName),
     ) {
-        SearchField(state.query, onQueryChange, onClearQuery)
+        SearchField(state.query, state.placeName != null, onQueryChange, onClearQuery, onSearchSubmit)
+        val failure = state.placeSearchFailure
+        when {
+            state.isSearchingPlace -> PlaceRow(Strings.SearchingPlace, onClick = null)
+            failure != null -> Text(
+                Strings.placeSearchFailed(failure.first, failure.second),
+                style = MaterialTheme.typography.bodyMedium,
+                color = ChargeShareColors.OnPrimary,
+                modifier = Modifier.padding(top = Spacing.Small),
+            )
+            state.query.isNotBlank() -> PlaceRow(Strings.searchAsPlace(state.query), onClick = onSearchPlace)
+        }
+    }
+}
+
+/** Vorschlagszeile unter dem Suchfeld: den Freitext als Ort suchen (neues Suchzentrum). */
+@Composable
+private fun PlaceRow(label: String, onClick: (() -> Unit)?) {
+    TextButton(onClick = { onClick?.invoke() }, enabled = onClick != null, modifier = Modifier.padding(top = Spacing.XSmall)) {
+        Icon(AppIcons.Place, contentDescription = null, tint = ChargeShareColors.OnPrimary)
+        Text(label, color = ChargeShareColors.OnPrimary, modifier = Modifier.padding(start = Spacing.Small))
     }
 }
 
@@ -417,7 +447,13 @@ private fun ViewModeSwitch(
 }
 
 @Composable
-private fun SearchField(query: String, onQueryChange: (String) -> Unit, onClearQuery: () -> Unit) {
+private fun SearchField(
+    query: String,
+    hasPlace: Boolean,
+    onQueryChange: (String) -> Unit,
+    onClearQuery: () -> Unit,
+    onSearchSubmit: () -> Unit,
+) {
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     OutlinedTextField(
@@ -427,7 +463,8 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, onClearQ
         singleLine = true,
         placeholder = { Text(Strings.SearchPlaceholder) },
         leadingIcon = { Icon(AppIcons.Search, contentDescription = null) },
-        trailingIcon = if (query.isNotEmpty()) {
+        // Das X leert den Text und setzt einen per Ortssuche gewählten Ort zurück.
+        trailingIcon = if (query.isNotEmpty() || hasPlace) {
             {
                 IconButton(onClick = onClearQuery) { Icon(AppIcons.Clear, contentDescription = Strings.SearchClear) }
             }
@@ -435,11 +472,13 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, onClearQ
             null
         },
         shape = RoundedCornerShape(SEARCH_FIELD_CORNER_DP),
-        // Gefiltert wird schon beim Tippen; „Suchen“ auf der Tastatur blendet sie nur aus, damit Karte/Liste frei werden.
+        // Gefiltert wird schon beim Tippen. „Suchen“ blendet die Tastatur aus und sucht den Text als Ort, wenn er auf keine
+        // geladene Wallbox passt.
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text, imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = {
             keyboard?.hide()
             focusManager.clearFocus()
+            onSearchSubmit()
         }),
         colors = OutlinedTextFieldDefaults.colors(
             focusedContainerColor = ChargeShareColors.Surface,
@@ -449,8 +488,11 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, onClearQ
 }
 
 /** Leerzustand: eigener Text, wenn nur der Freitext alles ausblendet, sonst der allgemeine Umkreis-/Filter-Hinweis. */
-private fun emptyMessage(state: WallboxListUiState): String =
-    if (state.noQueryMatches) Strings.noQueryMatches(state.query) else Strings.NoWallboxes
+private fun emptyMessage(state: WallboxListUiState): String = when {
+    state.noQueryMatches -> Strings.noQueryMatches(state.query)
+    state.placeName != null -> Strings.noWallboxesAround(state.placeName)
+    else -> Strings.NoWallboxes
+}
 
 private val SEARCH_FIELD_CORNER_DP = Spacing.Large
 

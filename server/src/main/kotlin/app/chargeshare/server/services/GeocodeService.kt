@@ -37,6 +37,20 @@ class GeocodeService(
         return GeocodeResponse(hit.lat, hit.lng, hit.displayName)
     }
 
+    /** Ortssuche für das Suchzentrum (`GET /geocode/place?q=`). Teilt sich das Kontingent mit [lookup]. */
+    suspend fun searchPlace(userId: Uuid, query: String?): GeocodeResponse {
+        val q = query?.trim().orEmpty()
+        if (q.isEmpty()) throw validationError("q: must not be blank")
+        if (q.length > MAX_FIELD_LENGTH) throw validationError("q: is too long")
+        if (!limiter.tryAcquire(userId.toString()).allowed) throw tooManyRequests("too many place lookups, please try again later")
+        val hit = try {
+            geocoder.searchPlace(q)
+        } catch (e: GeocoderUnavailableException) {
+            throw serviceUnavailable("place search is currently unavailable")
+        } ?: throw notFound("place not found")
+        return GeocodeResponse(hit.lat, hit.lng, hit.displayName)
+    }
+
     private companion object {
         const val PER_USER_LIMIT = 20
         const val MAX_FIELD_LENGTH = 200

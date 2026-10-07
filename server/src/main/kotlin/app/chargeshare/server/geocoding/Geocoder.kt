@@ -12,6 +12,11 @@ interface Geocoder {
      * @throws GeocoderUnavailableException wenn der Dienst nicht antwortet */
     suspend fun geocode(address: String, postalCode: String, city: String): GeocodeHit?
 
+    /** Freitext-Ortssuche (Ortsname, Stadtteil oder PLZ) für das Suchzentrum der App.
+     * @return den besten Treffer oder `null`, wenn der Ort unbekannt ist
+     * @throws GeocoderUnavailableException wenn der Dienst nicht antwortet */
+    suspend fun searchPlace(query: String): GeocodeHit?
+
     companion object {
         /** Nominatim laut Konfiguration, sonst [Disabled]. */
         fun from(config: app.chargeshare.server.config.AppConfig): Geocoder =
@@ -21,6 +26,9 @@ interface Geocoder {
     /** Ersatz, wenn kein Dienst konfiguriert ist (`GEOCODER_URL` leer). */
     object Disabled : Geocoder {
         override suspend fun geocode(address: String, postalCode: String, city: String): GeocodeHit =
+            throw GeocoderUnavailableException("geocoding is not configured")
+
+        override suspend fun searchPlace(query: String): GeocodeHit =
             throw GeocoderUnavailableException("geocoding is not configured")
     }
 }

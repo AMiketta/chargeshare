@@ -26,7 +26,7 @@ import kotlinx.serialization.json.Json
  * - **höchstens eine Anfrage pro Sekunde** für die ganze Instanz (`minInterval`, Standard 1,1 s; Wartende stehen in einer Schlange)
  * - **eigener `User-Agent`** mit Kontakt (`GEOCODER_USER_AGENT`), nie der Standard einer HTTP-Bibliothek
  * - **Zwischenspeicher** für Treffer und „nicht gefunden“ (24 Stunden), damit dieselbe Adresse nicht erneut angefragt wird
- * - keine Suche-beim-Tippen: aufgerufen wird nur auf ausdrücklichen Knopfdruck des Hosts
+ * - keine Suche-beim-Tippen: aufgerufen wird nur auf ausdrücklichen Knopfdruck (Host-Adresse bzw. Such-Taste der Ortssuche)
  *
  * Ist die Schlange zu lang oder die Wartezeit zu groß, antwortet der Aufrufer mit [GeocoderUnavailableException]; der Host
  * kann die Koordinaten dann von Hand eintragen.
@@ -55,7 +55,13 @@ class NominatimGeocoder(
     private data class NominatimPlace(val lat: String, val lon: String, @SerialName("display_name") val displayName: String? = null)
 
     override suspend fun geocode(address: String, postalCode: String, city: String): GeocodeHit? {
-        val query = "${address.trim()}, ${postalCode.trim()} ${city.trim()}"
+        return lookup("${address.trim()}, ${postalCode.trim()} ${city.trim()}")
+    }
+
+    /** Gleicher Weg wie [geocode] (Takt, Schlange, Zwischenspeicher), nur mit freiem Suchtext. */
+    override suspend fun searchPlace(query: String): GeocodeHit? = lookup(query.trim())
+
+    private suspend fun lookup(query: String): GeocodeHit? {
         val key = query.lowercase().replace(Regex("\\s+"), " ")
         cached(key)?.let { return it.hit }
         if (!queue.tryAcquire()) throw GeocoderUnavailableException("geocoder is busy")

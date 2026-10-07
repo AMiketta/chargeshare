@@ -89,6 +89,15 @@ class FakeGeocoder : Geocoder {
         if (unavailable) throw GeocoderUnavailableException("down")
         return hits[address]
     }
+
+    val placeHits = mutableMapOf<String, GeocodeHit>()
+    val placeCalls = java.util.Collections.synchronizedList(mutableListOf<String>())
+
+    override suspend fun searchPlace(query: String): GeocodeHit? {
+        placeCalls += query
+        if (unavailable) throw GeocoderUnavailableException("down")
+        return placeHits[query]
+    }
 }
 
 class ServerScope(
