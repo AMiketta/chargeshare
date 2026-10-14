@@ -1,0 +1,13 @@
+# gitleaks-Konfiguration: Standardregeln + Allowlist für Test-Quellcode.
+# Die Tests enthalten bewusst kurze Dummy-Werte (z. B. "sk_test_geheim", "pi_123_secret_abc"),
+# die wie Stripe-Schlüssel aussehen, aber keine echten Secrets sind.
+title = "ChargeShare gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Dummy-Werte in Testquellen"
+paths = [
+  '''(^|/)src/(test|commonTest|jvmTest|desktopTest|androidUnitTest|iosTest|wasmJsTest)/''',
+]

@@ -6,7 +6,7 @@ package app.chargeshare.android.push
  * **Noch nicht aktiv:** ohne `google-services.json` und ohne `firebase-messaging`-Abhängigkeit
  * kompiliert die App absichtlich ohne echten FCM-Dienst (CI bleibt grün).
  *
- * Aktivierung (siehe `docs/push.md`):
+ * Aktivierung (siehe `README.de.md#push-benachrichtigungen-mvp`):
  * 1. `androidApp/google-services.json` aus der Firebase-Konsole ablegen
  * 2. In `androidApp/build.gradle.kts` Plugin `com.google.gms.google-services` und
  *    `implementation(libs.firebase.messaging)` ergänzen
@@ -18,5 +18,5 @@ package app.chargeshare.android.push
  * der Server loggt Push-Ereignisse über [app.chargeshare.server.push.LoggingPushNotifier].
  */
 object FcmMessagingServiceGuide {
-    const val DOC = "docs/push.md"
+    const val DOC = "README.de.md#push-benachrichtigungen-mvp"
 }

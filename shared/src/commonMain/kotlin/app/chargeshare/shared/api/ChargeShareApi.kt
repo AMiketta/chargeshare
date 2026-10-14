@@ -20,7 +20,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.contentType
 
 /**
- * Typisierter Client fuer die `/api/v1`-API (siehe legacy/go-backend/internal/api/router.go).
+ * Typisierter Client fuer die `/api/v1`-API.
  * Alle Methoden sind `suspend` und werfen [ApiException] bei Fehlerantworten.
  */
 class ChargeShareApi(

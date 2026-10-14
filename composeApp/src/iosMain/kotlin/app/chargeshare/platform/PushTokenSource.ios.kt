@@ -4,7 +4,7 @@ import app.chargeshare.shared.model.PushPlatform
 
 /**
  * iOS-Platzhalter für APNs. Token-Registrierung folgt mit der nativen Permission-Anfrage
- * (siehe `docs/push.md`); bis dahin bleibt [currentToken] `null`.
+ * (siehe `README.de.md#push-benachrichtigungen-mvp`); bis dahin bleibt [currentToken] `null`.
  */
 actual fun createPushTokenSource(context: PlatformContext): PushTokenSource = IosPushTokenSource()
 

@@ -15,7 +15,7 @@ data class DevicePush(
 
 /**
  * Versand von Push-Nachrichten. Austauschbar: Entwicklung und CI nutzen [LoggingPushNotifier];
- * Livebetrieb später FCM/APNs (siehe `docs/push.md`).
+ * Livebetrieb später FCM/APNs (siehe `README.de.md#push-benachrichtigungen-mvp`).
  */
 interface PushNotifier {
     fun send(messages: List<DevicePush>)

@@ -14,15 +14,14 @@ Wer eine Regel hier ändern will, ändert zuerst diese Datei (eigener Commit) un
 **ChargeShare** ist eine Peer-to-Peer-Plattform für Wallbox-Sharing in Deutschland („Airbnb für Wallboxen“):
 private Wallbox-Besitzer geben ihre Ladestation zeitgesteuert frei, Fahrer buchen einen Zeitslot und zahlen automatisch.
 
-- **Fachliche Quelle der Wahrheit:** `docs/ChargeShare_App_Konzept.pdf` (Konzept, April 2026) und
-  `docs/ChargeShare-App-Design.html` (Farben, Layout, Screens).
+- **Fachliche Quelle der Wahrheit:** dieses Dokument und der Code (Konzept-PDF und Design-HTML sind nicht Teil des öffentlichen Repos).
 - **Zielgruppen**
   - **Driver (Fahrer):** E-Auto-Fahrer ohne eigene Lademöglichkeit. Sucht Wallboxen in der Nähe, bucht Slots, storniert, bewertet.
   - **Host (Anbieter):** Wallbox-Besitzer. Legt Wallboxen an, setzt Preis und Verfügbarkeit, sieht Einnahmen und Sessions.
   - Rollen im Backend: `driver`, `host`, `both`, `admin` (`admin` ist nicht selbst setzbar).
 - **MVP-Funktionen:** Suche (Umkreis/Filter), Wallbox-Detail, Zeitslot-Buchung mit Zahlung, Buchungsliste mit Storno,
   Host-Dashboard, Profil. OCPP-1.6J-Anbindung der Wallboxen im Backend.
-- Das Projekt ist ein **Kotlin-Multiplatform-Neubau** der früheren Go-Backend- und SwiftUI-Implementierung (`legacy/`).
+- Das Projekt ist ein **Kotlin-Multiplatform-Neubau** einer früheren Go-Backend- und SwiftUI-Implementierung (nicht mehr im Repo).
 
 ## 2. Module und Abhängigkeitsregeln
 
@@ -35,8 +34,6 @@ private Wallbox-Besitzer geben ihre Ladestation zeitgesteuert frei, Fahrer buche
 | `third_party/cmp-ios-chrome/` | Git-Submodule: native iOS-Tabbar-Brücke für Compose (`NativeTabBar`); aktuell **nicht** von composeApp genutzt (optional) | – |
 | `web/` | Wasm-Einstiegspunkt (`ComposeViewport`), nutzt `composeApp` | Wasm |
 | `server/` | Ktor-Backend (Netty, JWT, Exposed, Flyway, PostgreSQL, OCPP) | JVM |
-| `docs/` | Konzept (PDF) und Design (HTML) | – |
-| `legacy/` | Go-Backend und SwiftUI-App – **nur Referenz, wird nicht gebaut, nicht erweitern** | – |
 
 \* nur wenn ein Android SDK gefunden wird. \*\* nur auf macOS (oder erzwungen, siehe Abschnitt 4).
 
@@ -163,7 +160,7 @@ Im Entwicklungsmodus (`ENV=development`, Standard) gilt:
     Preis ≤ 5 €/kWh – bewusste Plausibilitätsgrenzen gegen Tippfehler). Preisänderungen gelten nur für neue Buchungen; eine Änderung der Verfügbarkeit
     oder „Deaktivieren“ storniert **keine** bestehenden Buchungen.
   - Buchungen: `GET|POST /bookings` (`Booking.reviewed`: schon bewertet), `GET|DELETE /bookings/{id}` (Storno antwortet `204`), `POST /bookings/{id}/pay` („Jetzt bezahlen“: `client_secret` einer `pending`-Buchung, nur Fahrer), `POST /bookings/{id}/confirm-payment`, `POST /bookings/{id}/problem` (Fahrer → Host-Push), `POST /reviews`
-  - Push-Geräte: `POST|DELETE /devices` (Token registrieren/abmelden; Versand aktuell `LoggingPushNotifier`, siehe `docs/push.md`)
+  - Push-Geräte: `POST|DELETE /devices` (Token registrieren/abmelden; Versand aktuell `LoggingPushNotifier`, siehe `README.de.md#push-benachrichtigungen-mvp`)
   - Host: `GET /host/bookings|earnings|sessions` (nur Rollen `host`/`both`/`admin`, sonst `403`; `earnings` nimmt `tz` (IANA, Default UTC) und rechnet Monat/Vormonat/Woche/kWh nach Buchungsbeginn, Logik rein in `EarningsCalculator`), `POST /payments/onboard` (Link; Stripe leitet auf die öffentlichen Seiten `GET /onboarding/return|refresh` des Servers, die per Deep Link `chargeshare://onboarding-done|onboarding-refresh` in die App springen; Adressen: `PUBLIC_BASE_URL`/`ONBOARDING_*_URL`, sonst Anfrage-Adresse), `GET /payments/payout-status` (`PayoutState` `not_required|not_started|pending|ready`, aus der DB), `POST /payments/payout-status/refresh` (fragt Stripe sofort, speichert, liefert den Status), `GET /payments/config` (öffentliche Zahlungskonfiguration ohne Secrets, mit Login)
 - **JSON:** Feldnamen `snake_case` (`power_kw`, `price_per_kwh`, `start_time`, …), Zeiten als RFC-3339-Strings (UTC), Aufzählungen kleingeschrieben
   (`type2`, `ccs`, `chademo`, `type1`; `pending`, `confirmed`, `active`, `completed`, `cancelled`, `failed`). Gemeinsame Konfiguration: `ChargeShareJson`
@@ -296,7 +293,7 @@ Fehlerbehandlung:
 
 ## 12. Design-Tokens
 
-Quelle: `docs/ChargeShare-App-Design.html` (CSS-Variablen), umgesetzt in `ui/Theme.kt`.
+Umgesetzt in `ui/Theme.kt`.
 
 | Token | Wert |
 |---|---|
@@ -354,7 +351,7 @@ nicht direkt verwenden, damit das Design an einer Stelle gepflegt wird.
 
 Ein Auftrag ist erst fertig, wenn **alle** Punkte gelten:
 
-- [ ] Verhalten entspricht Konzept/Design (`docs/`) und diesem Dokument.
+- [ ] Verhalten entspricht diesem Dokument.
 - [ ] Neue/geänderte Logik hat Tests (ViewModel: Fakes; Netz: MockEngine; Server: echtes PostgreSQL) – und sie sind grün.
 - [ ] `./gradlew :shared:jvmTest :server:build :composeApp:desktopTest :composeApp:desktopJar :web:wasmJsBrowserDistribution :androidApp:assembleDebug` ist grün.
 - [ ] Keine neuen Compiler-Warnungen, kein `!!`, keine Wildcard-Imports, kein `GlobalScope`, keine Magic Numbers.
