@@ -174,7 +174,9 @@ The Xcode project builds the Kotlin framework via `:composeApp:embedAndSignApple
 
 ### iOS
 
-_Coming soon._
+| Bookings | Profile |
+|---|---|
+| <img src=".github/screenshots/ios-bookings.png" width="240"> | <img src=".github/screenshots/ios-profile.png" width="240"> |
 
 All screenshots show seeded demo data (`DEV_SEED`).
 
