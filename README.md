@@ -164,9 +164,9 @@ The Xcode project builds the Kotlin framework via `:composeApp:embedAndSignApple
 
 ### Web (Compose for Web / Kotlin Wasm)
 
-| Search (list view) | Login |
+| Search (map) | Login |
 |---|---|
-| <img src=".github/screenshots/web-search-list.png" width="400"> | <img src=".github/screenshots/web-login.png" width="400"> |
+| <img src=".github/screenshots/web-search-map.png" width="400"> | <img src=".github/screenshots/web-login.png" width="400"> |
 
 ### Website (landing page)
 

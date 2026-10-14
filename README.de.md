@@ -19,9 +19,9 @@ Primärfarbe `#0B6E4F`, Akzent `#F0A500`.
 
 ### Web (Compose/Kotlin-Wasm)
 
-| Suche (Listenansicht) | Anmeldung |
+| Suche (Karte) | Anmeldung |
 |---|---|
-| <img src=".github/screenshots/web-search-list.png" width="400"> | <img src=".github/screenshots/web-login.png" width="400"> |
+| <img src=".github/screenshots/web-search-map.png" width="400"> | <img src=".github/screenshots/web-login.png" width="400"> |
 
 ### Website (Infoseite)
 
