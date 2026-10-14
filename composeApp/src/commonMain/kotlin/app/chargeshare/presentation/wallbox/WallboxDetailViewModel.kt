@@ -9,6 +9,7 @@ import app.chargeshare.shared.model.HostProfile
 import app.chargeshare.shared.model.Review
 import app.chargeshare.shared.model.Wallbox
 import kotlin.time.Clock
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,9 +53,12 @@ class WallboxDetailViewModel(
     private fun load() {
         viewModelScope.launch {
             val wallboxRequest = async { repository.wallbox(wallboxId) }
-            val reviewsRequest = async { repository.reviews(wallboxId) }
-            val hostRequest = async { repository.hostProfile(wallboxId) }
-            val slotsRequest = async { repository.freeSlotStarts(wallboxId, clock.todayIn(zone), zone) }
+            // Zusatzinfos dürfen die Detailseite nie blockieren: eine unerwartete Ausnahme (z. B. eine JS-Ausnahme auf
+            // Wasm, die runCatchingOutcome nicht als Exception sieht) würde sonst den ganzen Ladevorgang abbrechen
+            // und die Seite bliebe im Ladezustand hängen.
+            val reviewsRequest = async { optional { repository.reviews(wallboxId) } }
+            val hostRequest = async { optional { repository.hostProfile(wallboxId) } }
+            val slotsRequest = async { optional { repository.freeSlotStarts(wallboxId, clock.todayIn(zone), zone) } }
 
             when (val wallbox = wallboxRequest.await()) {
                 is Outcome.Failure -> _state.update { it.copy(isLoading = false, error = wallbox.error) }
@@ -74,3 +78,13 @@ class WallboxDetailViewModel(
         }
     }
 }
+
+/** Ergebnis von [block] oder `null` bei jeder Ausnahme außer Abbruch (Structured Concurrency bleibt erhalten). */
+private suspend fun <T> optional(block: suspend () -> Outcome<T>): Outcome<T>? =
+    try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (@Suppress("TooGenericExceptionCaught") e: Throwable) {
+        null
+    }

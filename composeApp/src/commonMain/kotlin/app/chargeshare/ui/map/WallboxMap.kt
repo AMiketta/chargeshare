@@ -11,9 +11,8 @@ import app.chargeshare.presentation.wallbox.DEFAULT_CENTER
 /**
  * Interaktive Karte mit einem Pin je Wallbox.
  *
- * - **Android / Desktop:** MapCompose mit OpenStreetMap-Kacheln
+ * - **Android / Desktop / Web (Wasm):** MapCompose mit OpenStreetMap-Kacheln
  * - **iOS:** native Apple MapKit (`MKMapView`)
- * - **Web:** Platzhalter (Karte ist dort abgeschaltet, `isMapSupported = false`)
  *
  * Die Kamera startet auf [center] (Gerätestandort oder Bremen) und springt auf den Umfang der Pins, sobald es welche gibt.
  * Jeder Pin ist ein Preisschild; der aktive Pin ist hervorgehoben.
@@ -42,7 +41,7 @@ expect fun WallboxMap(
 /**
  * Hält den Kartenzustand der Suche einmal pro Prozess (Exemplar in `AppContainer`).
  *
- * Auf Android/Desktop: langlebiger MapCompose-`MapState` ohne `shutdown`.
+ * Auf Android/Desktop/Web: langlebiger MapCompose-`MapState` ohne `shutdown`.
  * Auf iOS: langlebige `MKMapView`, die beim Tab-Wechsel nicht zerstört wird.
  */
 expect class WallboxMapHolder()

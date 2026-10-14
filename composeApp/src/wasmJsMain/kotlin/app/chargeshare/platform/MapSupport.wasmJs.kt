@@ -1,4 +1,4 @@
 package app.chargeshare.platform
 
-/** Web: Karte nicht aktiv (Kachelabruf im Browser ungetestet), die Suche zeigt die Liste. */
-actual val isMapSupported: Boolean = false
+/** Web: MapCompose mit OpenStreetMap-Kacheln (wie Android und Desktop). */
+actual val isMapSupported: Boolean = true

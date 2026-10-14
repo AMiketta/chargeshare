@@ -247,8 +247,11 @@ class FakeWallboxRepository : WallboxRepository {
 
     val lockedByDay = mutableMapOf<LocalDate, List<Instant>>()
 
+    /** Simuliert eine unerwartete Ausnahme beim Slot-Abruf (z. B. JS-Ausnahme auf Wasm). */
+    var slotsThrowable: Throwable? = null
+
     override suspend fun daySlots(wallboxId: String, day: LocalDate, zone: TimeZone): Outcome<DaySlots> =
-        when (val free = slotsByDay[day] ?: Outcome.Success(emptyList())) {
+        slotsThrowable?.let { throw it } ?: when (val free = slotsByDay[day] ?: Outcome.Success(emptyList())) {
             is Outcome.Success -> Outcome.Success(DaySlots(free.value, lockedByDay[day].orEmpty()))
             is Outcome.Failure -> free
         }

@@ -62,7 +62,7 @@ kotlin {
         // deshalb iosMain / mapcomposeMain hier explizit verdrahten.
         val common = getByName("commonMain")
 
-        // MapCompose + OSM nur für Android und Desktop; iOS nutzt MapKit, Web einen Stub.
+        // MapCompose + OSM für Android, Desktop und Web (Wasm); iOS nutzt MapKit.
         val mapcomposeMain = create("mapcomposeMain") {
             dependsOn(common)
             dependencies {
@@ -70,6 +70,12 @@ kotlin {
             }
         }
         getByName("desktopMain").dependsOn(mapcomposeMain)
+        getByName("wasmJsMain").dependsOn(mapcomposeMain)
+        // Wasm/JS kennt ohne diese Zeitzonen-Datenbank nur die feste Zone "SYSTEM" (kotlinx-datetime).
+        // 2.23.0: neuere Versionen verlangen @js-joda/core >= 5.7, kotlinx-datetime bringt 3.2.
+        getByName("wasmJsMain").dependencies {
+            implementation(npm("@js-joda/timezone", "2.23.0"))
+        }
         if (androidEnabled) {
             getByName("androidMain").dependsOn(mapcomposeMain)
         }
