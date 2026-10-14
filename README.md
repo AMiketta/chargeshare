@@ -154,13 +154,29 @@ The Xcode project builds the Kotlin framework via `:composeApp:embedAndSignApple
 
 ## Screenshots
 
-_Coming soon_ – Android, iOS, Desktop and Web screenshots will be added here.
+### Android
 
-<!--
-| Android | iOS | Desktop | Web |
-|---|---|---|---|
-| ![](screenshots/android.png) | ![](screenshots/ios.png) | ![](screenshots/desktop.png) | ![](screenshots/web.png) |
--->
+| Onboarding | Search & map | Wallbox detail |
+|---|---|---|
+| <img src=".github/screenshots/android-onboarding.png" width="240"> | <img src=".github/screenshots/android-search-map.png" width="240"> | <img src=".github/screenshots/android-wallbox-detail.png" width="240"> |
+| **Booking** | **Host dashboard** | **Profile** |
+| <img src=".github/screenshots/android-booking.png" width="240"> | <img src=".github/screenshots/android-host-dashboard.png" width="240"> | <img src=".github/screenshots/android-profile.png" width="240"> |
+
+### Web (Compose for Web / Kotlin Wasm)
+
+| Search (list view) | Login |
+|---|---|
+| <img src=".github/screenshots/web-search-list.png" width="400"> | <img src=".github/screenshots/web-login.png" width="400"> |
+
+### Website (landing page)
+
+<img src=".github/screenshots/website-landing.png" width="600">
+
+### iOS
+
+_Coming soon._
+
+All screenshots show seeded demo data (`DEV_SEED`).
 
 ## Contributing
 

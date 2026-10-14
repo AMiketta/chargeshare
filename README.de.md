@@ -7,6 +7,32 @@ Primärfarbe `#0B6E4F`, Akzent `#F0A500`.
 
 > **Für Entwickler und KI-Agenten:** Projektwissen, Architektur und verbindliche Kotlin-Standards stehen in [`AGENTS.md`](AGENTS.md).
 
+## Screenshots
+
+### Android
+
+| Einführung | Suche & Karte | Wallbox-Detail |
+|---|---|---|
+| <img src=".github/screenshots/android-onboarding.png" width="240"> | <img src=".github/screenshots/android-search-map.png" width="240"> | <img src=".github/screenshots/android-wallbox-detail.png" width="240"> |
+| **Buchung** | **Host-Bereich** | **Profil** |
+| <img src=".github/screenshots/android-booking.png" width="240"> | <img src=".github/screenshots/android-host-dashboard.png" width="240"> | <img src=".github/screenshots/android-profile.png" width="240"> |
+
+### Web (Compose/Kotlin-Wasm)
+
+| Suche (Listenansicht) | Anmeldung |
+|---|---|
+| <img src=".github/screenshots/web-search-list.png" width="400"> | <img src=".github/screenshots/web-login.png" width="400"> |
+
+### Website (Infoseite)
+
+<img src=".github/screenshots/website-landing.png" width="600">
+
+### iOS
+
+_Folgen._
+
+Alle Screenshots zeigen Demo-Daten (`DEV_SEED`).
+
 ## Module
 
 | Modul | Inhalt | Targets |
