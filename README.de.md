@@ -29,7 +29,9 @@ Primärfarbe `#0B6E4F`, Akzent `#F0A500`.
 
 ### iOS
 
-_Folgen._
+| Buchungen | Profil |
+|---|---|
+| <img src=".github/screenshots/ios-bookings.png" width="240"> | <img src=".github/screenshots/ios-profile.png" width="240"> |
 
 Alle Screenshots zeigen Demo-Daten (`DEV_SEED`).
 
