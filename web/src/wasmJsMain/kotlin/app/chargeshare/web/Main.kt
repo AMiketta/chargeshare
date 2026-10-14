@@ -8,6 +8,7 @@ import app.chargeshare.platform.BrowserUrlOpener
 import app.chargeshare.platform.PlatformContext
 import app.chargeshare.platform.createPreferenceStorage
 import app.chargeshare.platform.createSecureTokenStore
+import app.chargeshare.platform.loadTimeZoneDatabase
 import app.chargeshare.ui.App
 import kotlinx.browser.document
 import kotlinx.browser.window
@@ -24,6 +25,7 @@ private fun apiBaseUrl(): String =
 
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
+    loadTimeZoneDatabase()
     val container = AppContainer(apiBaseUrl(), createSecureTokenStore(PlatformContext()), createPreferenceStorage(PlatformContext()), urlOpener = BrowserUrlOpener(), receiptSharer = BrowserReceiptSharer())
     // `document.body` ist in einem Browser immer gesetzt, sobald das Skript läuft.
     ComposeViewport(checkNotNull(document.body)) {
