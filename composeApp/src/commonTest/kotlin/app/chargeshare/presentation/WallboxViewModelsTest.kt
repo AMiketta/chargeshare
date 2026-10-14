@@ -355,6 +355,16 @@ class WallboxViewModelsTest {
     }
 
     @Test
+    fun detailDoesNotHangWhenSlotLookupThrows() {
+        repository.slotsThrowable = IllegalStateException("Zeitzone unbekannt")
+        val state = WallboxDetailViewModel("wb-1", repository, FixedClock(), TimeZone.UTC).state.value
+        assertFalse(state.isLoading)
+        assertNotNull(state.wallbox)
+        assertNull(state.freeSlotsToday)
+        assertNull(state.error)
+    }
+
+    @Test
     fun detailLoadsHostProfile() {
         repository.hostProfileResult = Outcome.Success(testHostProfile(isSuperhost = true))
         val host = WallboxDetailViewModel("wb-1", repository, FixedClock(), TimeZone.UTC).state.value.host
