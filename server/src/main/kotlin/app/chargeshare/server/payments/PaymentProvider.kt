@@ -47,7 +47,6 @@ class WebhookVerificationException(message: String) : Exception(message)
 
 /**
  * Kapselt Stripe. Ohne `STRIPE_SECRET_KEY` wird der [FakePaymentProvider] verwendet (nur Dev/Test).
- * Siehe legacy/go-backend/internal/services/payment.go.
  */
 interface PaymentProvider {
     val name: String

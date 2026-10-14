@@ -4,7 +4,7 @@ import app.chargeshare.shared.model.PushPlatform
 
 /**
  * Android-Push-Token. Ohne `google-services.json` / Firebase Messaging bleibt das Token `null`.
- * Aktivierung: siehe `docs/push.md` und `androidApp/.../push/FcmMessagingService.kt`.
+ * Aktivierung: siehe `README.de.md#push-benachrichtigungen-mvp` und `androidApp/.../push/FcmMessagingService.kt`.
  */
 actual fun createPushTokenSource(context: PlatformContext): PushTokenSource = AndroidPushTokenSource()
 

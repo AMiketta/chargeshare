@@ -1,7 +1,7 @@
 package app.chargeshare.server.config
 
 /**
- * Konfiguration aus Umgebungsvariablen (dieselben Namen wie im Go-Backend, siehe legacy/go-backend/.env.example).
+ * Konfiguration aus Umgebungsvariablen (dieselben Namen wie im Go-Backend, siehe .env.example).
  * Ohne `DATABASE_URL` startet der Server ohne Datenbank (nur /health und Stubs) – praktisch fuer lokale Entwicklung.
  */
 data class AppConfig(

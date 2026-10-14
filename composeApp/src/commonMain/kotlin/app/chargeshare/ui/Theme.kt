@@ -19,7 +19,7 @@ import androidx.compose.ui.unit.dp
 import app.chargeshare.presentation.theme.ThemeSettings
 
 /**
- * Semantische Farben der App (Tokens aus `docs/ChargeShare-App-Design.html`, Hell und Dunkel).
+ * Semantische Farben der App (Design-Tokens, Hell und Dunkel).
  * Zugriff in Composables über [ChargeShareColors]; Material-Komponenten bekommen davon abgeleitet das `colorScheme`.
  *
  * Wo das Mockup nicht ausreicht (Textfarben auf dunklen Flächen), weicht die Dunkel-Variante bewusst ab, damit der

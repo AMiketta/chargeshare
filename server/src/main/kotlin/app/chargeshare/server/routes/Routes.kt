@@ -22,7 +22,7 @@ fun Route.healthRoutes(databaseStatus: () -> String) {
 }
 
 /**
- * Alle `/api/v1`-Routen (Pfade identisch zu legacy/go-backend/internal/api/router.go).
+ * Alle `/api/v1`-Routen (Pfade kompatibel zum frueheren Go-Backend).
  * Ohne Datenbank (`services == null`) antworten alle Pfade mit 503.
  */
 fun Route.apiV1Routes(services: Services?, authRateLimiter: RateLimiter? = null, trustProxyHeaders: Boolean = false) {
